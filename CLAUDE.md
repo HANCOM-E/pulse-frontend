@@ -4,6 +4,7 @@
 > **강제되는 규칙(lint/hook)은 여기 중복 기재하지 않습니다.** 아래는 툴로 못 잡는 규칙 + 문서 링크만 다룹니다.
 > 진실의 원천: ESLint / Prettier / commitlint입니다. 상세 컨벤션은 링크 문서를 참고해야 합니다.
 > 백엔드는 별도 레포(`CLAUDE.backend.md` 참고)에서 관리합니다. 이 문서는 프론트엔드 레포에만 적용됩니다.
+> `create-next-app`이 자동 생성한 `AGENTS.md`에 이 Next.js 버전(16.2.12)이 학습 데이터와 다를 수 있다는 경고가 있습니다. Next.js API 관련 작업 전 반드시 `AGENTS.md`와 `node_modules/next/dist/docs/`를 확인해야 합니다.
 
 ## 프로젝트 개요
 
@@ -58,7 +59,7 @@
 | Node 버전 고정 방식 | **Volta로 Node 24(LTS) 고정** | nvm은 Windows를 네이티브 지원하지 않아 WSL이 필요하지만, Volta는 Rust로 작성되어 Windows/macOS/Linux를 모두 네이티브로 지원하고 `package.json`에 버전을 고정합니다. Node 24는 2026년 7월 기준 Active LTS이며, Next.js 최소 요구 버전(20.9)을 여유 있게 충족합니다. ([techearl.com](https://techearl.com/nvm-vs-fnm-vs-volta), [leapcell.io](https://leapcell.io/blog/navigating-node-js-versions-a-deep-dive-into-nvm-volta-and-fnm), [endoflife.date/nodejs](https://endoflife.date/nodejs), [nextjs.org 설치 가이드](https://nextjs.org/docs/app/getting-started/installation)) |
 | `.editorconfig` (에디터 호환) | 도입 + 아래 내용 | WebStorm은 EditorConfig 지원이 기본 활성화, IntelliJ IDEA도 내장 지원됩니다. VS Code만 "EditorConfig for VS Code" 확장 프로그램을 팀원이 직접 설치해야 합니다. ([JetBrains WebStorm 문서](https://www.jetbrains.com/help/webstorm/editorconfig.html), [JetBrains IntelliJ 문서](https://www.jetbrains.com/help/idea/editorconfig.html), [VS Code 확장](https://marketplace.visualstudio.com/items?itemName=EditorConfig.EditorConfig)) |
 | `.gitattributes` | 도입 + 아래 내용 | `* text=auto`로 개행을 자동 정규화하고, 소스 코드는 `eol=lf`로 통일하며 Windows 전용 스크립트만 `eol=crlf`로 강제하는 방식이 Node.js 프로젝트의 일반적 관례입니다. ([rehansaeed.com](https://rehansaeed.com/gitattributes-best-practices/), [dev.to](https://dev.to/ramunarasinga-11/-textauto-in-gitattributes-file-4ba5)) |
-| `.gitignore` 세부 항목 | GitHub 공식 Node 템플릿 사용 | `node_modules`, 빌드 산출물, `.env`/`.env.*`(단 `.env.example`은 예외)를 포함하는 것이 GitHub 공식 템플릿의 표준 구성입니다. ([github.com/github/gitignore](https://github.com/github/gitignore/blob/main/Node.gitignore)) |
+| `.gitignore` 세부 항목 ✅ 적용됨 (2026-07-29) | `create-next-app`이 자동 생성한 기본값 사용 | 스캐폴딩 시 GitHub 공식 Node 템플릿 대신 `create-next-app`이 생성한 `.gitignore`를 그대로 채택했습니다. `node_modules`, `.next/`, `build`, `.env*`, `.vercel` 등을 포함합니다. |
 | 환경 변수 관리 방식 | `.env.example`은 커밋, `.env`/`.env.local`은 금지 | 위 GitHub 공식 템플릿과 동일한 근거입니다. |
 | CSS 방법론 ✅ 확정 (2026-07-29) | **Tailwind CSS** (shadcn/ui 등 외부 컴포넌트 라이브러리는 당장 사용하지 않습니다) | 한 정리 글 기준 2025년 신규 프로젝트의 68%가 Tailwind CSS를 채택했다고 보고합니다. 다만 이 수치는 State of CSS 공식 설문 원본이 아니라 이를 인용한 2차 블로그 글에서 확인한 것이라 신뢰도가 원 설문보다 낮습니다. Next.js 공식 SSR/SSG 페이지와도 궁합이 좋다는 점(런타임 CSS-in-JS 대비 서버 컴포넌트 호환)도 근거로 참고했습니다. ([jeffbruchado.com.br](https://jeffbruchado.com.br/en/blog/css-in-js-2025-tailwind-styled-components-trends)) 팀 회의에서 Tailwind CSS 도입은 확정했고, shadcn/ui 같은 외부 컴포넌트 라이브러리 도입은 일단 보류했습니다. |
 | 폴더 구조 | `app/`, `components/`, `lib/`, `hooks/` | Next.js 공식 문서가 제시하는 App Router 프로젝트 구조 컨벤션입니다. ([nextjs.org 공식 문서](https://nextjs.org/docs/app/getting-started/project-structure)) |
