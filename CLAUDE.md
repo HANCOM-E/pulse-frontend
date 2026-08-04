@@ -193,6 +193,31 @@ trim_trailing_whitespace = false
   - base 브랜치가 `main`/`dev`가 아닌 경우
   - 리뷰어/라벨 지정 여부
 
+## 이슈(Issues) 사용 규칙
+
+- 새 작업(기능 구현·버그 수정)을 시작하기 전 GitHub Issue를 먼저 만들어야 합니다. 이슈 없이 브랜치부터 만들지 않습니다.
+- 작업 시작 전 `gh issue list --assignee @me`로 내게 할당된 이슈를 확인해야 합니다.
+- 이슈를 새로 만들 때는 아래 라벨 중 이슈 성격에 맞는 라벨을 하나 이상 붙여야 합니다. GitHub 기본 라벨 9개만 사용하고, 새 라벨은 만들지 않습니다.
+
+  | 라벨 | 설명 | 사용 기준 |
+  |---|---|---|
+  | `bug` | Something isn't working | 기존 동작이 깨졌거나 의도와 다르게 동작할 때 |
+  | `enhancement` | New feature or request | 새 기능을 추가하거나 기존 기능을 개선할 때 |
+  | `documentation` | Improvements or additions to documentation | 코드 변경 없이 문서만 추가·수정할 때 |
+  | `question` | Further information is requested | 구현보다 확인·논의가 먼저 필요한 이슈일 때 |
+  | `good first issue` | Good for newcomers | 처음 참여해도 부담 없이 시작할 수 있는 작업일 때 |
+
+  아래 네 개는 이슈 생성 시점이 아니라, 만들어진 이슈를 나중에 트리아지할 때 상황에 맞게 추가로 붙입니다.
+
+  | 라벨 | 설명 | 사용 기준 |
+  |---|---|---|
+  | `duplicate` | This issue or pull request already exists | 이미 같은 내용의 이슈·PR이 존재할 때 |
+  | `help wanted` | Extra attention is needed | 담당자 외 추가 도움이 필요할 때 |
+  | `invalid` | This doesn't seem right | 이슈 내용이 유효하지 않거나 잘못 등록됐을 때 |
+  | `wontfix` | This will not be worked on | 처리하지 않기로 결정했을 때 |
+- 지금은 GitHub Projects(보드)를 사용하지 않기로 팀에서 확정했습니다(2026-08-04). `gh project` 명령을 임의로 제안하거나 실행하지 않습니다.
+- 라벨 외에 GitHub Issue Type(`Bug`/`Feature`/`Task`)과 Priority 필드는 사용하지 않기로 팀에서 확정했습니다(2026-08-04). 조직에 기본으로 켜져 있어도 이슈 생성·수정 시 임의로 설정하지 않습니다.
+
 ## 브랜치 네이밍
 
 ```
