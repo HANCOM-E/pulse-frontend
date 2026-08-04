@@ -7,9 +7,3 @@ reviews:
     base_branches:
       - "main"
       - "dev"
-  path_instructions:
-    - path: "app/**/*.{ts,tsx}"
-      instructions: |
-        - import는 `@/` 절대경로만 사용한다. 2단계 이상 상대경로(`../../`)는 금지.
-        - 핸들러 함수는 `handle*`, 컴포넌트 prop 콜백은 `on*`으로 명명한다 (예: `<Btn onClick={handleClick} />`).
-        - CSS 길이 단위: 폰트·간격은 `rem`, 비율은 `%`, 풀스크린 섹션만 `dvh`를 사용한다. `px`는 1px 고정값(border 등)에만 사용한다.
