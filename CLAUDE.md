@@ -2,9 +2,22 @@
 
 > 이 파일은 매 세션 자동 로드되는 AI 가이드입니다.
 > **강제되는 규칙(lint/hook)은 여기 중복 기재하지 않습니다.** 아래는 툴로 못 잡는 규칙 + 문서 링크만 다룹니다.
-> 진실의 원천: ESLint / Prettier / commitlint입니다. 상세 컨벤션은 링크 문서를 참고해야 합니다.
-> 백엔드는 별도 레포(`CLAUDE.backend.md` 참고)에서 관리합니다. 이 문서는 프론트엔드 레포에만 적용됩니다.
+> 진실의 원천: 커밋 컨벤션은 `.githooks/commit-msg`(Conventional Commits, 로컬 훅)가 강제하고, 코드 포맷은 ESLint/Prettier가 강제합니다. 상세 컨벤션은 링크 문서를 참고해야 합니다.
+> 백엔드는 별도 레포(`pulse-backend/CLAUDE.md` 참고)에서 관리합니다. 이 문서는 프론트엔드 레포에만 적용됩니다.
 > `create-next-app`이 자동 생성한 `AGENTS.md`에 이 Next.js 버전(16.2.12)이 학습 데이터와 다를 수 있다는 경고가 있습니다. Next.js API 관련 작업 전 반드시 `AGENTS.md`와 `node_modules/next/dist/docs/`를 확인해야 합니다.
+
+## 기획/스펙 참고
+
+Pulse 산출물은 Notion HANCOM 팀스페이스 '산출물 관리' 섹션이 원본입니다. 작업을 시작하기 전에 관련 문서를 먼저 열어 최신 규칙을 확인해야 합니다.
+
+- **요구사항 명세서** (SSOT) — https://app.notion.com/p/a9a5f62e86848339a96c01c7d055b4f5
+  화면 동작 순서, 상태 전이, 입력 검증, 실패 사유의 원천입니다.
+- **API 명세서** (SSOT) — https://app.notion.com/p/f3f5f62e868482ee9faf816de775057c
+  요청/응답 스키마의 원천입니다. MSW 목 핸들러는 이 스키마를 그대로 따라야 합니다.
+- **ERD** (참고, 코드가 SSOT) — https://app.notion.com/p/4f85f62e868483ceac7c81a76f998ef1
+  실제 엔티티 정의는 `pulse-backend` 레포 코드가 기준입니다. 이 문서는 사람이 그린 다이어그램이라 코드와 어긋날 수 있으므로, 데이터 형태를 확정할 때는 `pulse-backend`의 실제 엔티티 코드를 우선 확인해야 합니다.
+- **용어집** — https://app.notion.com/p/3b25f62e8684818ca55dcd2825d5e988
+  "세션"·"이벤트" 같은 단어가 도메인 엔티티인지 일반 개발 용어(로그인 세션, JS 이벤트 핸들러)인지 헷갈릴 때 확인해야 합니다.
 
 ## 프로젝트 개요
 
