@@ -1,0 +1,9 @@
+# CodeRabbit 설정. 기본은 기본 브랜치(main)로 가는 PR만 자동 리뷰하므로,
+# feature -> dev 흐름을 쓰는 우리 레포는 dev도 리뷰 대상에 추가한다.
+# 문서: https://docs.coderabbit.ai/configuration/auto-review
+reviews:
+  auto_review:
+    enabled: true
+    base_branches:
+      - "main"
+      - "dev"

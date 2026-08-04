@@ -2,9 +2,22 @@
 
 > 이 파일은 매 세션 자동 로드되는 AI 가이드입니다.
 > **강제되는 규칙(lint/hook)은 여기 중복 기재하지 않습니다.** 아래는 툴로 못 잡는 규칙 + 문서 링크만 다룹니다.
-> 진실의 원천: ESLint / Prettier / commitlint입니다. 상세 컨벤션은 링크 문서를 참고해야 합니다.
-> 백엔드는 별도 레포(`CLAUDE.backend.md` 참고)에서 관리합니다. 이 문서는 프론트엔드 레포에만 적용됩니다.
+> 진실의 원천: 커밋 컨벤션은 `.githooks/commit-msg`(Conventional Commits, 로컬 훅)가 강제하고, 코드 포맷은 ESLint/Prettier가 강제합니다. 상세 컨벤션은 링크 문서를 참고해야 합니다.
+> 백엔드는 별도 레포(`pulse-backend/CLAUDE.md` 참고)에서 관리합니다. 이 문서는 프론트엔드 레포에만 적용됩니다.
 > `create-next-app`이 자동 생성한 `AGENTS.md`에 이 Next.js 버전(16.2.12)이 학습 데이터와 다를 수 있다는 경고가 있습니다. Next.js API 관련 작업 전 반드시 `AGENTS.md`와 `node_modules/next/dist/docs/`를 확인해야 합니다.
+
+## 기획/스펙 참고
+
+Pulse 산출물은 Notion HANCOM 팀스페이스 '산출물 관리' 섹션이 원본입니다. 작업을 시작하기 전에 관련 문서를 먼저 열어 최신 규칙을 확인해야 합니다.
+
+- **요구사항 명세서** (SSOT) — https://app.notion.com/p/a9a5f62e86848339a96c01c7d055b4f5
+  화면 동작 순서, 상태 전이, 입력 검증, 실패 사유의 원천입니다.
+- **API 명세서** (SSOT) — https://app.notion.com/p/f3f5f62e868482ee9faf816de775057c
+  요청/응답 스키마의 원천입니다. MSW 목 핸들러는 이 스키마를 그대로 따라야 합니다.
+- **ERD** (참고, 코드가 SSOT) — https://app.notion.com/p/4f85f62e868483ceac7c81a76f998ef1
+  실제 엔티티 정의는 `pulse-backend` 레포 코드가 기준입니다. 이 문서는 사람이 그린 다이어그램이라 코드와 어긋날 수 있으므로, 데이터 형태를 확정할 때는 `pulse-backend`의 실제 엔티티 코드를 우선 확인해야 합니다.
+- **용어집** — https://app.notion.com/p/3b25f62e8684818ca55dcd2825d5e988
+  "세션"·"이벤트" 같은 단어가 도메인 엔티티인지 일반 개발 용어(로그인 세션, JS 이벤트 핸들러)인지 헷갈릴 때 확인해야 합니다.
 
 ## 프로젝트 개요
 
@@ -179,6 +192,32 @@ trim_trailing_whitespace = false
   - draft로 열지 여부
   - base 브랜치가 `main`/`dev`가 아닌 경우
   - 리뷰어/라벨 지정 여부
+
+## 이슈(Issues) 사용 규칙
+
+- 새 작업(기능 구현·버그 수정)을 시작하기 전 GitHub Issue를 먼저 만들어야 합니다. 이슈 없이 브랜치부터 만들지 않습니다.
+- 작업 시작 전 `gh issue list --assignee @me`로 내게 할당된 이슈를 확인해야 합니다.
+- 이슈를 새로 만들 때는 첫 번째 표(생성 시점 라벨)에서 이슈 성격에 맞는 라벨을 하나 이상 붙여야 합니다. GitHub 기본 라벨 9개만 사용하고, 새 라벨은 만들지 않습니다.
+
+  | 라벨 | 설명 | 사용 기준 |
+  |---|---|---|
+  | `bug` | Something isn't working | 기존 동작이 깨졌거나 의도와 다르게 동작할 때 |
+  | `enhancement` | New feature or request | 새 기능을 추가하거나 기존 기능을 개선할 때 |
+  | `documentation` | Improvements or additions to documentation | 코드 변경 없이 문서만 추가·수정할 때 |
+  | `question` | Further information is requested | 구현보다 확인·논의가 먼저 필요한 이슈일 때 |
+  | `good first issue` | Good for newcomers | 처음 참여해도 부담 없이 시작할 수 있는 작업일 때 |
+
+  아래 네 개는 이슈 생성 시점이 아니라, 만들어진 이슈를 나중에 트리아지할 때 상황에 맞게 추가로 붙입니다.
+
+  | 라벨 | 설명 | 사용 기준 |
+  |---|---|---|
+  | `duplicate` | This issue or pull request already exists | 이미 같은 내용의 이슈·PR이 존재할 때 |
+  | `help wanted` | Extra attention is needed | 담당자 외 추가 도움이 필요할 때 |
+  | `invalid` | This doesn't seem right | 이슈 내용이 유효하지 않거나 잘못 등록됐을 때 |
+  | `wontfix` | This will not be worked on | 처리하지 않기로 결정했을 때 |
+
+- 지금은 GitHub Projects(보드)를 사용하지 않기로 팀에서 확정했습니다(2026-08-04). `gh project` 명령을 임의로 제안하거나 실행하지 않습니다.
+- 라벨 외에 GitHub Issue Type(`Bug`/`Feature`/`Task`)과 Priority 필드는 사용하지 않기로 팀에서 확정했습니다(2026-08-04). 조직에 기본으로 켜져 있어도 이슈 생성·수정 시 임의로 설정하지 않습니다.
 
 ## 브랜치 네이밍
 
