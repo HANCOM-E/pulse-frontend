@@ -1,0 +1,21 @@
+# 개행 정규화. CLAUDE.md "개발 환경 설정"의 제안값을 그대로 옮긴 것입니다.
+# 팀이 Windows/macOS를 섞어 쓰고 core.autocrlf 설정도 사람마다 다를 수 있어,
+# 저장소가 파일 종류별로 개행을 강제해야 무의미한 diff가 생기지 않습니다.
+* text=auto
+
+*.js text eol=lf
+*.jsx text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.mts text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.sh text eol=lf
+
+# Windows 전용 스크립트만 CRLF를 유지합니다.
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# `npx msw init public/`이 생성하는 파일입니다. 우리가 손대지 않으므로
+# GitHub PR에서 diff를 접어둡니다.
+public/mockServiceWorker.js linguist-generated=true
