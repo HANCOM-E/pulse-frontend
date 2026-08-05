@@ -20,12 +20,8 @@ function getAccessToken(): string | null {
 async function parseJsonSafely(response: Response): Promise<unknown> {
   if (response.status === 204) return null;
   const text = await response.text();
-  if (!text) return null;
-  try {
-    return JSON.parse(text);
-  } catch {
-    return null;
-  }
+  if (!text.trim()) return null;
+  return JSON.parse(text);
 }
 
 export async function apiClient<T>(path: string, options: ApiClientOptions = {}): Promise<T> {
@@ -46,11 +42,20 @@ export async function apiClient<T>(path: string, options: ApiClientOptions = {})
   });
 
   if (!response.ok) {
-    const body = (await parseJsonSafely(response)) as { code?: string; message?: string } | null;
+    let body: { code?: string; message?: string } | null;
+    try {
+      body = (await parseJsonSafely(response)) as { code?: string; message?: string } | null;
+    } catch {
+      body = null;
+    }
     throw new ApiError(body?.code ?? 'UNKNOWN_ERROR', body?.message ?? `요청 실패 (${response.status})`);
   }
 
-  return (await parseJsonSafely(response)) as T;
+  try {
+    return (await parseJsonSafely(response)) as T;
+  } catch {
+    throw new ApiError('INVALID_RESPONSE', '서버 응답을 파싱할 수 없습니다.');
+  }
 }
 
 export default apiClient;
