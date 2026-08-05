@@ -1,7 +1,9 @@
 import { http, HttpResponse } from 'msw';
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+
 export const handlers = [
-  http.post('/api/v1/auth/login', () => {
+  http.post(`${API_BASE_URL}/auth/login`, () => {
     return HttpResponse.json({ accessToken: 'mock-token', expiresIn: 3600 });
   }),
 

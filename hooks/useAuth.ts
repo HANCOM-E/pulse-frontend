@@ -1,4 +1,4 @@
-interface UseAuthReturn {
+export interface UseAuthReturn {
   user: { id: string; email: string } | null;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;

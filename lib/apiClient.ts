@@ -17,25 +17,40 @@ function getAccessToken(): string | null {
   return null;
 }
 
+async function parseJsonSafely(response: Response): Promise<unknown> {
+  if (response.status === 204) return null;
+  const text = await response.text();
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
 export async function apiClient<T>(path: string, options: ApiClientOptions = {}): Promise<T> {
   const { skipAuth, headers, ...rest } = options;
   const token = skipAuth ? null : getAccessToken();
 
+  const mergedHeaders = new Headers(headers);
+  if (!mergedHeaders.has('Content-Type')) {
+    mergedHeaders.set('Content-Type', 'application/json');
+  }
+  if (token) {
+    mergedHeaders.set('Authorization', `Bearer ${token}`);
+  }
+
   const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}${path}`, {
     ...rest,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...headers,
-    },
+    headers: mergedHeaders,
   });
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new ApiError(error.code, error.message);
+    const body = (await parseJsonSafely(response)) as { code?: string; message?: string } | null;
+    throw new ApiError(body?.code ?? 'UNKNOWN_ERROR', body?.message ?? `요청 실패 (${response.status})`);
   }
 
-  return response.json();
+  return (await parseJsonSafely(response)) as T;
 }
 
 export default apiClient;
