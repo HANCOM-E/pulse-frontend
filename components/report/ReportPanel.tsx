@@ -1,0 +1,6 @@
+const ReportPanel = () => {
+  // API: POST /events/{eventId}/report/generate. 실제 구현(props 포함)은 축 3(안치호)이 담당합니다.
+  return <div>리포트 패널 (준비 중)</div>;
+};
+
+export default ReportPanel;
