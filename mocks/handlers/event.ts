@@ -1,0 +1,157 @@
+import { http, HttpResponse } from 'msw';
+import type { PulseEvent, Session } from '@/lib/schemas/api';
+import { eventCreateRequestSchema, eventUpdateRequestSchema, sessionCreateRequestSchema } from '@/lib/schemas/api';
+import {
+  HOST_USER,
+  db,
+  findEventByCode,
+  findEventRowByCode,
+  findSessionById,
+  generateEventCode,
+  listSessionsOfEvent,
+  nextEventId,
+  nextSessionId,
+  toEventView,
+  toSessionView,
+} from '@/mocks/data/store';
+import {
+  API_BASE_URL,
+  errorResponse,
+  parseBody,
+  requireAuth,
+  requireOwnedEvent,
+  toNumericId,
+} from '@/mocks/handlers/shared';
+
+/**
+ * 이벤트·세션 핸들러입니다.
+ *
+ * 경로 파라미터는 전부 `eventCode`입니다(2026-08-06 명세). 공개 상세 응답에서 내부 `id`가
+ * 빠지면서 화면이 숫자 id를 얻을 방법 자체가 없어졌고, 소유자 쓰기도 code로 통일됐습니다.
+ * 저장소 내부는 여전히 숫자 id로 관계를 잇습니다 — 경계에서만 code를 씁니다.
+ */
+
+export const eventHandlers = [
+  // 내 이벤트 목록. 페이지네이션은 v1에 없지만 봉투는 씌워서 나갑니다.
+  http.get(`${API_BASE_URL}/events`, ({ request }) => {
+    const unauthorized = requireAuth(request);
+    if (unauthorized) return unauthorized;
+
+    const items = db.events.filter(
+      (event) => event.ownerId === HOST_USER.id && event.status !== 'DELETED',
+    );
+    return HttpResponse.json({ items });
+  }),
+
+  http.post(`${API_BASE_URL}/events`, async ({ request }) => {
+    const unauthorized = requireAuth(request);
+    if (unauthorized) return unauthorized;
+
+    const body = await parseBody(request, eventCreateRequestSchema);
+    if (!body.ok) return body.response;
+
+    const event: PulseEvent = {
+      id: nextEventId(),
+      code: generateEventCode(),
+      title: body.data.title,
+      description: body.data.description ?? null,
+      ownerId: HOST_USER.id,
+      status: 'DRAFT',
+      createdAt: new Date().toISOString(),
+    };
+    db.events.push(event);
+
+    return HttpResponse.json(event, { status: 201 });
+  }),
+
+  // 공개 상세 조회. 게스트 진입 링크가 이 경로를 씁니다. 응답은 id·ownerId를 뺀 EventView입니다.
+  http.get(`${API_BASE_URL}/events/:eventCode`, ({ params }) => {
+    const event = findEventByCode(String(params.eventCode));
+    if (!event) return errorResponse('EVENT_NOT_FOUND');
+    return HttpResponse.json(toEventView(event));
+  }),
+
+  http.patch(`${API_BASE_URL}/events/:eventCode`, async ({ request, params }) => {
+    const event = requireOwnedEvent(request, params.eventCode);
+    if (event instanceof Response) return event;
+
+    const body = await parseBody(request, eventUpdateRequestSchema);
+    if (!body.ok) return body.response;
+
+    if (body.data.status) {
+      const isValidTransition =
+        (event.status === 'DRAFT' && body.data.status === 'LIVE') ||
+        (event.status === 'LIVE' && body.data.status === 'ENDED');
+      if (!isValidTransition) return errorResponse('INVALID_EVENT_STATE_TRANSITION');
+
+      // 세션이 하나도 없으면 LIVE로 못 갑니다(요구사항 "4. 이벤트 시작·종료").
+      if (body.data.status === 'LIVE' && listSessionsOfEvent(event.id).length === 0) {
+        return errorResponse(
+          'INVALID_EVENT_STATE_TRANSITION',
+          '세션을 1개 이상 만들어야 시작할 수 있습니다.',
+        );
+      }
+      event.status = body.data.status;
+    }
+
+    if (body.data.title !== undefined) event.title = body.data.title;
+    if (body.data.description !== undefined) event.description = body.data.description;
+
+    return HttpResponse.json(event);
+  }),
+
+  http.delete(`${API_BASE_URL}/events/:eventCode`, ({ request, params }) => {
+    const unauthorized = requireAuth(request);
+    if (unauthorized) return unauthorized;
+
+    // requireOwnedEvent를 못 쓰는 자리입니다. 그쪽이 쓰는 findEventByCode는 DELETED를 걸러내서,
+    // 재삭제가 409 EVENT_ALREADY_DELETED 대신 404로 나갑니다.
+    const event = findEventRowByCode(String(params.eventCode));
+    if (!event) return errorResponse('EVENT_NOT_FOUND');
+    if (event.ownerId !== HOST_USER.id) return errorResponse('NOT_OWNER');
+    if (event.status === 'DELETED') return errorResponse('EVENT_ALREADY_DELETED');
+
+    // 소프트 삭제. 하위 Session·Feedback은 연쇄 삭제하지 않습니다.
+    event.status = 'DELETED';
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  // 공개 세션 목록. 게스트 제출 대상 선택과 소유자 관리 화면이 같이 씁니다.
+  http.get(`${API_BASE_URL}/events/:eventCode/sessions`, ({ params }) => {
+    const event = findEventByCode(String(params.eventCode));
+    if (!event) return errorResponse('EVENT_NOT_FOUND');
+    return HttpResponse.json({ items: listSessionsOfEvent(event.id).map(toSessionView) });
+  }),
+
+  http.post(`${API_BASE_URL}/events/:eventCode/sessions`, async ({ request, params }) => {
+    const event = requireOwnedEvent(request, params.eventCode);
+    if (event instanceof Response) return event;
+
+    const body = await parseBody(request, sessionCreateRequestSchema);
+    if (!body.ok) return body.response;
+
+    const session: Session = {
+      id: nextSessionId(),
+      eventId: event.id,
+      title: body.data.title,
+      order: body.data.order,
+      status: 'ACTIVE',
+    };
+    db.sessions.push(session);
+
+    return HttpResponse.json(session, { status: 201 });
+  }),
+
+  http.delete(`${API_BASE_URL}/events/:eventCode/sessions/:sessionId`, ({ request, params }) => {
+    const event = requireOwnedEvent(request, params.eventCode);
+    if (event instanceof Response) return event;
+
+    const sessionId = toNumericId(params.sessionId);
+    const session = sessionId === null ? undefined : findSessionById(sessionId);
+    if (!session || session.eventId !== event.id) return errorResponse('SESSION_NOT_FOUND');
+
+    // 연결된 Feedback 존재 여부는 삭제 조건이 아닙니다.
+    session.status = 'DELETED';
+    return new HttpResponse(null, { status: 204 });
+  }),
+];
