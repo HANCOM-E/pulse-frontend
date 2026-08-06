@@ -2,8 +2,8 @@ import EventForm from '@/components/events/EventForm';
 import ReportPanel from '@/components/report/ReportPanel';
 
 const EventEditPage = () => {
-  // URL은 eventCode. 수정·삭제·세션·리포트생성(PATCH/DELETE /events/{eventId} 등)은
-  // eventId가 필요하므로, GET /events/{eventCode}로 먼저 id를 조회해야 합니다.
+  // URL은 eventCode. openapi v0.3부터 수정·삭제(PATCH/DELETE /events/{eventCode})도
+  // eventCode를 그대로 사용합니다. eventId를 먼저 조회할 필요가 없습니다.
   // 진행 중(LIVE/DRAFT) 상태면 EventForm(수정 모드)을, ENDED 상태면 ReportPanel을
   // 보여줍니다.
   return (
