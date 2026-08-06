@@ -18,6 +18,8 @@ import { server } from '@/mocks/server';
 
 const LIVE_EVENT_CODE = 'ab3f9x';
 const ENDED_EVENT_CODE = 'kd7m2p';
+const LIVE_EVENT_ID = 42;
+const LIVE_SESSION_IDS = [101, 102, 103, 104];
 const DRAFT_EVENT_ID = 44;
 
 const AUTH_HEADERS = { Authorization: 'Bearer mock-access-token' };
@@ -218,6 +220,27 @@ describe('모더레이션 큐', () => {
 
     expect(response.status).toBe(409);
     await expect(response.json()).resolves.toMatchObject({ code: 'FEEDBACK_ALREADY_DELETED' });
+  });
+
+  it('삭제된 이벤트의 소감은 큐에서 빠진다', async () => {
+    const before = feedbackListResponseSchema.parse(
+      await (await call('/admin/feedbacks', { headers: AUTH_HEADERS })).json(),
+    );
+    expect(before.items.some((item) => LIVE_SESSION_IDS.includes(item.sessionId))).toBe(true);
+
+    const deleted = await call(`/events/${LIVE_EVENT_ID}`, {
+      method: 'DELETE',
+      headers: AUTH_HEADERS,
+    });
+    expect(deleted.status).toBe(204);
+
+    const after = feedbackListResponseSchema.parse(
+      await (await call('/admin/feedbacks', { headers: AUTH_HEADERS })).json(),
+    );
+
+    // 삭제한 이벤트의 소감만 빠지고, 다른 이벤트 소감은 그대로 남아야 합니다.
+    expect(after.items.some((item) => LIVE_SESSION_IDS.includes(item.sessionId))).toBe(false);
+    expect(after.items.length).toBeGreaterThan(0);
   });
 });
 

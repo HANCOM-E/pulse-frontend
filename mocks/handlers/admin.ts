@@ -17,9 +17,20 @@ import { API_BASE_URL, errorResponse, requireAuth, toNumericId } from '@/mocks/h
  * 계정 전체 큐가 나오므로, 이벤트별 화면은 반드시 `eventCode`를 붙여야 합니다.
  */
 
-/** 소감이 로그인한 Host의 이벤트에 속하는지 확인합니다(feedback → session → event → ownerId). */
-const isOwnedByHost = (feedback: Feedback): boolean =>
-  findEventOfSession(feedback.sessionId)?.ownerId === HOST_USER.id;
+/**
+ * 소감이 로그인한 Host의 이벤트에 속하는지 확인합니다(feedback → session → event → ownerId).
+ *
+ * 삭제된 이벤트의 소감은 소유자여도 대상에서 뺍니다. 이벤트 소프트 삭제는 하위 Session·Feedback을
+ * 연쇄 삭제하지 않으므로(API 명세 `DELETE /events/{eventId}`), 걸러내는 책임이 조회 쪽에 있습니다.
+ *
+ * ⚠️ 명세에 모더레이션 큐의 삭제 이벤트 처리가 적혀 있지 않아 목이 먼저 정한 규칙입니다.
+ * 김효인 님 확인 후 명세에 반영해야 합니다.
+ */
+const isOwnedByHost = (feedback: Feedback): boolean => {
+  const event = findEventOfSession(feedback.sessionId);
+  if (!event || event.status === 'DELETED') return false;
+  return event.ownerId === HOST_USER.id;
+};
 
 const transition = (request: Request, feedbackId: string | readonly string[] | undefined, next: FeedbackStatus) => {
   const unauthorized = requireAuth(request);
