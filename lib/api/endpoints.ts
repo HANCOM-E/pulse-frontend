@@ -1,4 +1,4 @@
-import apiClient from '@/lib/apiClient';
+import apiClient, { ApiError } from '@/lib/apiClient';
 import { getClientId } from '@/lib/clientId';
 import type {
   AuthTokenResponse,
@@ -36,12 +36,21 @@ import type { z } from 'zod';
  *
  * 응답을 계약 스키마로 한 번 검사합니다. BE 응답이 명세와 어긋나면 화면 어딘가에서
  * `undefined`로 조용히 터지는 대신 여기서 바로 드러나게 하려는 것입니다.
- * 개발 중에는 예외로 던지고, 프로덕션에서는 화면을 죽이지 않도록 경고만 남깁니다.
+ * 검증에 실패하면 환경과 무관하게 `INVALID_RESPONSE`를 던집니다.
  *
  * 이벤트를 가리키는 인자는 전부 `eventCode`입니다(2026-08-06 명세). 공개 응답에서 내부
  * 숫자 `id`가 빠져서 화면이 그 값을 손에 넣을 방법이 없습니다.
  */
 
+/**
+ * 검증 실패를 프로덕션에서 로그만 남기고 넘기던 분기가 있었습니다. 타입만 캐스팅한 값이
+ * 그대로 화면까지 흘러가 `items.map`처럼 필드에 손대는 순간 터졌고, 이 함수가 막으려던
+ * "조용한 undefined"가 그대로 재현됐습니다. 실패는 호출자가 알아야 하므로 던집니다.
+ *
+ * `INVALID_RESPONSE`는 `API_ERROR_STATUS`에 없어서 `isClientError`가 false를 주고,
+ * 그래서 `QueryProvider`의 기본 정책상 2회까지 재시도됩니다. 배포 시차로 BE·FE 버전이
+ * 잠깐 어긋난 경우를 넘길 수 있어 그대로 둡니다.
+ */
 const parseResponse = <T extends z.ZodType>(schema: T, data: unknown, path: string): z.infer<T> => {
   const result = schema.safeParse(data);
 
@@ -49,13 +58,7 @@ const parseResponse = <T extends z.ZodType>(schema: T, data: unknown, path: stri
     const detail = result.error.issues
       .map((issue) => `${issue.path.join('.') || '(root)'}: ${issue.message}`)
       .join(' / ');
-    const message = `[api] ${path} 응답이 계약과 다릅니다 — ${detail}`;
-
-    if (process.env.NODE_ENV === 'production') {
-      console.error(message);
-      return data as z.infer<T>;
-    }
-    throw new Error(message);
+    throw new ApiError('INVALID_RESPONSE', `[api] ${path} 응답이 계약과 다릅니다 — ${detail}`);
   }
 
   return result.data;
