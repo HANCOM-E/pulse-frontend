@@ -106,6 +106,6 @@ Badge · Chip · Input · Card · Toast · Dialog
 ## 결정 기록
 
 - 2026.08.05 — 모더레이션 버튼 높이 32 → 36으로 통일. size는 lg/md/sm 3종만 유지
-- 2026.08.06 — danger 배경을 `Negative/default`(3.87:1, AA 미달)에서 `Negative/darker`(10.21:1)로 교체. hover용 `Negative/pressed`(#4F1D0D) 신설. `Negative/default`를 바꾸지 않고 버튼만 옮겨서 부정 감정 차트·배지는 영향 없음 (Refs #16)
-- 2026.08.06 — focus 규격은 시안에 정의가 없어 코드에서 정함 (Primary/default 2px, offset 2)
-- 2026.08.06 — hover 색 확정. 신규 토큰은 `Primary/pressed`(#036176) 하나
+- 2026.08.06 (#14) — focus 규격은 시안에 정의가 없어 코드에서 정함 (`Primary/default` 2px, offset 2)
+- 2026.08.06 (#14) — primary·secondary hover 색 확정. 이때 추가한 신규 토큰은 `Primary/pressed`(#036176) 하나
+- 2026.08.06 (#16) — danger 배경을 `Negative/default`(3.87:1, AA 미달)에서 `Negative/darker`(10.21:1)로 교체. hover용 `Negative/pressed`(#4F1D0D) 신설. `Negative/default` 값은 그대로 둬서 부정 감정 차트·배지는 영향 없음
