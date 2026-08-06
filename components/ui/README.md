@@ -95,11 +95,75 @@ import { Button } from '@/components/ui/Button';
 <Button variant="danger">삭제</Button>
 <Button disabled>요약 생성</Button>
 ```
+
+---
+
+## Chip
+
+`components/ui/Chip.tsx`
+
+선택할 수 있는 필터입니다. 표시 전용 꼬리표는 Chip이 아니라 Badge를 쓰세요.
+
+### Figma → 코드
+
+| Figma variant | 코드 |
+| --- | --- |
+| `state=default` | 기본값 |
+| `state=selected` | **`selected` prop** — variant 아님 |
+
+값이 둘뿐이고 켜고 끄는 성격이라 `variant="selected"`보다 `selected` 불리언이 자연스럽습니다.
+`<Chip selected={filter === 'A'}>`처럼 상태와 바로 연결됩니다.
+
+`aria-pressed`가 자동으로 붙습니다. 선택 여부를 배경색으로만 표시하면 스크린리더에 전달되지 않기 때문입니다.
+
+### 공통 스펙
+
+| 항목 | 값 |
+| --- | --- |
+| 높이 | `h-8` (32) |
+| radius | `rounded-full` |
+| 좌우 padding | `px-3.5` (14) |
+| 아이콘 gap | `gap-2.5` (10) |
+| 폰트 | 14 / lh 20 |
+| 테두리 | 1 |
+| 너비 | Hug — 늘리려면 `className="w-full"` |
+
+### 상태
+
+| 상태 | 배경 | 테두리 | 텍스트 | 굵기 | 대비 |
+| --- | --- | --- | --- | --- | --- |
+| 미선택 | `bg-background-default` | `border-border-default` | `text-text-secondary` | Regular | 6.49:1 |
+| 미선택 hover | `bg-background-muted` | `border-border-default` | `text-text-secondary` | Regular | 5.64:1 |
+| 선택 | `bg-primary-subtle` | `border-primary-default` | `text-primary-darker` | Medium | 5.05:1 |
+| 선택 hover | `bg-primary-subtle` | `border-primary-darker` | `text-primary-darker` | Medium | 5.05:1 |
+| disabled | `bg-background-muted` | `border-border-subtle` | `text-text-disabled` | Regular | — |
+
+focus는 Button과 같습니다. `focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-default`
+
+선택 상태의 hover는 배경이 아니라 테두리를 진하게 합니다.
+배경을 `Primary/lighter`로 채우면 텍스트 대비가 3.79:1로 떨어져 AA에 미달하기 때문입니다.
+
+### 주의
+
+- 선택 시 글자 굵기가 Regular → Medium으로 바뀌어 칩 너비가 1~2px 늘어납니다. 시안이 그렇게 정의돼 있어 그대로 구현했습니다. 여러 칩이 줄바꿈되는 곳에서 흔들림이 거슬리면 양쪽 다 Medium으로 통일하세요.
+- disabled는 선택 여부와 무관하게 같은 회색입니다. 상태 표시보다 조작 불가 표시가 우선입니다.
+
+### 사용 예
+
+```tsx
+import { Chip } from '@/components/ui/Chip';
+
+<Chip selected={sessionId === 'A'} onClick={() => handleSelect('A')}>
+  세션 A
+</Chip>
+<Chip disabled>세션 C</Chip>
+```
+
 ---
 
 ## 미작성
 
-Badge · Chip · Input · Card · Toast · Dialog
+Badge · Input · Card · Toast · Dialog
 
 ---
 
@@ -109,3 +173,5 @@ Badge · Chip · Input · Card · Toast · Dialog
 - 2026.08.06 (#14) — focus 규격은 시안에 정의가 없어 코드에서 정함 (`Primary/default` 2px, offset 2)
 - 2026.08.06 (#14) — primary·secondary hover 색 확정. 이때 추가한 신규 토큰은 `Primary/pressed`(#036176) 하나
 - 2026.08.06 (#16) — danger 배경을 `Negative/default`(3.87:1, AA 미달)에서 `Negative/darker`(10.21:1)로 교체. hover용 `Negative/pressed`(#4F1D0D) 신설. `Negative/default` 값은 그대로 둬서 부정 감정 차트·배지는 영향 없음
+- 2026.08.06 (#15) — Chip의 `state` variant를 `selected` 불리언으로 매핑. 필터는 `<button>`으로 렌더하고 `aria-pressed`를 붙임. 표시 전용 꼬리표는 Chip이 아니라 Badge가 담당하기로 함
+- 2026.08.06 (#15) — Chip 선택 상태 hover는 배경 대신 테두리를 진하게 함. `Primary/lighter` 배경은 텍스트 대비 3.79:1로 AA 미달. 신규 토큰 없음
