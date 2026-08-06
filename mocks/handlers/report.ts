@@ -1,15 +1,13 @@
 import { http, HttpResponse } from 'msw';
 import type { Report } from '@/lib/schemas/api';
 import {
-  HOST_USER,
   buildSnapshot,
   db,
   findEventByCode,
-  findEventById,
   findReportByEventId,
   nextReportId,
 } from '@/mocks/data/store';
-import { API_BASE_URL, errorResponse, requireAuth, toNumericId } from '@/mocks/handlers/shared';
+import { API_BASE_URL, errorResponse, requireOwnedEvent } from '@/mocks/handlers/shared';
 
 /**
  * 리포트 핸들러입니다.
@@ -50,14 +48,10 @@ const completeReport = (reportId: number): void => {
 };
 
 export const reportHandlers = [
-  http.post(`${API_BASE_URL}/events/:eventId/report/generate`, ({ request, params }) => {
-    const unauthorized = requireAuth(request);
-    if (unauthorized) return unauthorized;
+  http.post(`${API_BASE_URL}/events/:eventCode/report/generate`, ({ request, params }) => {
+    const event = requireOwnedEvent(request, params.eventCode);
+    if (event instanceof Response) return event;
 
-    const eventId = toNumericId(params.eventId);
-    const event = eventId === null ? undefined : findEventById(eventId);
-    if (!event) return errorResponse('EVENT_NOT_FOUND');
-    if (event.ownerId !== HOST_USER.id) return errorResponse('NOT_OWNER');
     if (event.status !== 'ENDED') return errorResponse('EVENT_NOT_ENDED');
 
     const existing = findReportByEventId(event.id);

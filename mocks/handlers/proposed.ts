@@ -3,9 +3,7 @@ import { z } from 'zod';
 import { feedbackStatusSchema } from '@/lib/schemas/api';
 import { selectModerationQueue } from '@/mocks/handlers/admin';
 import {
-  HOST_USER,
   findEventByCode,
-  findEventById,
   findEventOfSession,
   findFeedbackById,
   findReportByEventId,
@@ -16,6 +14,7 @@ import {
   errorResponse,
   parseBody,
   requireAuth,
+  requireOwnedEvent,
   toNumericId,
 } from '@/mocks/handlers/shared';
 
@@ -96,17 +95,11 @@ export const proposedHandlers = [
   //
   // 경로를 `/admin/events/...`로 잡은 이유: 확정된 공개 조회가 이미
   // `GET /events/{eventCode}/report`를 차지하고 있어서, 같은 자리에 주최자용 GET을
-  // 하나 더 둘 수 없습니다(`{eventCode}`와 `{eventId}`는 라우팅 관점에서 같은 패턴이라
-  // MSW에서도 Spring에서도 충돌합니다). 소유자 전용 읽기를 `/admin/*`에 모으는 것은
+  // 하나 더 둘 수 없습니다. 소유자 전용 읽기를 `/admin/*`에 모으는 것은
   // 모더레이션 큐가 이미 쓰고 있는 방식과도 맞습니다.
-  http.get(`${API_BASE_URL}/admin/events/:eventId/report`, ({ request, params }) => {
-    const unauthorized = requireAuth(request);
-    if (unauthorized) return unauthorized;
-
-    const eventId = toNumericId(params.eventId);
-    const event = eventId === null ? undefined : findEventById(eventId);
-    if (!event) return errorResponse('EVENT_NOT_FOUND');
-    if (event.ownerId !== HOST_USER.id) return errorResponse('NOT_OWNER');
+  http.get(`${API_BASE_URL}/admin/events/:eventCode/report`, ({ request, params }) => {
+    const event = requireOwnedEvent(request, params.eventCode);
+    if (event instanceof Response) return event;
 
     const report = findReportByEventId(event.id);
     // 행이 없는 상태(개념상 NONE)를 404로 알립니다. 화면은 이걸 "아직 생성 안 함"으로 읽습니다.
@@ -116,14 +109,9 @@ export const proposedHandlers = [
   }),
 
   // [제안] 공개 여부 토글 (소유자만)
-  http.patch(`${API_BASE_URL}/admin/events/:eventId/report`, async ({ request, params }) => {
-    const unauthorized = requireAuth(request);
-    if (unauthorized) return unauthorized;
-
-    const eventId = toNumericId(params.eventId);
-    const event = eventId === null ? undefined : findEventById(eventId);
-    if (!event) return errorResponse('EVENT_NOT_FOUND');
-    if (event.ownerId !== HOST_USER.id) return errorResponse('NOT_OWNER');
+  http.patch(`${API_BASE_URL}/admin/events/:eventCode/report`, async ({ request, params }) => {
+    const event = requireOwnedEvent(request, params.eventCode);
+    if (event instanceof Response) return event;
 
     const report = findReportByEventId(event.id);
     if (!report) return errorResponse('REPORT_NOT_FOUND');

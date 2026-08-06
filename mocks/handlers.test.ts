@@ -19,9 +19,8 @@ import { server } from '@/mocks/server';
 
 const LIVE_EVENT_CODE = 'ab3f9x';
 const ENDED_EVENT_CODE = 'kd7m2p';
-const LIVE_EVENT_ID = 42;
+const DRAFT_EVENT_CODE = 'zq1v8t';
 const LIVE_SESSION_IDS = [101, 102, 103, 104];
-const DRAFT_EVENT_ID = 44;
 
 const AUTH_HEADERS = { Authorization: 'Bearer mock-access-token' };
 
@@ -121,7 +120,7 @@ describe('이벤트 조회', () => {
   });
 
   it('세션이 0개인 이벤트는 LIVE로 못 넘어간다', async () => {
-    const response = await call(`/events/${DRAFT_EVENT_ID}`, {
+    const response = await call(`/events/${DRAFT_EVENT_CODE}`, {
       method: 'PATCH',
       headers: { ...AUTH_HEADERS, 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: 'LIVE' }),
@@ -131,6 +130,23 @@ describe('이벤트 조회', () => {
     await expect(response.json()).resolves.toMatchObject({
       code: 'INVALID_EVENT_STATE_TRANSITION',
     });
+  });
+
+  it('이미 삭제한 이벤트를 또 지우면 EVENT_ALREADY_DELETED를 준다', async () => {
+    const first = await call(`/events/${DRAFT_EVENT_CODE}`, {
+      method: 'DELETE',
+      headers: AUTH_HEADERS,
+    });
+    expect(first.status).toBe(204);
+
+    // 삭제된 이벤트도 code로 찾아야 409가 나옵니다. 404가 나오면 조회 헬퍼를 잘못 쓴 것입니다.
+    const second = await call(`/events/${DRAFT_EVENT_CODE}`, {
+      method: 'DELETE',
+      headers: AUTH_HEADERS,
+    });
+
+    expect(second.status).toBe(409);
+    await expect(second.json()).resolves.toMatchObject({ code: 'EVENT_ALREADY_DELETED' });
   });
 });
 
@@ -262,7 +278,7 @@ describe('모더레이션 큐', () => {
     );
     expect(before.items.some((item) => LIVE_SESSION_IDS.includes(item.sessionId))).toBe(true);
 
-    const deleted = await call(`/events/${LIVE_EVENT_ID}`, {
+    const deleted = await call(`/events/${LIVE_EVENT_CODE}`, {
       method: 'DELETE',
       headers: AUTH_HEADERS,
     });
@@ -365,7 +381,7 @@ describe('리포트', () => {
   });
 
   it('ENDED가 아닌 이벤트는 리포트를 생성할 수 없다', async () => {
-    const response = await call('/events/42/report/generate', {
+    const response = await call(`/events/${LIVE_EVENT_CODE}/report/generate`, {
       method: 'POST',
       headers: AUTH_HEADERS,
     });
@@ -375,14 +391,14 @@ describe('리포트', () => {
   });
 
   it('[제안] 주최자는 자기 리포트의 생성 상태를 조회할 수 있다', async () => {
-    const response = await call('/admin/events/43/report', { headers: AUTH_HEADERS });
+    const response = await call(`/admin/events/${ENDED_EVENT_CODE}/report`, { headers: AUTH_HEADERS });
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({ status: 'GENERATED', isPublic: true });
   });
 
   it('[제안] 공개 여부를 끄면 공개 조회가 404가 된다', async () => {
-    const patched = await call('/admin/events/43/report', {
+    const patched = await call(`/admin/events/${ENDED_EVENT_CODE}/report`, {
       method: 'PATCH',
       headers: { ...AUTH_HEADERS, 'Content-Type': 'application/json' },
       body: JSON.stringify({ isPublic: false }),

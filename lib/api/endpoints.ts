@@ -189,9 +189,9 @@ export const showFeedback = async (feedbackId: number): Promise<Feedback> => {
 // report
 // ─────────────────────────────────────────────────────────────
 
-export const generateReport = async (eventId: number): Promise<Report> => {
-  const data = await apiClient<unknown>(`/events/${eventId}/report/generate`, { method: 'POST' });
-  return parseResponse(reportSchema, data, 'POST /events/{eventId}/report/generate');
+export const generateReport = async (eventCode: string): Promise<Report> => {
+  const data = await apiClient<unknown>(`/events/${eventCode}/report/generate`, { method: 'POST' });
+  return parseResponse(reportSchema, data, 'POST /events/{eventCode}/report/generate');
 };
 
 /** 공개 리포트. 비공개거나 없으면 REPORT_NOT_FOUND(404)가 옵니다. */
@@ -201,16 +201,16 @@ export const fetchPublicReport = async (eventCode: string): Promise<PublicReport
 };
 
 /** ⚠️ BE 미확정. 주최자가 자기 리포트의 생성 진행 상태를 볼 경로가 없습니다. */
-export const fetchOwnReport = async (eventId: number): Promise<Report> => {
-  const data = await apiClient<unknown>(`/admin/events/${eventId}/report`);
-  return parseResponse(reportSchema, data, 'GET /admin/events/{eventId}/report');
+export const fetchOwnReport = async (eventCode: string): Promise<Report> => {
+  const data = await apiClient<unknown>(`/admin/events/${eventCode}/report`);
+  return parseResponse(reportSchema, data, 'GET /admin/events/{eventCode}/report');
 };
 
 /** ⚠️ BE 미확정. 요구사항의 isPublic 토글에 대응하는 엔드포인트가 없습니다. */
-export const setReportPublic = async (eventId: number, isPublic: boolean): Promise<Report> => {
-  const data = await apiClient<unknown>(`/admin/events/${eventId}/report`, {
+export const setReportPublic = async (eventCode: string, isPublic: boolean): Promise<Report> => {
+  const data = await apiClient<unknown>(`/admin/events/${eventCode}/report`, {
     method: 'PATCH',
     body: JSON.stringify({ isPublic }),
   });
-  return parseResponse(reportSchema, data, 'PATCH /admin/events/{eventId}/report');
+  return parseResponse(reportSchema, data, 'PATCH /admin/events/{eventCode}/report');
 };

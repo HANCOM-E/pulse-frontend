@@ -5,22 +5,27 @@ import {
   HOST_USER,
   db,
   findEventByCode,
-  findEventById,
+  findEventRowByCode,
   findSessionById,
   generateEventCode,
   listSessionsOfEvent,
   nextEventId,
   nextSessionId,
 } from '@/mocks/data/store';
-import { API_BASE_URL, errorResponse, parseBody, requireAuth, toNumericId } from '@/mocks/handlers/shared';
+import {
+  API_BASE_URL,
+  errorResponse,
+  parseBody,
+  requireAuth,
+  requireOwnedEvent,
+  toNumericId,
+} from '@/mocks/handlers/shared';
 
 /**
  * 이벤트·세션 핸들러입니다.
  *
- * 경로 파라미터가 두 종류인 점에 주의해야 합니다.
- *   - 공개 읽기(GET 상세·소감·리포트)는 `eventCode`
- *   - 소유자 쓰기(PATCH·DELETE·세션·리포트 생성)는 `eventId`
- * 화면은 URL에서 code를 받고, 쓰기에 필요한 id는 상세 응답의 `id`에서 꺼내 씁니다.
+ * 경로 파라미터는 공개 읽기든 소유자 쓰기든 전부 `eventCode`입니다(2026-08-06 명세).
+ * 저장소 내부는 여전히 숫자 id로 관계를 잇습니다 — 경계에서만 code를 씁니다.
  */
 
 export const eventHandlers = [
@@ -63,14 +68,9 @@ export const eventHandlers = [
     return HttpResponse.json(event);
   }),
 
-  http.patch(`${API_BASE_URL}/events/:eventId`, async ({ request, params }) => {
-    const unauthorized = requireAuth(request);
-    if (unauthorized) return unauthorized;
-
-    const eventId = toNumericId(params.eventId);
-    const event = eventId === null ? undefined : findEventById(eventId);
-    if (!event) return errorResponse('EVENT_NOT_FOUND');
-    if (event.ownerId !== HOST_USER.id) return errorResponse('NOT_OWNER');
+  http.patch(`${API_BASE_URL}/events/:eventCode`, async ({ request, params }) => {
+    const event = requireOwnedEvent(request, params.eventCode);
+    if (event instanceof Response) return event;
 
     const body = await parseBody(request, eventUpdateRequestSchema);
     if (!body.ok) return body.response;
@@ -97,12 +97,13 @@ export const eventHandlers = [
     return HttpResponse.json(event);
   }),
 
-  http.delete(`${API_BASE_URL}/events/:eventId`, ({ request, params }) => {
+  http.delete(`${API_BASE_URL}/events/:eventCode`, ({ request, params }) => {
     const unauthorized = requireAuth(request);
     if (unauthorized) return unauthorized;
 
-    const eventId = toNumericId(params.eventId);
-    const event = eventId === null ? undefined : db.events.find((item) => item.id === eventId);
+    // requireOwnedEvent를 못 쓰는 자리입니다. 그쪽이 쓰는 findEventByCode는 DELETED를 걸러내서,
+    // 재삭제가 409 EVENT_ALREADY_DELETED 대신 404로 나갑니다.
+    const event = findEventRowByCode(String(params.eventCode));
     if (!event) return errorResponse('EVENT_NOT_FOUND');
     if (event.ownerId !== HOST_USER.id) return errorResponse('NOT_OWNER');
     if (event.status === 'DELETED') return errorResponse('EVENT_ALREADY_DELETED');
@@ -112,14 +113,9 @@ export const eventHandlers = [
     return new HttpResponse(null, { status: 204 });
   }),
 
-  http.post(`${API_BASE_URL}/events/:eventId/sessions`, async ({ request, params }) => {
-    const unauthorized = requireAuth(request);
-    if (unauthorized) return unauthorized;
-
-    const eventId = toNumericId(params.eventId);
-    const event = eventId === null ? undefined : findEventById(eventId);
-    if (!event) return errorResponse('EVENT_NOT_FOUND');
-    if (event.ownerId !== HOST_USER.id) return errorResponse('NOT_OWNER');
+  http.post(`${API_BASE_URL}/events/:eventCode/sessions`, async ({ request, params }) => {
+    const event = requireOwnedEvent(request, params.eventCode);
+    if (event instanceof Response) return event;
 
     const body = await parseBody(request, sessionCreateRequestSchema);
     if (!body.ok) return body.response;
@@ -136,14 +132,9 @@ export const eventHandlers = [
     return HttpResponse.json(session, { status: 201 });
   }),
 
-  http.delete(`${API_BASE_URL}/events/:eventId/sessions/:sessionId`, ({ request, params }) => {
-    const unauthorized = requireAuth(request);
-    if (unauthorized) return unauthorized;
-
-    const eventId = toNumericId(params.eventId);
-    const event = eventId === null ? undefined : findEventById(eventId);
-    if (!event) return errorResponse('EVENT_NOT_FOUND');
-    if (event.ownerId !== HOST_USER.id) return errorResponse('NOT_OWNER');
+  http.delete(`${API_BASE_URL}/events/:eventCode/sessions/:sessionId`, ({ request, params }) => {
+    const event = requireOwnedEvent(request, params.eventCode);
+    if (event instanceof Response) return event;
 
     const sessionId = toNumericId(params.sessionId);
     const session = sessionId === null ? undefined : findSessionById(sessionId);

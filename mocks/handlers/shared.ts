@@ -1,7 +1,8 @@
 import { HttpResponse } from 'msw';
 import type { z } from 'zod';
-import type { ApiErrorCode } from '@/lib/schemas/api';
+import type { ApiErrorCode, PulseEvent } from '@/lib/schemas/api';
 import { API_ERROR_STATUS } from '@/lib/schemas/api';
+import { HOST_USER, findEventByCode } from '@/mocks/data/store';
 
 /**
  * 핸들러 공통 유틸입니다. 에러 봉투·인증 검사·요청 바디 검증처럼
@@ -48,6 +49,27 @@ export const requireAuth = (request: Request): Response | null => {
     return errorResponse('UNAUTHORIZED');
   }
   return null;
+};
+
+/**
+ * 소유자 전용 경로의 공통 앞단입니다. 인증 → code 조회 → 소유자 확인을 순서대로 검사하고,
+ * 전부 통과하면 이벤트를 돌려줍니다. 하나라도 걸리면 에러 응답이 그대로 나옵니다.
+ *
+ * 이벤트 경로 파라미터가 전부 `eventCode`로 통일되면서(2026-08-06 명세) 이벤트·리포트
+ * 쓰기 핸들러가 똑같은 세 단계를 반복하게 돼 한곳으로 모았습니다.
+ */
+export const requireOwnedEvent = (
+  request: Request,
+  eventCode: string | readonly string[] | undefined,
+): PulseEvent | Response => {
+  const unauthorized = requireAuth(request);
+  if (unauthorized) return unauthorized;
+
+  const event = typeof eventCode === 'string' ? findEventByCode(eventCode) : undefined;
+  if (!event) return errorResponse('EVENT_NOT_FOUND');
+  if (event.ownerId !== HOST_USER.id) return errorResponse('NOT_OWNER');
+
+  return event;
 };
 
 type ParsedBody<T> = { ok: true; data: T } | { ok: false; response: Response };

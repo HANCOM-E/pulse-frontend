@@ -72,8 +72,19 @@ export const nextSessionId = (): number => nextId(db.sessions);
 export const nextFeedbackId = (): number => nextId(db.feedbacks);
 export const nextReportId = (): number => nextId(db.reports);
 
-/** 이벤트 code는 nanoid로 자동 생성됩니다(요구사항 "2. 이벤트 생성"). 목에서는 길이만 맞춥니다. */
-export const generateEventCode = (): string => Math.random().toString(36).slice(2, 8);
+/**
+ * 이벤트 code는 nanoid로 자동 생성됩니다(요구사항 "2. 이벤트 생성"). 목에서는 길이만 맞춥니다.
+ *
+ * code가 모든 경로의 유일 키가 됐으므로(2026-08-06 명세) 중복이 나오면 다시 뽑습니다.
+ * 삭제된 이벤트의 code도 여전히 점유 상태로 봅니다 — 소프트 삭제라 행이 남아 있습니다.
+ */
+export const generateEventCode = (): string => {
+  let code = Math.random().toString(36).slice(2, 8);
+  while (db.events.some((event) => event.code === code)) {
+    code = Math.random().toString(36).slice(2, 8);
+  }
+  return code;
+};
 
 // ─────────────────────────────────────────────────────────────
 // 조회
@@ -87,8 +98,12 @@ export const findAccountByEmail = (email: string): MockAccount | undefined =>
 export const findEventByCode = (code: string): PulseEvent | undefined =>
   db.events.find((event) => event.code === code && event.status !== 'DELETED');
 
-export const findEventById = (eventId: number): PulseEvent | undefined =>
-  db.events.find((event) => event.id === eventId && event.status !== 'DELETED');
+/**
+ * 소프트 삭제된 이벤트까지 포함해서 찾습니다. `DELETE /events/{eventCode}` 전용입니다.
+ * 재삭제를 404가 아니라 EVENT_ALREADY_DELETED(409)로 구분하려면 삭제된 행도 보여야 합니다.
+ */
+export const findEventRowByCode = (code: string): PulseEvent | undefined =>
+  db.events.find((event) => event.code === code);
 
 export const findSessionById = (sessionId: number): Session | undefined =>
   db.sessions.find((session) => session.id === sessionId);
