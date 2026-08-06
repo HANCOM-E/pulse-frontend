@@ -248,6 +248,70 @@ import { Banner } from '@/components/ui/Banner';
 
 ---
 
+## Badge
+
+`components/ui/Badge.tsx`
+
+상태나 분류를 나타내는 표시 전용 꼬리표입니다. 누를 수 없습니다. 누를 수 있으면 Chip입니다.
+
+### Figma → 코드
+
+| Figma variant | 코드 |
+| --- | --- |
+| `type=positive` | `tone="positive"` |
+| `type=neutral` | `tone="neutral"` |
+| `type=negative` | `tone="negative"` |
+| `type=toxic` | `tone="toxic"` |
+| `type=none` | **`tone="outline"`** |
+
+`none`은 코드에서 `outline`입니다. `tone="none"`은 "배지 없음"으로 읽혀서 헷갈립니다. 생김새 기준으로 이름 지었습니다.
+
+**문구는 `children`으로 받습니다.** `긍정`·`독성 의심` 같은 Pulse 도메인 문구가 컴포넌트 안에 들어가지 않도록 하기 위해서입니다. 같은 `positive`라도 감정에는 `긍정`, 이벤트 상태에는 `● LIVE`가 들어갑니다.
+
+`tone`에 기본값이 없습니다. 다섯 중 "보통 이것"이라 할 게 없어서 필수로 두었습니다.
+
+### 공통 스펙
+
+| 항목 | 값 |
+| --- | --- |
+| 높이 | `h-6` (24) |
+| radius | `rounded-full` |
+| 좌우 padding | `px-2.5` (10) |
+| 폰트 | 12 / Regular / lh 16 |
+| 너비 | Hug |
+
+### 상태
+
+| tone | 배경 | 글자 | 대비 |
+| --- | --- | --- | --- |
+| positive | `bg-positive-subtle` | `text-positive-darker` | 8.21:1 |
+| neutral | `bg-neutral-subtle` | `text-neutral-darker` | 8.49:1 |
+| negative | `bg-negative-subtle` | `text-negative-darker` | 8.86:1 |
+| toxic | `bg-toxic-subtle` | `text-toxic-darker` | 8.98:1 |
+| outline | `bg-background-default` + `border-border-strong` | `text-text-secondary` | 6.49:1 |
+
+`outline`만 테두리가 있습니다. 배경이 흰색이라 테두리 없이는 경계가 사라집니다.
+
+### 주의
+
+- **hover도 focus도 없습니다.** 누를 수 없는 요소라 상태가 하나뿐입니다.
+- 같은 tone을 다른 뜻으로 재사용해도 됩니다. `positive`는 긍정 감정에도, 진행 중인 이벤트에도 씁니다. 나오는 자리가 달라 헷갈리지 않습니다.
+- 문구 앞의 기호(`⚑`, `●`)는 문자열의 일부라 호출부에서 넣습니다. 폰트에 없는 기호를 쓰면 다른 폰트로 떨어져 크기가 틀어질 수 있으니 확인하고 쓰세요.
+
+### 사용 예
+
+```tsx
+import { Badge } from '@/components/ui/Badge';
+
+<Badge tone="positive">긍정</Badge>
+<Badge tone="toxic">⚑ 독성 의심</Badge>
+<Badge tone="outline">미분류</Badge>
+<Badge tone="positive">● LIVE</Badge>
+<Badge tone="neutral">ENDED</Badge>
+```
+
+---
+
 ## Toast
 
 `components/ui/Toast.tsx`
@@ -327,7 +391,7 @@ import { Toast } from '@/components/ui/Toast';
 
 ## 미작성
 
-Badge · Input · Card · Dialog
+Input · Card · Dialog
 
 Toast를 화면에 띄우는 구조(`useToast` · `ToastViewport`)도 아직입니다.
 
@@ -344,6 +408,9 @@ Toast를 화면에 띄우는 구조(`useToast` · `ToastViewport`)도 아직입�
 - 2026.08.06 (#21) — Banner에서 `positive` variant 제거. 성공 알림은 Toast가 담당하므로 흐름 안에 남을 이유가 없음. 필요해지면 다시 추가
 - 2026.08.06 (#21) — Banner의 `type`은 기본값 없이 필수. 남은 둘 다 나쁜 소식이라 기본값을 두면 실패가 조용히 주의 색으로 뜰 수 있음
 - 2026.08.06 (#21) — 아이콘을 텍스트 글자에서 벡터로 교체하고 `icons.tsx`로 분리. `✔️` 같은 이모지는 지정한 색이 안 먹고 OS마다 다르게 렌더됨. 신규 토큰 없음
+- 2026.08.06 — Badge의 `LIVE`·`ENDED` variant 삭제. `LIVE`는 `positive`와 색이 완전히 같았고 `ENDED`는 `neutral`과 배경이 같은데 글자색만 달랐음. 색이 같은 variant를 따로 두면 한쪽만 고쳐져 어긋남. 문구만 바꿔 쓰는 방식으로 통일
+- 2026.08.06 — Badge `none`의 글자색을 `Text/tertiary`(3.61:1, AA 미달)에서 `Text/secondary`(6.49:1)로 교체. 테두리는 `Border/strong` 유지 — 배지는 조작 요소가 아니라 3:1 규정 대상이 아니고, 이 시스템에서 가장 진한 테두리 토큰임
+- 2026.08.06 — Badge 문구를 `children`으로 받음. `긍정`·`독성 의심` 같은 도메인 문구가 `ui/` 안에 들어가지 않게 하기 위함. Figma의 `none`은 코드에서 `outline`으로 이름 변경
 - 2026.08.06 — Toast는 생김새만 만들고 띄우는 방식은 분리. 위치·스택·타이머는 컴포넌트가 아니라 훅과 뷰포트의 일이라 섞으면 Toast가 비대해짐. 신규 토큰은 `--shadow-toast` 하나
 - 2026.08.06 — Toast 폰트를 Regular로. Banner는 Medium인데, 어두운 배경 위 흰 글씨는 같은 굵기라도 두껍게 보여서 한 단계 낮춰야 균형이 맞음
 - 2026.08.06 (#23) — 컴포넌트가 계산하는 접근성 속성은 밖에서 못 바꾸게 막는다. props 타입에서 `Omit`으로 빼고 JSX에서도 `{...props}` 뒤에 배치한다. 타입만 막으면 느슨한 객체를 펼칠 때 런타임에서 뚫린다. 현재 대상은 Banner의 `role`, Chip의 `aria-pressed`, 아이콘의 `aria-hidden`
