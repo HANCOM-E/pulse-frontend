@@ -6,9 +6,11 @@ interface BadgeProps extends ComponentProps<'span'> {
   tone: BadgeTone;
 }
 
-const BASE = ['inline-flex h-6 items-center justify-center', 'rounded-full px-2.5', 'text-xs leading-4'].join(
-  ' ',
-);
+const BASE = [
+  'inline-flex h-6 items-center justify-center',
+  'rounded-full px-2.5',
+  'text-xs font-normal leading-4',
+].join(' ');
 
 const TONE: Record<BadgeTone, string> = {
   positive: 'bg-positive-subtle text-positive-darker',
