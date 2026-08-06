@@ -135,9 +135,9 @@ export const signupRequestSchema = z.object({
 });
 
 export const authTokenResponseSchema = z.object({
-  accessToken: z.string(),
+  accessToken: z.string().min(1),
   /** 초 단위. 1시간 = 3600 */
-  expiresIn: z.int(),
+  expiresIn: z.int().positive(),
 });
 
 export const signupResponseSchema = authTokenResponseSchema.extend({
