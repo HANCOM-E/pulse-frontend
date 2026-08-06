@@ -1,6 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { notFound } from 'next/navigation';
 import { useState } from 'react';
 import {
   fetchEventByCode,
@@ -72,7 +73,7 @@ const DevMswPage = () => {
   });
 
   if (!isMockingEnabled) {
-    return <main className="p-8">목 서버가 꺼져 있어 이 페이지는 동작하지 않습니다.</main>;
+    notFound();
   }
 
   const handleLoginClick = () => loginMutation.mutate();

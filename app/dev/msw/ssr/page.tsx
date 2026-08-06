@@ -1,3 +1,4 @@
+import { notFound } from 'next/navigation';
 import { fetchEventByCode, fetchPublicReport } from '@/lib/api/endpoints';
 import { isMockingEnabled } from '@/mocks/config';
 
@@ -16,7 +17,7 @@ const ENDED_EVENT_CODE = 'kd7m2p';
 
 const DevMswSsrPage = async () => {
   if (!isMockingEnabled) {
-    return <main className="p-8">목 서버가 꺼져 있어 이 페이지는 동작하지 않습니다.</main>;
+    notFound();
   }
 
   const event = await fetchEventByCode(ENDED_EVENT_CODE);
