@@ -64,28 +64,26 @@ Figma 마스터 높이는 52이고, 화면에서는 인스턴스로 조정되어
 
 ### 상태
 
-| variant | 기본 | hover |
-| --- | --- | --- |
-| primary | `bg-primary-darker` | `hover:bg-primary-pressed` |
-| secondary | `bg-background-default` | `hover:bg-background-muted` |
-| danger | `bg-negative-default` | `hover:bg-negative-darker` |
+| variant | 기본 | hover | 대비 |
+| --- | --- | --- | --- |
+| primary | `bg-primary-darker` | `hover:bg-primary-pressed` | 5.55:1 |
+| secondary | `bg-background-default` | `hover:bg-background-muted` | 13.99:1 |
+| danger | `bg-negative-darker` | `hover:bg-negative-pressed` | 10.21:1 |
+
+세 variant 모두 WCAG AA(4.5:1)를 충족합니다.
+`Primary/default`와 `Negative/default`는 흰 글씨를 받으면 각각 2.65:1, 3.87:1로 미달하므로
+버튼 배경으로 쓰지 마세요. 두 색은 아이콘·그래프·테두리 등 텍스트가 얹히지 않는 자리에 씁니다.
 
 focus는 `focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-default`.
 `border`가 아니라 `outline`입니다. border로 만들면 버튼 크기가 밀립니다.
 
-### 접근성 — danger 대비 미달 (알려진 예외)
+### danger 사용 원칙
 
-`bg-negative-default` + `text-text-inverse` 조합은 명암비 **3.88:1**로 WCAG AA 기준(4.5:1)에 미달합니다.
-버튼 텍스트가 16px SemiBold라 '큰 텍스트' 예외(18.66px Bold 이상)에도 해당하지 않습니다.
+대비는 충족했지만 색만으로는 위험을 전달할 수 없습니다. 색각 이상 사용자에게 빨강과 회색은 비슷하게 보입니다.
 
-시안 색상을 유지하기로 결정했으므로 아래를 지켜주세요.
-
-- danger 버튼에 **색만으로 의미를 전달하지 마세요.** 문구에 행동을 명시합니다 (`삭제` ○ / `확인` ✕)
-- 파괴적 동작은 danger 버튼 하나로 끝내지 말고 확인 다이얼로그를 거칩니다
-- 이 조합을 본문 텍스트나 링크에 재사용하지 마세요. 버튼 한정입니다
-
-AA를 충족하려면 `Negative/darker`(#712B13, 10.3:1)를 배경으로 쓰거나
-중간 단계 토큰(#993C1D, 6.87:1)을 신설해야 합니다. 재논의 시 이 두 안을 검토하세요.
+- **문구에 행동을 명시하세요.** `삭제` ○ / `확인` ✕
+- 되돌릴 수 없는 동작은 danger 버튼 하나로 끝내지 말고 확인 다이얼로그를 거칩니다
+- 한 화면에 danger 버튼을 여러 개 두지 마세요. 강조가 분산되면 없는 것과 같습니다
 
 ### 사용 예
 
@@ -108,6 +106,6 @@ Badge · Chip · Input · Card · Toast · Dialog
 ## 결정 기록
 
 - 2026.08.05 — 모더레이션 버튼 높이 32 → 36으로 통일. size는 lg/md/sm 3종만 유지
-- 2026.08.06 — danger 기본 명암비 3.88:1 (AA 4.5:1 미달). 시안 색상 유지 결정. 색을 바꾸면 Figma 시안 전체와 `Negative/*` 스케일을 함께 손봐야 해서 이번 PR 범위를 넘어섭니다. 완화책은 위 '접근성' 절에 기재
+- 2026.08.06 — danger 배경을 `Negative/default`(3.87:1, AA 미달)에서 `Negative/darker`(10.21:1)로 교체. hover용 `Negative/pressed`(#4F1D0D) 신설. `Negative/default`를 바꾸지 않고 버튼만 옮겨서 부정 감정 차트·배지는 영향 없음 (Refs #16)
 - 2026.08.06 — focus 규격은 시안에 정의가 없어 코드에서 정함 (Primary/default 2px, offset 2)
 - 2026.08.06 — hover 색 확정. 신규 토큰은 `Primary/pressed`(#036176) 하나
