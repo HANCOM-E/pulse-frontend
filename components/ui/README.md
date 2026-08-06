@@ -161,6 +161,89 @@ import { Chip } from '@/components/ui/Chip';
 
 ---
 
+## Banner
+
+`components/ui/Banner.tsx`
+
+레이아웃 흐름 안에 자리를 차지하고, 사용자가 페이지를 떠나기 전까지 남아 있는 알림입니다.
+
+### Banner와 Toast의 구분
+
+둘을 가르는 기준은 생김새가 아니라 화면에 놓이는 방식입니다.
+
+| | Banner | Toast |
+| --- | --- | --- |
+| 위치 | 흐름 안, 자리를 차지 | 화면 위에 떠 있음 |
+| 사라짐 | 안 사라짐 | 몇 초 뒤 자동 |
+| 담당 | 실패 · 주의 | 성공 · 확인 |
+
+**실패를 Toast로 띄우지 마세요.** 몇 초 뒤 사라지므로 다른 곳을 보던 사용자가 놓칩니다.
+
+### Figma → 코드
+
+| Figma variant | 코드 |
+| --- | --- |
+| `type=negative` | `type="negative"` |
+| `type=warning` | `type="warning"` |
+
+`type`에 기본값이 없습니다. 남은 둘 중 "보통 이것"이라 할 게 없어서, 안 쓰면 타입 에러가 나도록 필수로 두었습니다.
+
+`negative`는 `role="alert"`, `warning`은 `role="status"`로 렌더합니다. 실패는 스크린리더가 하던 말을 끊고 즉시 읽고, 주의는 하던 말이 끝난 뒤 읽습니다.
+
+### 공통 스펙
+
+| 항목 | 값 |
+| --- | --- |
+| 높이 | 44 (`py-3` + lh 20) |
+| radius | `rounded-lg` (8) |
+| 좌우 padding | `px-3.5` (14) |
+| 아이콘 gap | `gap-1.5` (6) |
+| 아이콘 | 16 × 16, 선 굵기 2.5 |
+| 폰트 | 14 / Medium / lh 20 |
+| 너비 | Hug — 늘리려면 `className="w-full"` |
+
+### 상태
+
+| type | 배경 | 글자 · 아이콘 | 대비 |
+| --- | --- | --- | --- |
+| negative | `bg-negative-subtle` | `text-negative-darker` | 8.86:1 |
+| warning | `bg-warning-subtle` | `text-warning-darker` | 8.72:1 |
+
+아이콘 색은 `currentColor`라 글자색을 따라갑니다. 타입마다 따로 지정할 필요가 없습니다.
+
+### 주의
+
+- **색만으로 종류를 구분하지 않습니다.** `negative`는 ✕, `warning`은 느낌표로 모양이 다릅니다. 아이콘을 지우지 마세요.
+- 아이콘은 뜻이 문구에 이미 있으므로 `aria-hidden`입니다. 스크린리더는 문구만 읽습니다.
+
+### 사용 예
+
+```tsx
+import { Banner } from '@/components/ui/Banner';
+
+<Banner type="negative">등록에 실패했어요</Banner>
+<Banner type="warning" className="w-full">잠시 후 다시 시도해주세요</Banner>
+```
+
+---
+
+## icons
+
+`components/ui/icons.tsx`
+
+여러 컴포넌트가 함께 쓰는 아이콘입니다. 모두 16 × 16, 선 굵기 2.5, 끝은 둥글게.
+
+색은 `stroke="currentColor"`라 부모의 글자색을 따라갑니다. 컴포넌트에서 색을 넘길 필요가 없습니다.
+
+| 이름 | 모양 | 쓰는 곳 |
+| --- | --- | --- |
+| `XIcon` | ✕ | Banner `negative` |
+| `AlertIcon` | 느낌표 | Banner `warning` |
+
+모양 기준으로 이름 짓습니다. `XIcon`을 `ErrorIcon`으로 두면 나중에 닫기 버튼에 쓸 때 이름이 어색해집니다.
+
+---
+
 ## 미작성
 
 Badge · Input · Card · Toast · Dialog
@@ -175,3 +258,6 @@ Badge · Input · Card · Toast · Dialog
 - 2026.08.06 (#16) — danger 배경을 `Negative/default`(3.87:1, AA 미달)에서 `Negative/darker`(10.21:1)로 교체. hover용 `Negative/pressed`(#4F1D0D) 신설. `Negative/default` 값은 그대로 둬서 부정 감정 차트·배지는 영향 없음
 - 2026.08.06 (#15) — Chip의 `state` variant를 `selected` 불리언으로 매핑. 필터는 `<button>`으로 렌더하고 `aria-pressed`를 붙임. 표시 전용 꼬리표는 Chip이 아니라 Badge가 담당하기로 함
 - 2026.08.06 (#15) — Chip 선택 상태 hover는 배경 대신 테두리를 진하게 함. `Primary/lighter` 배경은 텍스트 대비 3.79:1로 AA 미달. 신규 토큰 없음
+- 2026.08.06 (#21) — Banner에서 `positive` variant 제거. 성공 알림은 Toast가 담당하므로 흐름 안에 남을 이유가 없음. 필요해지면 다시 추가
+- 2026.08.06 (#21) — Banner의 `type`은 기본값 없이 필수. 남은 둘 다 나쁜 소식이라 기본값을 두면 실패가 조용히 주의 색으로 뜰 수 있음
+- 2026.08.06 (#21) — 아이콘을 텍스트 글자에서 벡터로 교체하고 `icons.tsx`로 분리. `✔️` 같은 이모지는 지정한 색이 안 먹고 OS마다 다르게 렌더됨. 신규 토큰 없음
