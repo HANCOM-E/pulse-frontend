@@ -1,3 +1,6 @@
+import { getStoredAccessToken } from '@/lib/authToken';
+import { API_BASE_URL } from '@/lib/env';
+
 export class ApiError extends Error {
   constructor(
     public code: string,
@@ -14,7 +17,8 @@ interface ApiClientOptions extends RequestInit {
 
 function getAccessToken(): string | null {
   // JWT 저장 방식(localStorage vs 쿠키)은 팀 논의 후 확정됩니다. 축 1이 useAuth와 함께 구현합니다.
-  return null;
+  // 확정 전까지 /admin/* 호출이 401로 막히지 않도록 임시 보관소만 연결해 둡니다.
+  return getStoredAccessToken();
 }
 
 async function parseJsonSafely(response: Response): Promise<unknown> {
@@ -36,7 +40,7 @@ export async function apiClient<T>(path: string, options: ApiClientOptions = {})
     mergedHeaders.set('Authorization', `Bearer ${token}`);
   }
 
-  const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}${path}`, {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
     ...rest,
     headers: mergedHeaders,
   });
