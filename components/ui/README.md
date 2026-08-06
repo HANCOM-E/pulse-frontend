@@ -248,6 +248,55 @@ import { Banner } from '@/components/ui/Banner';
 
 ---
 
+## Toast
+
+`components/ui/Toast.tsx`
+
+화면 위에 잠깐 떴다 사라지는 확인 알림입니다. 성공과 확인만 담당합니다. 실패는 Banner로 보내세요.
+
+### 이번에 만든 것은 생김새뿐입니다
+
+띄우는 방식은 들어 있지 않습니다. 아래는 전부 별도 작업입니다.
+
+- 화면 어느 구석에 뜰지
+- 여러 개가 동시에 나올 때 쌓는 방식
+- 몇 초 뒤 사라질지
+- 사라지는 도중 마우스를 올리면 멈출지
+
+이건 컴포넌트가 아니라 훅과 뷰포트 구조라, `hooks/useToast.ts`와 `components/ui/ToastViewport.tsx`로 따로 붙입니다.
+
+### 공통 스펙
+
+| 항목 | 값 |
+| --- | --- |
+| 높이 | 44 (`py-3` + lh 20) |
+| radius | `rounded-lg` (8) |
+| 좌우 padding | `px-4` (16) |
+| 아이콘 gap | `gap-1.5` (6) |
+| 배경 | `bg-background-inverse` |
+| 글자 · 아이콘 | `text-text-inverse` |
+| 대비 | 13.99:1 |
+| 폰트 | 14 / **Regular** / lh 20 |
+| 그림자 | `shadow-toast` |
+
+Banner는 Medium, Toast는 Regular입니다. 어두운 배경 위의 흰 글씨는 같은 굵기라도 더 두껍게 보여서, 한 단계 낮춰야 균형이 맞습니다.
+
+### 주의
+
+- **type이 없습니다.** 성공·확인 전용이라 한 가지 모양뿐입니다. 실패를 Toast로 띄우면 몇 초 뒤 사라져서 사용자가 놓칩니다.
+- `role="status"`가 고정입니다. 하던 말이 끝난 뒤 읽히므로 사용자의 작업을 방해하지 않습니다.
+- 아이콘도 고정입니다. 종류가 하나뿐이라 바꿀 이유가 없습니다.
+
+### 사용 예
+
+```tsx
+import { Toast } from '@/components/ui/Toast';
+
+<Toast>링크가 복사되었어요</Toast>
+```
+
+---
+
 ## icons
 
 `components/ui/icons.tsx`
@@ -260,6 +309,7 @@ import { Banner } from '@/components/ui/Banner';
 
 | 이름 | 모양 | 쓰는 곳 |
 | --- | --- | --- |
+| `CheckIcon` | 체크 | Toast |
 | `XIcon` | ✕ | Banner `negative` |
 | `AlertIcon` | 느낌표 | Banner `warning` |
 
@@ -277,7 +327,9 @@ import { Banner } from '@/components/ui/Banner';
 
 ## 미작성
 
-Badge · Input · Card · Toast · Dialog
+Badge · Input · Card · Dialog
+
+Toast를 화면에 띄우는 구조(`useToast` · `ToastViewport`)도 아직입니다.
 
 ---
 
@@ -292,5 +344,7 @@ Badge · Input · Card · Toast · Dialog
 - 2026.08.06 (#21) — Banner에서 `positive` variant 제거. 성공 알림은 Toast가 담당하므로 흐름 안에 남을 이유가 없음. 필요해지면 다시 추가
 - 2026.08.06 (#21) — Banner의 `type`은 기본값 없이 필수. 남은 둘 다 나쁜 소식이라 기본값을 두면 실패가 조용히 주의 색으로 뜰 수 있음
 - 2026.08.06 (#21) — 아이콘을 텍스트 글자에서 벡터로 교체하고 `icons.tsx`로 분리. `✔️` 같은 이모지는 지정한 색이 안 먹고 OS마다 다르게 렌더됨. 신규 토큰 없음
+- 2026.08.06 — Toast는 생김새만 만들고 띄우는 방식은 분리. 위치·스택·타이머는 컴포넌트가 아니라 훅과 뷰포트의 일이라 섞으면 Toast가 비대해짐. 신규 토큰은 `--shadow-toast` 하나
+- 2026.08.06 — Toast 폰트를 Regular로. Banner는 Medium인데, 어두운 배경 위 흰 글씨는 같은 굵기라도 두껍게 보여서 한 단계 낮춰야 균형이 맞음
 - 2026.08.06 (#23) — 컴포넌트가 계산하는 접근성 속성은 밖에서 못 바꾸게 막는다. props 타입에서 `Omit`으로 빼고 JSX에서도 `{...props}` 뒤에 배치한다. 타입만 막으면 느슨한 객체를 펼칠 때 런타임에서 뚫린다. 현재 대상은 Banner의 `role`, Chip의 `aria-pressed`, 아이콘의 `aria-hidden`
 - 2026.08.06 (#21) — Banner에 닫기 버튼을 넣지 않음. 현재 두 type이 모두 조건형이라, 닫으면 문제가 남아 있는데 표시만 사라짐. 공지형이 생기면 그때 `onClose` 추가
