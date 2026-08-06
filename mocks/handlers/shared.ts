@@ -41,22 +41,23 @@ export const errorResponse = (code: ApiErrorCode, message?: string) =>
 
 /**
  * 목은 토큰을 검증하지 않고 존재 여부만 봅니다.
- * 인증이 필요한 화면에서 헤더를 빠뜨렸을 때 401이 나야 FE가 실제와 같은 분기를 탈 수 있습니다.
+ * 같은 경로가 인증 여부로 갈리는 곳(`GET /events/{eventCode}/report`)에서 씁니다.
  */
-export const requireAuth = (request: Request): Response | null => {
-  const header = request.headers.get('Authorization');
-  if (!header?.startsWith('Bearer ')) {
-    return errorResponse('UNAUTHORIZED');
-  }
-  return null;
-};
+export const hasBearerToken = (request: Request): boolean =>
+  request.headers.get('Authorization')?.startsWith('Bearer ') === true;
+
+/**
+ * 인증이 필요한 화면에서 헤더를 빠뜨렸을 때 401이 나야 FE가 실제와 같은 분기를 탑니다.
+ */
+export const requireAuth = (request: Request): Response | null =>
+  hasBearerToken(request) ? null : errorResponse('UNAUTHORIZED');
 
 /**
  * 소유자 전용 경로의 공통 앞단입니다. 인증 → code 조회 → 소유자 확인을 순서대로 검사하고,
  * 전부 통과하면 이벤트를 돌려줍니다. 하나라도 걸리면 에러 응답이 그대로 나옵니다.
  *
- * 이벤트 경로 파라미터가 전부 `eventCode`로 통일되면서(2026-08-06 명세) 이벤트·리포트
- * 쓰기 핸들러가 똑같은 세 단계를 반복하게 돼 한곳으로 모았습니다.
+ * 2026-08-06 명세에서 이벤트 경로 파라미터가 전부 `eventCode`로 통일되면서
+ * 이벤트·리포트 쓰기 핸들러가 똑같은 세 단계를 반복하게 돼 한곳으로 모았습니다.
  */
 export const requireOwnedEvent = (
   request: Request,

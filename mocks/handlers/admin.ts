@@ -15,6 +15,9 @@ import { API_BASE_URL, errorResponse, requireAuth, toNumericId } from '@/mocks/h
  *
  * `eventCode`·`sessionId` 필터는 2026-08-05에 BE가 추가했습니다. 필터 없이 호출하면
  * 계정 전체 큐가 나오므로, 이벤트별 화면은 반드시 `eventCode`를 붙여야 합니다.
+ *
+ * 2026-08-06 명세에서 `/admin/*`은 모더레이션 큐만 남았습니다. 리포트 관리는
+ * `/events/{eventCode}/report`로 옮겨갔습니다(handlers/report.ts).
  */
 
 /**
@@ -49,18 +52,32 @@ const transition = (request: Request, feedbackId: string | readonly string[] | u
 };
 
 /**
- * 확정된 쿼리 파라미터(eventCode·sessionId·toxic)로 큐를 추립니다.
+ * 쿼리 파라미터(eventCode·sessionId·toxic·includeHidden)로 큐를 추립니다.
  * 검증에 실패하면 에러 응답을 그대로 돌려줍니다.
  *
- * 제안 단계인 status 필터가 이 함수를 재사용합니다(mocks/handlers/proposed.ts).
- * 필터 조건을 여기 한 곳에만 두려고 분리했습니다.
+ * DELETED는 `includeHidden` 값과 무관하게 항상 빠집니다. 종단 상태라 되돌릴 수 없고
+ * (`/hide`·`/show`가 409를 냅니다) 모더레이션이 더 할 일이 없기 때문입니다.
+ *
+ * ⚠️ 명세는 `includeHidden=true`가 "HIDDEN 상태 소감도 포함"이라고만 적고 DELETED를
+ * 언급하지 않습니다. 위 규칙은 목이 먼저 정한 것이라 김효인 님 확인이 필요합니다.
  */
-export const selectModerationQueue = (query: URLSearchParams): Feedback[] | Response => {
+const selectModerationQueue = (query: URLSearchParams): Feedback[] | Response => {
   const eventCode = query.get('eventCode');
   const rawSessionId = query.get('sessionId');
   const rawToxic = query.get('toxic');
+  const rawIncludeHidden = query.get('includeHidden');
 
-  let items = db.feedbacks.filter(isOwnedByHost);
+  if (rawIncludeHidden !== null && rawIncludeHidden !== 'true' && rawIncludeHidden !== 'false') {
+    return errorResponse('VALIDATION_ERROR', 'includeHidden은 true 또는 false여야 합니다.');
+  }
+  const includeHidden = rawIncludeHidden === 'true';
+
+  let items = db.feedbacks
+    .filter(isOwnedByHost)
+    .filter(
+      (feedback) =>
+        feedback.status === 'VISIBLE' || (includeHidden && feedback.status === 'HIDDEN'),
+    );
 
   if (eventCode !== null) {
     const event = findEventByCode(eventCode);
@@ -99,6 +116,11 @@ export const adminHandlers = [
 
   http.patch(`${API_BASE_URL}/admin/feedbacks/:feedbackId/hide`, ({ request, params }) =>
     transition(request, params.feedbackId, 'HIDDEN'),
+  ),
+
+  // 숨김 해제. 실수로 숨긴 건을 되돌리는 유일한 경로입니다(요구사항 소감 상태 전이 4번).
+  http.patch(`${API_BASE_URL}/admin/feedbacks/:feedbackId/show`, ({ request, params }) =>
+    transition(request, params.feedbackId, 'VISIBLE'),
   ),
 
   http.patch(`${API_BASE_URL}/admin/feedbacks/:feedbackId/delete`, ({ request, params }) =>

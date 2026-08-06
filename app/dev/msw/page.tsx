@@ -48,7 +48,8 @@ const DevMswPage = () => {
 
   const queueQuery = useQuery({
     queryKey: ['moderation', EVENT_CODE],
-    queryFn: () => fetchModerationQueue({ eventCode: EVENT_CODE, toxic: true }),
+    // includeHidden을 켜야 숨긴 건이 큐에 남아서 해제 버튼을 눌러볼 수 있습니다.
+    queryFn: () => fetchModerationQueue({ eventCode: EVENT_CODE, toxic: true, includeHidden: true }),
     retry: false,
   });
 
@@ -111,7 +112,7 @@ const DevMswPage = () => {
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="font-semibold">세션 목록 (BE 미확정 엔드포인트)</h2>
+        <h2 className="font-semibold">세션 목록</h2>
         {sessionsQuery.error && <p className="text-red-600">{sessionsQuery.error.message}</p>}
         <ul className="flex flex-col gap-1">
           {sessionsQuery.data?.map((session) => (

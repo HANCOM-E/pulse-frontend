@@ -36,8 +36,7 @@ import type { z } from 'zod';
  * `undefined`로 조용히 터지는 대신 여기서 바로 드러나게 하려는 것입니다.
  * 개발 중에는 예외로 던지고, 프로덕션에서는 화면을 죽이지 않도록 경고만 남깁니다.
  *
- * ⚠️ 표시가 붙은 함수는 BE 미확정 엔드포인트입니다(mocks/handlers/proposed.ts 참고).
- * 지금은 목에서만 동작하며, 김효인 님 확인 후 경로가 바뀔 수 있습니다.
+ * 이벤트를 가리키는 인자는 전부 `eventCode`입니다(2026-08-06 명세).
  */
 
 const parseResponse = <T extends z.ZodType>(schema: T, data: unknown, path: string): z.infer<T> => {
@@ -149,8 +148,8 @@ interface ModerationQueueParams {
   eventCode?: string;
   sessionId?: number;
   toxic?: boolean;
-  /** ⚠️ BE 미확정 필터. 숨김 해제 UI에는 HIDDEN 건도 필요합니다. */
-  status?: 'VISIBLE' | 'HIDDEN' | 'DELETED';
+  /** 기본 false. 숨김 해제 UI처럼 HIDDEN 건까지 보여줘야 하는 화면만 켭니다. */
+  includeHidden?: boolean;
 }
 
 export const fetchModerationQueue = async (
@@ -160,7 +159,7 @@ export const fetchModerationQueue = async (
   if (params.eventCode !== undefined) query.set('eventCode', params.eventCode);
   if (params.sessionId !== undefined) query.set('sessionId', String(params.sessionId));
   if (params.toxic !== undefined) query.set('toxic', String(params.toxic));
-  if (params.status !== undefined) query.set('status', params.status);
+  if (params.includeHidden !== undefined) query.set('includeHidden', String(params.includeHidden));
 
   const suffix = query.size > 0 ? `?${query.toString()}` : '';
   const data = await apiClient<unknown>(`/admin/feedbacks${suffix}`);
@@ -179,7 +178,7 @@ export const deleteFeedback = async (feedbackId: number): Promise<Feedback> => {
   return parseResponse(feedbackSchema, data, 'PATCH /admin/feedbacks/{feedbackId}/delete');
 };
 
-/** ⚠️ BE 미확정. 요구사항의 HIDDEN → VISIBLE 전이에 대응하는 엔드포인트가 없습니다. */
+/** 숨김 해제. 이미 DELETED인 건에는 409가 옵니다. */
 export const showFeedback = async (feedbackId: number): Promise<Feedback> => {
   const data = await apiClient<unknown>(`/admin/feedbacks/${feedbackId}/show`, { method: 'PATCH' });
   return parseResponse(feedbackSchema, data, 'PATCH /admin/feedbacks/{feedbackId}/show');
@@ -194,23 +193,28 @@ export const generateReport = async (eventCode: string): Promise<Report> => {
   return parseResponse(reportSchema, data, 'POST /events/{eventCode}/report/generate');
 };
 
-/** 공개 리포트. 비공개거나 없으면 REPORT_NOT_FOUND(404)가 옵니다. */
+/**
+ * 공개 리포트. 비공개거나 없으면 REPORT_NOT_FOUND(404)가 옵니다.
+ *
+ * `fetchOwnReport`와 같은 경로를 씁니다. 서버가 `Authorization` 헤더 유무로 응답 모양을
+ * 가르므로, 게스트 응답(`PublicReport`)을 받으려면 로그인 상태여도 토큰을 빼야 합니다.
+ * `skipAuth`가 그 역할입니다 — 빼먹으면 주최자 화면에서 스키마 검증이 터집니다.
+ */
 export const fetchPublicReport = async (eventCode: string): Promise<PublicReport> => {
   const data = await apiClient<unknown>(`/events/${eventCode}/report`, { skipAuth: true });
-  return parseResponse(publicReportSchema, data, 'GET /events/{eventCode}/report');
+  return parseResponse(publicReportSchema, data, 'GET /events/{eventCode}/report (게스트)');
 };
 
-/** ⚠️ BE 미확정. 주최자가 자기 리포트의 생성 진행 상태를 볼 경로가 없습니다. */
+/** 주최자용 조회. 공개 여부와 무관하게 `status`·`isPublic`까지 전부 옵니다(생성 진행 폴링용). */
 export const fetchOwnReport = async (eventCode: string): Promise<Report> => {
-  const data = await apiClient<unknown>(`/admin/events/${eventCode}/report`);
-  return parseResponse(reportSchema, data, 'GET /admin/events/{eventCode}/report');
+  const data = await apiClient<unknown>(`/events/${eventCode}/report`);
+  return parseResponse(reportSchema, data, 'GET /events/{eventCode}/report (소유자)');
 };
 
-/** ⚠️ BE 미확정. 요구사항의 isPublic 토글에 대응하는 엔드포인트가 없습니다. */
 export const setReportPublic = async (eventCode: string, isPublic: boolean): Promise<Report> => {
-  const data = await apiClient<unknown>(`/admin/events/${eventCode}/report`, {
+  const data = await apiClient<unknown>(`/events/${eventCode}/report`, {
     method: 'PATCH',
     body: JSON.stringify({ isPublic }),
   });
-  return parseResponse(reportSchema, data, 'PATCH /admin/events/{eventCode}/report');
+  return parseResponse(reportSchema, data, 'PATCH /events/{eventCode}/report');
 };

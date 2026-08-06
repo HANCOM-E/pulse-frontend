@@ -113,6 +113,13 @@ export const eventHandlers = [
     return new HttpResponse(null, { status: 204 });
   }),
 
+  // 공개 세션 목록. 게스트 제출 대상 선택과 소유자 관리 화면이 같이 씁니다.
+  http.get(`${API_BASE_URL}/events/:eventCode/sessions`, ({ params }) => {
+    const event = findEventByCode(String(params.eventCode));
+    if (!event) return errorResponse('EVENT_NOT_FOUND');
+    return HttpResponse.json({ items: listSessionsOfEvent(event.id) });
+  }),
+
   http.post(`${API_BASE_URL}/events/:eventCode/sessions`, async ({ request, params }) => {
     const event = requireOwnedEvent(request, params.eventCode);
     if (event instanceof Response) return event;

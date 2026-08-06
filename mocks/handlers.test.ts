@@ -4,6 +4,7 @@ import {
   feedbackSnapshotSchema,
   publicReportSchema,
   pulseEventSchema,
+  reportSchema,
   signupResponseSchema,
 } from '@/lib/schemas/api';
 import { resetDb } from '@/mocks/data/store';
@@ -21,6 +22,10 @@ const LIVE_EVENT_CODE = 'ab3f9x';
 const ENDED_EVENT_CODE = 'kd7m2p';
 const DRAFT_EVENT_CODE = 'zq1v8t';
 const LIVE_SESSION_IDS = [101, 102, 103, 104];
+
+/** 시드에서 상태가 고정된 소감들(mocks/data/seed.ts, id = 900 + 배열 순번) */
+const HIDDEN_FEEDBACK_ID = 915;
+const DELETED_FEEDBACK_ID = 922;
 
 const AUTH_HEADERS = { Authorization: 'Bearer mock-access-token' };
 
@@ -232,44 +237,72 @@ describe('모더레이션 큐', () => {
     expect(after.recentFeedbacks.length).toBe(before.recentFeedbacks.length - 1);
   });
 
-  it('[제안] 숨김 해제하면 다시 집계에 들어온다', async () => {
-    const hiddenQueue = feedbackListResponseSchema.parse(
+  it('includeHidden 기본값에서는 HIDDEN·DELETED가 큐에 안 나온다', async () => {
+    const queue = feedbackListResponseSchema.parse(
       await (
-        await call(`/admin/feedbacks?eventCode=${LIVE_EVENT_CODE}&status=HIDDEN`, {
-          headers: AUTH_HEADERS,
-        })
+        await call(`/admin/feedbacks?eventCode=${LIVE_EVENT_CODE}`, { headers: AUTH_HEADERS })
       ).json(),
     );
-    const target = hiddenQueue.items[0];
-    expect(target).toBeDefined();
 
-    const shown = await call(`/admin/feedbacks/${target.id}/show`, {
-      method: 'PATCH',
-      headers: AUTH_HEADERS,
-    });
-
-    expect(shown.status).toBe(200);
-    await expect(shown.json()).resolves.toMatchObject({ status: 'VISIBLE' });
+    expect(queue.items.length).toBeGreaterThan(0);
+    expect(queue.items.every((item) => item.status === 'VISIBLE')).toBe(true);
   });
 
-  it('이미 삭제된 소감은 FEEDBACK_ALREADY_DELETED를 준다', async () => {
-    const deleted = feedbackListResponseSchema.parse(
+  it('includeHidden=true면 HIDDEN이 들어오고 DELETED는 여전히 빠진다', async () => {
+    const queue = feedbackListResponseSchema.parse(
       await (
-        await call(`/admin/feedbacks?eventCode=${LIVE_EVENT_CODE}&status=DELETED`, {
+        await call(`/admin/feedbacks?eventCode=${LIVE_EVENT_CODE}&includeHidden=true`, {
           headers: AUTH_HEADERS,
         })
       ).json(),
     );
-    const target = deleted.items[0];
-    expect(target).toBeDefined();
 
-    const response = await call(`/admin/feedbacks/${target.id}/hide`, {
+    expect(queue.items.some((item) => item.id === HIDDEN_FEEDBACK_ID)).toBe(true);
+    expect(queue.items.some((item) => item.status === 'DELETED')).toBe(false);
+  });
+
+  it('includeHidden이 boolean이 아니면 VALIDATION_ERROR를 준다', async () => {
+    const response = await call(`/admin/feedbacks?includeHidden=yes`, { headers: AUTH_HEADERS });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({ code: 'VALIDATION_ERROR' });
+  });
+
+  it('숨김 해제하면 다시 집계에 들어온다', async () => {
+    const before = feedbackSnapshotSchema.parse(
+      await (await call(`/events/${LIVE_EVENT_CODE}/feedbacks?sessionId=102`)).json(),
+    );
+
+    const shown = await call(`/admin/feedbacks/${HIDDEN_FEEDBACK_ID}/show`, {
       method: 'PATCH',
       headers: AUTH_HEADERS,
     });
+    expect(shown.status).toBe(200);
+    await expect(shown.json()).resolves.toMatchObject({ status: 'VISIBLE' });
 
-    expect(response.status).toBe(409);
-    await expect(response.json()).resolves.toMatchObject({ code: 'FEEDBACK_ALREADY_DELETED' });
+    const after = feedbackSnapshotSchema.parse(
+      await (await call(`/events/${LIVE_EVENT_CODE}/feedbacks?sessionId=102`)).json(),
+    );
+    expect(after.recentFeedbacks.length).toBe(before.recentFeedbacks.length + 1);
+  });
+
+  it('숨김 해제도 토큰이 없으면 UNAUTHORIZED를 준다', async () => {
+    const response = await call(`/admin/feedbacks/${HIDDEN_FEEDBACK_ID}/show`, { method: 'PATCH' });
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toMatchObject({ code: 'UNAUTHORIZED' });
+  });
+
+  it('이미 삭제된 소감은 hide·show 모두 FEEDBACK_ALREADY_DELETED를 준다', async () => {
+    for (const action of ['hide', 'show']) {
+      const response = await call(`/admin/feedbacks/${DELETED_FEEDBACK_ID}/${action}`, {
+        method: 'PATCH',
+        headers: AUTH_HEADERS,
+      });
+
+      expect(response.status).toBe(409);
+      await expect(response.json()).resolves.toMatchObject({ code: 'FEEDBACK_ALREADY_DELETED' });
+    }
   });
 
   it('삭제된 이벤트의 소감은 큐에서 빠진다', async () => {
@@ -365,12 +398,24 @@ describe('소감 제출', () => {
 });
 
 describe('리포트', () => {
-  it('공개된 리포트는 누구나 볼 수 있다', async () => {
+  it('게스트가 공개된 리포트를 조회하면 PublicReport만 온다', async () => {
     const response = await call(`/events/${ENDED_EVENT_CODE}/report`);
+    const body = (await response.json()) as Record<string, unknown>;
 
     expect(response.status).toBe(200);
-    const report = publicReportSchema.parse(await response.json());
+    const report = publicReportSchema.parse(body);
     expect(report.summaryText.length).toBeGreaterThan(0);
+    // 같은 경로라도 비인증 응답에는 관리 필드가 없어야 합니다.
+    expect(body).not.toHaveProperty('status');
+    expect(body).not.toHaveProperty('isPublic');
+  });
+
+  it('같은 경로를 주최자가 부르면 Report 전체가 온다', async () => {
+    const response = await call(`/events/${ENDED_EVENT_CODE}/report`, { headers: AUTH_HEADERS });
+
+    expect(response.status).toBe(200);
+    const report = reportSchema.parse(await response.json());
+    expect(report).toMatchObject({ status: 'GENERATED', isPublic: true });
   });
 
   it('리포트가 없으면 REPORT_NOT_FOUND를 준다', async () => {
@@ -390,22 +435,42 @@ describe('리포트', () => {
     await expect(response.json()).resolves.toMatchObject({ code: 'EVENT_NOT_ENDED' });
   });
 
-  it('[제안] 주최자는 자기 리포트의 생성 상태를 조회할 수 있다', async () => {
-    const response = await call(`/admin/events/${ENDED_EVENT_CODE}/report`, { headers: AUTH_HEADERS });
-
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({ status: 'GENERATED', isPublic: true });
-  });
-
-  it('[제안] 공개 여부를 끄면 공개 조회가 404가 된다', async () => {
-    const patched = await call(`/admin/events/${ENDED_EVENT_CODE}/report`, {
+  it('공개 여부를 끄면 게스트 조회는 404지만 주최자는 계속 볼 수 있다', async () => {
+    const patched = await call(`/events/${ENDED_EVENT_CODE}/report`, {
       method: 'PATCH',
       headers: { ...AUTH_HEADERS, 'Content-Type': 'application/json' },
       body: JSON.stringify({ isPublic: false }),
     });
     expect(patched.status).toBe(200);
+    await expect(patched.json()).resolves.toMatchObject({ isPublic: false });
 
-    const publicView = await call(`/events/${ENDED_EVENT_CODE}/report`);
-    expect(publicView.status).toBe(404);
+    expect((await call(`/events/${ENDED_EVENT_CODE}/report`)).status).toBe(404);
+
+    // "비공개 = 게스트한테만 안 보임". 소유자는 공개 전 검토를 위해 항상 볼 수 있어야 합니다.
+    const owner = await call(`/events/${ENDED_EVENT_CODE}/report`, { headers: AUTH_HEADERS });
+    expect(owner.status).toBe(200);
+    await expect(owner.json()).resolves.toMatchObject({ isPublic: false });
+  });
+
+  it('리포트가 없는 이벤트에 공개 토글을 걸면 REPORT_NOT_FOUND를 준다', async () => {
+    const response = await call(`/events/${LIVE_EVENT_CODE}/report`, {
+      method: 'PATCH',
+      headers: { ...AUTH_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ isPublic: true }),
+    });
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({ code: 'REPORT_NOT_FOUND' });
+  });
+
+  it('공개 토글에 토큰이 없으면 UNAUTHORIZED를 준다', async () => {
+    const response = await call(`/events/${ENDED_EVENT_CODE}/report`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ isPublic: false }),
+    });
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toMatchObject({ code: 'UNAUTHORIZED' });
   });
 });
