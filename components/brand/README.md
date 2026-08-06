@@ -41,10 +41,19 @@ Pulse의 브랜드 자산입니다. 로고, 워드마크처럼 서비스 정체�
 ### 사용 예
 
 ```tsx
+import Link from 'next/link';
+
 import { Logo } from '@/components/brand/Logo';
 
 <Logo />
-<Link href="/"><Logo /></Link>
+```
+
+헤더처럼 눌러서 이동해야 하는 자리에서는 **밖에서 감쌉니다.** Logo에 `href` prop을 붙이지 마세요.
+
+```tsx
+<Link href="/">
+  <Logo />
+</Link>
 ```
 
 ---
