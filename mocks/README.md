@@ -82,6 +82,11 @@ mocks/
 - 모더레이션 큐는 기본적으로 `VISIBLE`만 돌려줍니다. `includeHidden=true`를 붙여야 `HIDDEN`이 들어옵니다.
   `DELETED`는 어느 쪽이든 나오지 않습니다.
 
+- **`next.config.ts`의 `serverExternalPackages: ['msw']`를 지우면 SSR에서 목이 죽습니다.**
+  Next가 `msw`를 서버 번들에 넣으면 번들된 사본이 `globalThis.fetch`를 패치하게 되고,
+  정작 렌더러가 쓰는 fetch는 그대로라 SSR 요청만 목을 통과해 실제 주소로 나갑니다.
+  `[msw] 서버 목 활성화됨` 로그는 그대로 찍히는데 `TypeError: fetch failed`(`ECONNREFUSED`)만
+  나므로 목 문제로 안 보입니다. 브라우저 워커는 멀쩡하니 `/dev/msw`만 보고 판단하면 놓칩니다.
 - **`instrumentation.ts`는 서버가 뜰 때 한 번만 실행됩니다.** 이 코드를 처음 받은 뒤에는
   `npm run dev`를 재시작해야 서버 목이 붙습니다(핫리로드로는 안 붙습니다).
   붙었으면 터미널에 `[msw] 서버 목 활성화됨`이 찍힙니다.
