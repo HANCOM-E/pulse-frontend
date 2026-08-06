@@ -22,7 +22,7 @@ const VARIANT: Record<ButtonVariant, string> = {
   primary: 'bg-primary-darker text-text-inverse hover:bg-primary-pressed',
   secondary:
     'border border-border-default bg-background-default text-text-primary hover:bg-background-muted',
-  danger: 'bg-negative-default text-text-inverse hover:bg-negative-darker',
+  danger: 'bg-negative-darker text-text-inverse hover:bg-negative-pressed',
 };
 
 const SIZE: Record<ButtonSize, string> = {
