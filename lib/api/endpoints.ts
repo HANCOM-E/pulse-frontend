@@ -2,6 +2,7 @@ import apiClient from '@/lib/apiClient';
 import { getClientId } from '@/lib/clientId';
 import type {
   AuthTokenResponse,
+  EventView,
   Feedback,
   FeedbackSnapshot,
   FeedbackSubmitRequest,
@@ -10,12 +11,13 @@ import type {
   PublicReport,
   PulseEvent,
   Report,
-  Session,
+  SessionView,
   SignupRequest,
   SignupResponse,
 } from '@/lib/schemas/api';
 import {
   authTokenResponseSchema,
+  eventViewSchema,
   feedbackListResponseSchema,
   feedbackSchema,
   feedbackSnapshotSchema,
@@ -24,7 +26,7 @@ import {
   publicReportSchema,
   pulseEventSchema,
   reportSchema,
-  sessionSchema,
+  sessionViewSchema,
   signupResponseSchema,
 } from '@/lib/schemas/api';
 import type { z } from 'zod';
@@ -36,7 +38,8 @@ import type { z } from 'zod';
  * `undefined`로 조용히 터지는 대신 여기서 바로 드러나게 하려는 것입니다.
  * 개발 중에는 예외로 던지고, 프로덕션에서는 화면을 죽이지 않도록 경고만 남깁니다.
  *
- * 이벤트를 가리키는 인자는 전부 `eventCode`입니다(2026-08-06 명세).
+ * 이벤트를 가리키는 인자는 전부 `eventCode`입니다(2026-08-06 명세). 공개 응답에서 내부
+ * 숫자 `id`가 빠져서 화면이 그 값을 손에 넣을 방법이 없습니다.
  */
 
 const parseResponse = <T extends z.ZodType>(schema: T, data: unknown, path: string): z.infer<T> => {
@@ -91,19 +94,19 @@ export const fetchMyEvents = async (): Promise<PulseEvent[]> => {
 };
 
 /**
- * 공개 상세 조회. 쓰기 API가 요구하는 숫자 `id`를 여기서 얻습니다.
- * URL에는 `code`가 들어오고 PATCH·리포트 생성에는 `id`가 필요하기 때문입니다.
+ * 공개 상세 조회. 응답은 내부 `id`·`ownerId`를 뺀 `EventView`입니다.
+ * 쓰기 API도 전부 `eventCode`를 받으므로 화면이 숫자 id를 알 필요가 없습니다.
  */
-export const fetchEventByCode = async (eventCode: string): Promise<PulseEvent> => {
+export const fetchEventByCode = async (eventCode: string): Promise<EventView> => {
   const data = await apiClient<unknown>(`/events/${eventCode}`, { skipAuth: true });
-  return parseResponse(pulseEventSchema, data, 'GET /events/{eventCode}');
+  return parseResponse(eventViewSchema, data, 'GET /events/{eventCode}');
 };
 
-/** ⚠️ BE 미확정. 세션 목록이 있어야 세션 탭·제출 대상 선택을 그릴 수 있습니다. */
-export const fetchSessionsByEventCode = async (eventCode: string): Promise<Session[]> => {
+/** 세션 목록. 게스트 제출 대상 선택과 소유자 세션 탭이 같이 씁니다. `DELETED`는 빠집니다. */
+export const fetchSessionsByEventCode = async (eventCode: string): Promise<SessionView[]> => {
   const data = await apiClient<unknown>(`/events/${eventCode}/sessions`, { skipAuth: true });
   return parseResponse(
-    listResponseSchema(sessionSchema),
+    listResponseSchema(sessionViewSchema),
     data,
     'GET /events/{eventCode}/sessions',
   ).items;

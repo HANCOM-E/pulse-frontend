@@ -55,14 +55,30 @@ mocks/
 미확정 엔드포인트를 모아두던 `proposed.ts`는 2026-08-06에 다섯 건이 전부 명세로 확정되면서 없어졌습니다.
 지금은 전 핸들러가 확정 계약입니다.
 
+## 경로 규칙
+
+**이벤트를 가리키는 경로 파라미터는 전부 `eventCode`입니다.** 공개 응답에서 내부 `id`가 빠지면서
+화면이 숫자 id를 얻을 방법 자체가 없어졌습니다. 저장소 내부는 여전히 숫자 id로 관계를 잇고,
+경계에서만 code를 씁니다(`toEventView`/`toSessionView`가 그 변환입니다).
+
+공개뷰에서 빠지는 필드:
+
+| 응답 | 빠지는 것 | 남는 이유 |
+|---|---|---|
+| `EventView` | `id`, `ownerId` | — |
+| `SessionView` | `eventId`, `status` | `id`는 남습니다. 소감 제출에 `sessionId`가 필수입니다 |
+| `FeedbackView` | `toxic`, `taggerVersion`, `status` | 공개 경로에 모더레이션 신호를 노출하지 않습니다 |
+
+`GET /events/{eventCode}/report` 하나만 **같은 경로가 인증 여부로 갈립니다.**
+
+- Bearer 있고 소유자 → `Report` 전체(`status`·`isPublic` 포함). 생성 진행 폴링용입니다.
+- Bearer 없음 → 공개·생성완료일 때만 `PublicReport`, 아니면 404.
+
+`endpoints.ts`에서 `fetchOwnReport`/`fetchPublicReport`가 이 한 경로를 나눠 씁니다.
+게스트 응답을 받아야 하는 자리에서 `skipAuth`를 빼먹으면 로그인 상태일 때 스키마 검증이 터집니다.
+
 ## 알아둘 것
 
-- **이벤트를 가리키는 경로 파라미터는 전부 `eventCode`입니다.** 공개 읽기든 소유자 쓰기든 같습니다.
-- **`GET /events/{eventCode}/report` 하나만 같은 경로가 인증 여부로 갈립니다.**
-  Bearer가 있고 소유자면 `Report` 전체(`status`·`isPublic` 포함, 생성 진행 폴링용),
-  없으면 공개·생성완료일 때만 `PublicReport`이고 아니면 404입니다.
-  `endpoints.ts`의 `fetchOwnReport`/`fetchPublicReport`가 이 한 경로를 나눠 쓰며,
-  게스트 응답을 받아야 하는 자리에서 `skipAuth`를 빼먹으면 로그인 상태일 때 스키마 검증이 터집니다.
 - 모더레이션 큐는 기본적으로 `VISIBLE`만 돌려줍니다. `includeHidden=true`를 붙여야 `HIDDEN`이 들어옵니다.
   `DELETED`는 어느 쪽이든 나오지 않습니다.
 

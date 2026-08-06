@@ -1,10 +1,10 @@
 import { z } from 'zod';
 
 /**
- * Pulse API 계약 스키마 (openapi.yaml v0.2 · 2026-08-05 기준)
+ * Pulse API 계약 스키마 (API 명세서 2026-08-06 갱신본 기준)
  *
- * 원본: Notion "openapi.yaml 초안" 페이지의 v0.2 블록.
- * https://app.notion.com/p/3b25f62e868481dbbf3efcb698ecb072
+ * 원본: Notion "API 명세서".
+ * https://app.notion.com/p/f3f5f62e868482ee9faf816de775057c
  *
  * 타입을 손으로 따로 쓰지 않고 zod 스키마 하나에서 `z.infer`로 뽑습니다.
  * 명세의 제약(길이·개수·정규식)이 주석이 아니라 실행되는 코드로 남아야
@@ -171,6 +171,15 @@ export const pulseEventSchema = z.object({
   createdAt: isoDateTime,
 });
 
+/**
+ * 공개 상세 조회(`GET /events/{eventCode}`) 응답입니다.
+ * 내부 식별자를 밖으로 내지 않으려고 `id`·`ownerId`를 뺐습니다.
+ *
+ * 뺀 필드를 나열하지 않고 파생시킨 이유: 나중에 `Event`에 필드가 붙어도
+ * 공개뷰가 자동으로 따라오면서 두 스키마가 어긋날 수 없기 때문입니다.
+ */
+export const eventViewSchema = pulseEventSchema.omit({ id: true, ownerId: true });
+
 export const eventCreateRequestSchema = z.object({
   title: z.string().min(2).max(60),
   description: z.string().max(500).optional(),
@@ -191,6 +200,14 @@ export const sessionSchema = z.object({
   status: sessionStatusSchema,
 });
 
+/**
+ * 공개 세션 목록(`GET /events/{eventCode}/sessions`) 응답입니다.
+ *
+ * `eventId`는 code로 조회한 목록이라 중복이고, `status`는 응답에 `ACTIVE`만 담기므로
+ * 둘 다 뺐습니다. `id`는 남습니다 — 게스트가 소감을 제출하려면 `sessionId`가 필요합니다.
+ */
+export const sessionViewSchema = sessionSchema.omit({ eventId: true, status: true });
+
 export const sessionCreateRequestSchema = z.object({
   title: z.string().min(1),
   order: z.int(),
@@ -199,9 +216,11 @@ export const sessionCreateRequestSchema = z.object({
 export const eventListResponseSchema = listResponseSchema(pulseEventSchema);
 
 export type PulseEvent = z.infer<typeof pulseEventSchema>;
+export type EventView = z.infer<typeof eventViewSchema>;
 export type EventCreateRequest = z.infer<typeof eventCreateRequestSchema>;
 export type EventUpdateRequest = z.infer<typeof eventUpdateRequestSchema>;
 export type Session = z.infer<typeof sessionSchema>;
+export type SessionView = z.infer<typeof sessionViewSchema>;
 export type SessionCreateRequest = z.infer<typeof sessionCreateRequestSchema>;
 
 // ─────────────────────────────────────────────────────────────

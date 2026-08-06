@@ -11,6 +11,8 @@ import {
   listSessionsOfEvent,
   nextEventId,
   nextSessionId,
+  toEventView,
+  toSessionView,
 } from '@/mocks/data/store';
 import {
   API_BASE_URL,
@@ -24,7 +26,8 @@ import {
 /**
  * 이벤트·세션 핸들러입니다.
  *
- * 경로 파라미터는 공개 읽기든 소유자 쓰기든 전부 `eventCode`입니다(2026-08-06 명세).
+ * 경로 파라미터는 전부 `eventCode`입니다(2026-08-06 명세). 공개 상세 응답에서 내부 `id`가
+ * 빠지면서 화면이 숫자 id를 얻을 방법 자체가 없어졌고, 소유자 쓰기도 code로 통일됐습니다.
  * 저장소 내부는 여전히 숫자 id로 관계를 잇습니다 — 경계에서만 code를 씁니다.
  */
 
@@ -61,11 +64,11 @@ export const eventHandlers = [
     return HttpResponse.json(event, { status: 201 });
   }),
 
-  // 공개 상세 조회. 게스트 진입 링크가 이 경로를 씁니다.
+  // 공개 상세 조회. 게스트 진입 링크가 이 경로를 씁니다. 응답은 id·ownerId를 뺀 EventView입니다.
   http.get(`${API_BASE_URL}/events/:eventCode`, ({ params }) => {
     const event = findEventByCode(String(params.eventCode));
     if (!event) return errorResponse('EVENT_NOT_FOUND');
-    return HttpResponse.json(event);
+    return HttpResponse.json(toEventView(event));
   }),
 
   http.patch(`${API_BASE_URL}/events/:eventCode`, async ({ request, params }) => {
@@ -117,7 +120,7 @@ export const eventHandlers = [
   http.get(`${API_BASE_URL}/events/:eventCode/sessions`, ({ params }) => {
     const event = findEventByCode(String(params.eventCode));
     if (!event) return errorResponse('EVENT_NOT_FOUND');
-    return HttpResponse.json({ items: listSessionsOfEvent(event.id) });
+    return HttpResponse.json({ items: listSessionsOfEvent(event.id).map(toSessionView) });
   }),
 
   http.post(`${API_BASE_URL}/events/:eventCode/sessions`, async ({ request, params }) => {

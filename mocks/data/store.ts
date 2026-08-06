@@ -1,4 +1,5 @@
 import type {
+  EventView,
   Feedback,
   FeedbackSnapshot,
   FeedbackView,
@@ -7,6 +8,7 @@ import type {
   Report,
   Session,
   SentimentBreakdown,
+  SessionView,
 } from '@/lib/schemas/api';
 import { HOST_USER, seedEvents, seedFeedbacks, seedReports, seedSessions } from '@/mocks/data/seed';
 
@@ -139,6 +141,26 @@ export const findReportByEventId = (eventId: number): Report | undefined =>
 
 const RECENT_FEEDBACK_LIMIT = 50;
 const TOP_KEYWORD_LIMIT = 10;
+
+/**
+ * 저장소 행을 공개 응답 모양으로 좁힙니다.
+ *
+ * 핸들러가 행을 그대로 반환하면 내부 `id`·`ownerId`가 딸려 나갑니다. 명세가 공개뷰에서
+ * 이들을 뺐으므로(2026-08-06) 공개 경로는 반드시 이 변환을 거쳐야 합니다.
+ */
+export const toEventView = (event: PulseEvent): EventView => ({
+  code: event.code,
+  title: event.title,
+  description: event.description,
+  status: event.status,
+  createdAt: event.createdAt,
+});
+
+export const toSessionView = (session: Session): SessionView => ({
+  id: session.id,
+  title: session.title,
+  order: session.order,
+});
 
 export const toFeedbackView = (feedback: Feedback): FeedbackView => ({
   id: feedback.id,

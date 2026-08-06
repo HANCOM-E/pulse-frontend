@@ -106,7 +106,7 @@ const DevMswPage = () => {
         {eventQuery.error && <p className="text-red-600">{eventQuery.error.message}</p>}
         {eventQuery.data && (
           <p>
-            id {eventQuery.data.id} · {eventQuery.data.title} · {eventQuery.data.status}
+            {eventQuery.data.code} · {eventQuery.data.title} · {eventQuery.data.status}
           </p>
         )}
       </section>

@@ -1,10 +1,12 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import {
+  eventViewSchema,
   feedbackListResponseSchema,
   feedbackSnapshotSchema,
+  listResponseSchema,
   publicReportSchema,
-  pulseEventSchema,
   reportSchema,
+  sessionViewSchema,
   signupResponseSchema,
 } from '@/lib/schemas/api';
 import { resetDb } from '@/mocks/data/store';
@@ -14,8 +16,8 @@ import { server } from '@/mocks/server';
 /**
  * 목 서버 스모크 테스트입니다.
  *
- * 화면 코드가 아니라 계약을 검증합니다. 응답이 openapi v0.2 스키마를 만족하는지,
- * 그리고 상태 전이(숨김 → 집계 제외)와 실패 코드가 명세대로 나오는지만 봅니다.
+ * 화면 코드가 아니라 계약을 검증합니다. 응답이 API 명세서(2026-08-06 갱신본) 스키마를
+ * 만족하는지, 그리고 상태 전이(숨김 → 집계 제외)와 실패 코드가 명세대로 나오는지만 봅니다.
  */
 
 const LIVE_EVENT_CODE = 'ab3f9x';
@@ -107,14 +109,15 @@ describe('auth', () => {
 });
 
 describe('이벤트 조회', () => {
-  it('code로 상세를 조회하면 쓰기 API에 필요한 숫자 id가 함께 온다', async () => {
+  it('공개 상세에는 내부 식별자(id·ownerId)가 들어가지 않는다', async () => {
     const response = await call(`/events/${LIVE_EVENT_CODE}`);
-    const body = await response.json();
+    const body = (await response.json()) as Record<string, unknown>;
 
     expect(response.status).toBe(200);
-    const event = pulseEventSchema.parse(body);
-    expect(event.id).toBe(42);
+    const event = eventViewSchema.parse(body);
     expect(event.status).toBe('LIVE');
+    expect(body).not.toHaveProperty('id');
+    expect(body).not.toHaveProperty('ownerId');
   });
 
   it('없는 code는 EVENT_NOT_FOUND를 준다', async () => {
@@ -152,6 +155,30 @@ describe('이벤트 조회', () => {
 
     expect(second.status).toBe(409);
     await expect(second.json()).resolves.toMatchObject({ code: 'EVENT_ALREADY_DELETED' });
+  });
+});
+
+describe('세션 목록', () => {
+  it('공개 목록은 SessionView이고 DELETED 세션이 빠진다', async () => {
+    const response = await call(`/events/${LIVE_EVENT_CODE}/sessions`);
+    const body = (await response.json()) as { items: Record<string, unknown>[] };
+
+    expect(response.status).toBe(200);
+    const sessions = listResponseSchema(sessionViewSchema).parse(body);
+    // 시드의 이벤트 42는 ACTIVE 3개 + DELETED 1개입니다.
+    expect(sessions.items.map((item) => item.id)).toEqual([101, 102, 103]);
+
+    for (const session of body.items) {
+      expect(session).not.toHaveProperty('eventId');
+      expect(session).not.toHaveProperty('status');
+    }
+  });
+
+  it('없는 code는 EVENT_NOT_FOUND를 준다', async () => {
+    const response = await call('/events/nope00/sessions');
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({ code: 'EVENT_NOT_FOUND' });
   });
 });
 
