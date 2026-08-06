@@ -1,6 +1,6 @@
 import type { ComponentProps } from 'react';
 
-interface ChipProps extends ComponentProps<'button'> {
+interface ChipProps extends Omit<ComponentProps<'button'>, 'aria-pressed'> {
   selected?: boolean;
 }
 
@@ -24,9 +24,9 @@ const Chip = ({ selected = false, type = 'button', className = '', ...props }: C
   return (
     <button
       type={type}
-      aria-pressed={selected}
       className={`${BASE} ${selected ? SELECTED : UNSELECTED} ${className}`}
       {...props}
+      aria-pressed={selected}
     />
   );
 };
