@@ -64,13 +64,13 @@ Figma 마스터 높이는 52이고, 화면에서는 인스턴스로 조정되어
 
 ### 상태
 
-| variant | 기본 | hover | 대비 |
-| --- | --- | --- | --- |
-| primary | `bg-primary-darker` | `hover:bg-primary-pressed` | 5.55:1 |
-| secondary | `bg-background-default` | `hover:bg-background-muted` | 13.99:1 |
-| danger | `bg-negative-darker` | `hover:bg-negative-pressed` | 10.21:1 |
+| variant | 기본 | 기본 대비 | hover | hover 대비 |
+| --- | --- | --- | --- | --- |
+| primary | `bg-primary-darker` | 5.55:1 | `hover:bg-primary-pressed` | 7.06:1 |
+| secondary | `bg-background-default` | 13.99:1 | `hover:bg-background-muted` | 12.16:1 |
+| danger | `bg-negative-darker` | 10.21:1 | `hover:bg-negative-pressed` | 13.87:1 |
 
-세 variant 모두 WCAG AA(4.5:1)를 충족합니다.
+세 variant 모두 기본과 hover 양쪽에서 WCAG AA(4.5:1)를 충족합니다.
 `Primary/default`와 `Negative/default`는 흰 글씨를 받으면 각각 2.65:1, 3.87:1로 미달하므로
 버튼 배경으로 쓰지 마세요. 두 색은 아이콘·그래프·테두리 등 텍스트가 얹히지 않는 자리에 씁니다.
 
