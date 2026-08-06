@@ -4,7 +4,7 @@ import { AlertIcon, XIcon, type IconProps } from '@/components/ui/icons';
 
 type BannerType = 'negative' | 'warning';
 
-interface BannerProps extends ComponentProps<'div'> {
+interface BannerProps extends Omit<ComponentProps<'div'>, 'role'> {
   type: BannerType;
 }
 
@@ -29,9 +29,9 @@ const Banner = ({ type, className = '', children, ...props }: BannerProps) => {
 
   return (
     <div
-      role={type === 'negative' ? 'alert' : 'status'}
       className={`${BASE} ${TONE[type]} ${className}`}
       {...props}
+      role={type === 'negative' ? 'alert' : 'status'}
     >
       <Icon className="shrink-0" />
       {children}
