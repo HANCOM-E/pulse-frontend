@@ -261,6 +261,14 @@ import { Banner } from '@/components/ui/Banner';
 
 모양 기준으로 이름 짓습니다. `XIcon`을 `ErrorIcon`으로 두면 나중에 닫기 버튼에 쓸 때 이름이 어색해집니다.
 
+**모두 장식용입니다.** `aria-hidden="true"`가 고정이라 밖에서 못 켭니다. `<title>`이 없어서 노출시켜도 이름 없는 그래픽으로만 읽히기 때문입니다.
+
+아이콘만 있고 옆에 글자가 없는 버튼을 만들 때는, 아이콘을 노출하지 말고 **버튼에 `aria-label`을 다세요.**
+
+```tsx
+<button aria-label="닫기"><XIcon /></button>
+```
+
 ---
 
 ## 미작성
