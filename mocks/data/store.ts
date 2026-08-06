@@ -18,7 +18,18 @@ import { HOST_USER, seedEvents, seedFeedbacks, seedReports, seedSessions } from 
  * 새로고침하면 초기 상태로 돌아갑니다(브라우저 탭 단위 수명).
  */
 
+/**
+ * 목 계정입니다. 실제 BE는 `User { id, email, passwordHash }`로 해시를 저장하지만,
+ * 목은 로그인 시 대조만 하면 되므로 평문을 그대로 둡니다.
+ */
+export interface MockAccount {
+  id: number;
+  email: string;
+  password: string;
+}
+
 interface MockDb {
+  accounts: MockAccount[];
   events: PulseEvent[];
   sessions: Session[];
   feedbacks: Feedback[];
@@ -28,6 +39,7 @@ interface MockDb {
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
 const createDb = (): MockDb => ({
+  accounts: [{ ...HOST_USER }],
   events: clone(seedEvents),
   sessions: clone(seedSessions),
   feedbacks: clone(seedFeedbacks),
@@ -39,6 +51,7 @@ export const db: MockDb = createDb();
 /** 시드 상태로 되돌립니다. 테스트에서 케이스 간 격리가 필요할 때 사용합니다. */
 export const resetDb = (): void => {
   const fresh = createDb();
+  db.accounts = fresh.accounts;
   db.events = fresh.events;
   db.sessions = fresh.sessions;
   db.feedbacks = fresh.feedbacks;
@@ -53,6 +66,7 @@ export const resetDb = (): void => {
 const nextId = (values: { id: number }[]): number =>
   values.reduce((max, value) => Math.max(max, value.id), 0) + 1;
 
+export const nextAccountId = (): number => nextId(db.accounts);
 export const nextEventId = (): number => nextId(db.events);
 export const nextSessionId = (): number => nextId(db.sessions);
 export const nextFeedbackId = (): number => nextId(db.feedbacks);
@@ -64,6 +78,10 @@ export const generateEventCode = (): string => Math.random().toString(36).slice(
 // ─────────────────────────────────────────────────────────────
 // 조회
 // ─────────────────────────────────────────────────────────────
+
+/** 로그인·가입 모두 이메일로 계정을 찾습니다(요구사항 "2. 로그인" 1단계, 이메일은 UNIQUE). */
+export const findAccountByEmail = (email: string): MockAccount | undefined =>
+  db.accounts.find((account) => account.email === email);
 
 /** DELETED 이벤트는 조회 대상에서 빠집니다(요구사항 "6. 이벤트 삭제"). */
 export const findEventByCode = (code: string): PulseEvent | undefined =>

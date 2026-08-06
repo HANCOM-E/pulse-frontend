@@ -4,6 +4,7 @@ import {
   feedbackSnapshotSchema,
   publicReportSchema,
   pulseEventSchema,
+  signupResponseSchema,
 } from '@/lib/schemas/api';
 import { resetDb } from '@/mocks/data/store';
 import { API_BASE_URL } from '@/mocks/handlers/shared';
@@ -54,6 +55,39 @@ describe('auth', () => {
 
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toMatchObject({ code: 'INVALID_CREDENTIALS' });
+  });
+
+  it('가입한 계정으로 다시 로그인할 수 있다', async () => {
+    const credentials = { email: 'new@example.com', password: 'pulse5678' };
+
+    const signup = await call('/auth/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(credentials),
+    });
+    expect(signup.status).toBe(201);
+    const created = signupResponseSchema.parse(await signup.json());
+    expect(created.id).not.toBe(1); // 시드 계정(host)과 다른 id
+
+    const login = await call('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(credentials),
+    });
+
+    expect(login.status).toBe(200);
+    await expect(login.json()).resolves.toMatchObject({ expiresIn: 3600 });
+  });
+
+  it('이미 가입된 이메일이면 EMAIL_ALREADY_EXISTS를 준다', async () => {
+    const response = await call('/auth/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'host@example.com', password: 'pulse1234' }),
+    });
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({ code: 'EMAIL_ALREADY_EXISTS' });
   });
 
   it('비밀번호 정책(영문+숫자)을 어기면 VALIDATION_ERROR를 준다', async () => {
