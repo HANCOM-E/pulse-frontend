@@ -252,7 +252,9 @@ import { Banner } from '@/components/ui/Banner';
 
 여러 컴포넌트가 함께 쓰는 아이콘입니다. 모두 16 × 16, 선 굵기 2.5, 끝은 둥글게.
 
-색은 `stroke="currentColor"`라 부모의 글자색을 따라갑니다. 컴포넌트에서 색을 넘길 필요가 없습니다.
+색은 `stroke`와 `fill` 모두 `currentColor`라 부모의 글자색을 따라갑니다. 컴포넌트에서 색을 넘길 필요가 없습니다.
+
+선으로 그린 부분은 `stroke`, `AlertIcon`의 점처럼 면으로 채운 부분은 `fill`을 씁니다. 새 아이콘을 추가할 때도 두 속성 다 `currentColor`로 두세요.
 
 | 이름 | 모양 | 쓰는 곳 |
 | --- | --- | --- |
