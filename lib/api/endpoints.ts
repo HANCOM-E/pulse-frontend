@@ -50,9 +50,14 @@ import type { z } from 'zod';
  * 그대로 화면까지 흘러가 `items.map`처럼 필드에 손대는 순간 터졌고, 이 함수가 막으려던
  * "조용한 undefined"가 그대로 재현됐습니다. 실패는 호출자가 알아야 하므로 던집니다.
  *
- * `INVALID_RESPONSE`는 `API_ERROR_STATUS`에 없어서 `isClientError`가 false를 주고,
- * 그래서 `QueryProvider`의 기본 정책상 2회까지 재시도됩니다. 배포 시차로 BE·FE 버전이
- * 잠깐 어긋난 경우를 넘길 수 있어 그대로 둡니다.
+ * `INVALID_RESPONSE`는 FE가 만든 코드라 `API_ERROR_STATUS` 표에 없습니다. 그래서
+ * `isClientError`가 false를 주는데, `QueryProvider`가 이 코드를 따로 걸러 재시도하지
+ * 않습니다(#56).
+ *
+ * 원래는 배포 시차로 BE·FE 버전이 잠깐 어긋난 경우를 넘기려고 재시도를 두었습니다.
+ * 재시도 3회는 백오프를 포함해도 3초 안에 끝나는데 배포 시차는 분 단위라, 의도한
+ * 효과가 없으면서 이미 어긋난 서버로 나가는 요청만 3배가 됐습니다. 집계 API를
+ * 3초마다 부르는 화면이 붙으면서 실제로 문제가 됩니다.
  */
 const parseResponse = <T extends z.ZodType>(schema: T, data: unknown, path: string): z.infer<T> => {
   const result = schema.safeParse(data);
