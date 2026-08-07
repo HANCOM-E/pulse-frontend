@@ -1,13 +1,30 @@
 import type { ComponentProps } from 'react';
 
-type LogoProps = Omit<ComponentProps<'span'>, 'children'>;
+type LogoSize = 'md' | 'lg';
 
-const Logo = ({ className = '', ...props }: LogoProps) => {
+interface LogoProps extends Omit<ComponentProps<'span'>, 'children'> {
+  size?: LogoSize;
+}
+
+/** viewBox는 md 기준 고정입니다. 크기를 키우면 선 굵기도 함께 3 → 4.5로 커집니다. */
+const SYMBOL: Record<LogoSize, { width: number; height: number }> = {
+  md: { width: 44, height: 39 },
+  lg: { width: 66, height: 58.5 },
+};
+
+const WORDMARK: Record<LogoSize, string> = {
+  md: 'text-base leading-6',
+  lg: 'text-2xl leading-9',
+};
+
+const Logo = ({ size = 'md', className = '', ...props }: LogoProps) => {
+  const symbol = SYMBOL[size];
+
   return (
     <span className={`inline-flex items-center gap-1 ${className}`} {...props}>
       <svg
-        width="44"
-        height="39"
+        width={symbol.width}
+        height={symbol.height}
         viewBox="0 0 44 39"
         fill="none"
         aria-hidden="true"
@@ -26,7 +43,7 @@ const Logo = ({ className = '', ...props }: LogoProps) => {
           strokeLinejoin="round"
         />
       </svg>
-      <span className="text-base font-semibold leading-6 tracking-tighter text-primary-darker">
+      <span className={`${WORDMARK[size]} font-semibold tracking-tighter text-primary-darker`}>
         Pulse
       </span>
     </span>
@@ -34,3 +51,4 @@ const Logo = ({ className = '', ...props }: LogoProps) => {
 };
 
 export { Logo };
+export type { LogoSize };
