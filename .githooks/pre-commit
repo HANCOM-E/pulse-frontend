@@ -1,0 +1,4 @@
+#!/bin/sh
+# staged 파일 lint-staged 검사. 우회: git commit --no-verify
+
+npx lint-staged
