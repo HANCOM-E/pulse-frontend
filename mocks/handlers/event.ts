@@ -1,6 +1,11 @@
 import { http, HttpResponse } from 'msw';
 import type { PulseEvent, Session } from '@/lib/schemas/api';
-import { eventCreateRequestSchema, eventUpdateRequestSchema, sessionCreateRequestSchema } from '@/lib/schemas/api';
+import {
+  eventCreateRequestSchema,
+  eventUpdateRequestSchema,
+  sessionCreateRequestSchema,
+  sessionUpdateRequestSchema,
+} from '@/lib/schemas/api';
 import {
   HOST_USER,
   db,
@@ -140,6 +145,23 @@ export const eventHandlers = [
     db.sessions.push(session);
 
     return HttpResponse.json(session, { status: 201 });
+  }),
+
+  http.patch(`${API_BASE_URL}/events/:eventCode/sessions/:sessionId`, async ({ request, params }) => {
+    const event = requireOwnedEvent(request, params.eventCode);
+    if (event instanceof Response) return event;
+
+    const sessionId = toNumericId(params.sessionId);
+    const session = sessionId === null ? undefined : findSessionById(sessionId);
+    if (!session || session.eventId !== event.id) return errorResponse('SESSION_NOT_FOUND');
+
+    const body = await parseBody(request, sessionUpdateRequestSchema);
+    if (!body.ok) return body.response;
+
+    if (body.data.title !== undefined) session.title = body.data.title;
+    if (body.data.order !== undefined) session.order = body.data.order;
+
+    return HttpResponse.json(session);
   }),
 
   http.delete(`${API_BASE_URL}/events/:eventCode/sessions/:sessionId`, ({ request, params }) => {
