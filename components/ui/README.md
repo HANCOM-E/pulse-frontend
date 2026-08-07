@@ -19,6 +19,28 @@ Figma 디자인 시스템을 코드로 옮긴 공용 컴포넌트입니다.
 Figma는 "어떻게 생겼는가"를, 코드는 "어떤 상태인가"를 표현합니다.
 둘이 1:1로 대응하지 않는 경우가 있으니 아래 표를 기준으로 하세요.
 
+## focus
+
+**Button · Chip · Input에 공통으로 적용됩니다.**
+
+| 항목 | 값 |
+| --- | --- |
+| 색 | `Primary/default` |
+| 두께 | 2 |
+| offset | 2 |
+
+```text
+focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-default
+```
+
+`border`가 아니라 `outline`입니다. border로 만들면 요소 크기가 밀립니다.
+
+`focus`가 아니라 `focus-visible`입니다. 키보드로 이동할 때만 보이고 마우스로 누를 때는 안 나타납니다.
+
+**컴포넌트마다 새로 정하지 마세요.** 여기서 한 번만 정의합니다. Figma도 마찬가지로 링을 컴포넌트 안에 그리지 않고 디자인 시스템 페이지의 States 프레임에만 적어둡니다. 오토레이아웃 안에 링을 넣으면 자기 자리를 차지해서 레이아웃이 밀립니다.
+
+Input은 여기에 더해 테두리 색도 `Primary/default`로 바뀝니다. 링만으로는 2.65:1이라 약해서 두 겹으로 표시합니다.
+
 ---
 
 ## Button
@@ -248,6 +270,128 @@ import { Banner } from '@/components/ui/Banner';
 
 ---
 
+## Input · Field
+
+`components/ui/Input.tsx` · `components/ui/Field.tsx`
+
+두 겹으로 나뉩니다. Figma의 `input`·`field` 세트와 같은 구분입니다.
+
+| | 담당 |
+| --- | --- |
+| `Input` | `<input>` 하나. 크기와 테두리 색 |
+| `Field` | 라벨 + Input + 오류 메시지. `id`와 접근성 속성 연결 |
+
+**폼에서는 `Field`를 쓰세요.** `Input`을 직접 쓰면 라벨 연결과 `aria`를 손으로 해야 하고, 화면이 늘어나면 반드시 빠뜨립니다.
+
+### Input 스펙
+
+| 항목 | 값 |
+| --- | --- |
+| 높이 | `h-12` (48) — Button `md`와 동일 |
+| radius | `rounded-lg` (8) |
+| 좌우 padding | `px-3.5` (14) |
+| 폰트 | 16 / Regular / lh 24 |
+| 너비 | `w-full` |
+
+| 상태 | 테두리 |
+| --- | --- |
+| 기본 | `border-border-default` |
+| focus | `focus:border-primary-default` |
+| 오류 | `border-negative-default` |
+
+오류일 때는 focus를 받아도 테두리가 빨간색 그대로입니다. 문제가 해결되기 전까지 표시가 사라지면 안 됩니다.
+
+### Field 스펙
+
+```text
+라벨       16    12 / Regular / lh16 / text-text-secondary
+gap         4
+Input      48
+gap         4    (오류가 있을 때만)
+오류 메시지  16    12 / Regular / lh16 / text-negative-darker
+```
+
+오류 없을 때 68, 있을 때 88.
+
+### Field가 대신 해주는 것
+
+```tsx
+<Field label="이메일" error="이메일 형식이 아닙니다" />
+```
+
+`error`를 넘기면 세 가지가 한꺼번에 일어납니다.
+
+- Input 테두리가 오류 색으로
+- `aria-invalid="true"`
+- 오류 메시지에 `id`를 붙이고 Input에 `aria-describedby`로 연결
+
+`id`는 `useId`로 자동 생성됩니다. 라벨을 눌러도 입력칸에 포커스가 갑니다.
+
+### 주의
+
+- **`Field`는 클라이언트 컴포넌트입니다.** `useId`를 쓰기 때문입니다. 폼은 어차피 상태가 필요해서 문제되지 않습니다.
+- **`aria-invalid`와 `aria-describedby`는 밖에서 못 바꿉니다.** `error` prop이 진실의 원천입니다.
+- **폼 전체에 걸리는 오류는 Field가 아니라 Banner입니다.** `이메일 또는 비밀번호가 일치하지 않습니다`는 어느 칸이 틀렸는지 특정할 수 없습니다. Field의 오류는 `이메일 형식이 아닙니다`처럼 그 칸에만 해당하는 것입니다.
+- `disabled`는 시안에 없지만 HTML 속성이라 누구든 넘길 수 있습니다. 스타일이 없으면 브라우저 기본 회색이 나오므로 최소한만 정의했습니다.
+
+### 알려진 대비 미달
+
+시안 색을 유지하기로 결정했습니다.
+
+| 항목 | 대비 | 기준 |
+| --- | --- | --- |
+| 기본 테두리 `Border/default` | 1.53:1 | 3:1 |
+| focus 테두리 `Primary/default` | 2.65:1 | 3:1 |
+| placeholder `Text/disabled` | 2.13:1 | 4.5:1 |
+
+라벨(`Text/secondary` 6.49:1)과 오류 메시지(`Negative/darker` 10.21:1)는 통과합니다.
+
+그래서 아래를 지켜주세요.
+
+- **placeholder에 꼭 필요한 정보를 넣지 마세요.** 입력 예시만 넣고, 무엇을 입력하는지는 라벨이 말합니다. placeholder는 글자를 입력하는 순간 사라지기도 합니다
+- **오류를 테두리 색으로만 알리지 마세요.** `error` prop을 쓰면 문구가 함께 뜹니다
+
+### 사용 예
+
+```tsx
+import { Field } from '@/components/ui/Field';
+
+<Field label="이메일" type="email" placeholder="host@example.com" />
+<Field label="비밀번호" type="password" error="8자 이상 입력해주세요" />
+```
+
+---
+
+## Textarea
+
+`components/ui/Textarea.tsx`
+
+여러 줄 입력입니다. 소감 입력에 씁니다. 색·테두리·폰트·상태는 Input과 완전히 같습니다.
+
+| 항목 | 값 |
+| --- | --- |
+| 최소 높이 | `min-h-24` (96) — 세 줄 |
+| padding | `py-3 px-3.5` (12 / 14) |
+| 크기 조절 | `resize-none` |
+
+`96 = 12 + 24 × 3 + 12`입니다. 글자는 위에서부터 쌓입니다.
+
+### 주의
+
+- **사용자가 크기를 못 늘립니다.** 시안이 고정 높이라 `resize-none`을 넣었습니다. 긴 글을 받는 자리가 아니라서인데, 답답하다는 얘기가 나오면 `resize-y`로 바꾸세요. 대신 아래 요소가 밀려나는 걸 감안해야 합니다.
+- **`Field`는 아직 Input만 감쌉니다.** 라벨과 오류가 붙은 여러 줄 입력이 필요해지면 그때 `Field`를 넓히세요. 지금 미리 만들면 props 타입이 복잡해지기만 합니다.
+- 나머지 주의사항은 Input과 같습니다. placeholder 대비, 오류 표시 방식 모두요.
+
+### 사용 예
+
+```tsx
+import { Textarea } from '@/components/ui/Textarea';
+
+<Textarea placeholder="이번 세션은 어떠셨나요?" maxLength={200} />
+```
+
+---
+
 ## Badge
 
 `components/ui/Badge.tsx`
@@ -392,7 +536,7 @@ import { Toast } from '@/components/ui/Toast';
 
 ## 미작성
 
-Input · Card · Dialog
+Card · Dialog
 
 Toast를 화면에 띄우는 구조(`useToast` · `ToastViewport`)도 아직입니다.
 
@@ -409,6 +553,9 @@ Toast를 화면에 띄우는 구조(`useToast` · `ToastViewport`)도 아직입�
 - 2026.08.06 (#21) — Banner에서 `positive` variant 제거. 성공 알림은 Toast가 담당하므로 흐름 안에 남을 이유가 없음. 필요해지면 다시 추가
 - 2026.08.06 (#21) — Banner의 `type`은 기본값 없이 필수. 남은 둘 다 나쁜 소식이라 기본값을 두면 실패가 조용히 주의 색으로 뜰 수 있음
 - 2026.08.06 (#21) — 아이콘을 텍스트 글자에서 벡터로 교체하고 `icons.tsx`로 분리. `✔️` 같은 이모지는 지정한 색이 안 먹고 OS마다 다르게 렌더됨. 신규 토큰 없음
+- 2026.08.06 (#34) — Input과 Field를 두 파일로 분리. `aria-describedby`·`aria-invalid`를 화면마다 손으로 붙이면 반드시 빠뜨림. Field가 `useId`로 연결을 대신함
+- 2026.08.06 (#34) — Input의 focus에 테두리 색 변경과 outline 링을 함께 적용. 시안에는 테두리만 있지만, 링을 빼면 브라우저 기본 표시를 지운 자리에 2.65:1짜리 테두리만 남아 포커스가 어디 있는지 알기 어려움. Button·Chip과 같은 링이라 시스템도 일관됨
+- 2026.08.06 (#34) — 오류 상태에서는 focus를 받아도 테두리를 빨간색으로 유지. 문제가 해결되기 전에 오류 표시가 사라지면 안 됨
 - 2026.08.06 — Badge의 `LIVE`·`ENDED` variant 삭제. `LIVE`는 `positive`와 색이 완전히 같았고 `ENDED`는 `neutral`과 배경이 같은데 글자색만 달랐음. 색이 같은 variant를 따로 두면 한쪽만 고쳐져 어긋남. 문구만 바꿔 쓰는 방식으로 통일
 - 2026.08.06 — Badge `none`의 글자색을 `Text/tertiary`(3.61:1, AA 미달)에서 `Text/secondary`(6.49:1)로 교체. 테두리는 `Border/strong` 유지 — 배지는 조작 요소가 아니라 3:1 규정 대상이 아니고, 이 시스템에서 가장 진한 테두리 토큰임
 - 2026.08.06 — Badge 문구를 `children`으로 받음. `긍정`·`독성 의심` 같은 도메인 문구가 `ui/` 안에 들어가지 않게 하기 위함. Figma의 `none`은 코드에서 `outline`으로 이름 변경
