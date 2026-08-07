@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import MswProvider from '@/components/providers/MswProvider';
 import QueryProvider from '@/components/providers/QueryProvider';
+import ToastViewport from '@/components/ui/ToastViewport';
 
 interface AppProvidersProps {
   children: ReactNode;
@@ -13,7 +14,10 @@ interface AppProvidersProps {
  */
 const AppProviders = ({ children }: AppProvidersProps) => (
   <MswProvider>
-    <QueryProvider>{children}</QueryProvider>
+    <QueryProvider>
+      {children}
+      <ToastViewport />
+    </QueryProvider>
   </MswProvider>
 );
 

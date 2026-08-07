@@ -55,6 +55,23 @@
 
   --shadow-dialog: 0 0.25rem 1rem rgb(0 0 0 / 0.15);
   --shadow-toast: 0 0.25rem 0.25rem rgb(0 0 0 / 0.15);
+
+  /* 길이를 바꾸면 hooks/useToast.ts의 EXIT_MS도 같이 바꿔야 합니다. */
+  --animate-toast-in: toast-in 0.2s ease-out;
+  --animate-toast-out: toast-out 0.2s ease-in forwards;
+
+  @keyframes toast-in {
+    from {
+      opacity: 0;
+      transform: translateY(0.5rem);
+    }
+  }
+
+  @keyframes toast-out {
+    to {
+      opacity: 0;
+    }
+  }
 }
 
 body {
