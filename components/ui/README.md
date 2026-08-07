@@ -562,6 +562,116 @@ import { Stat } from '@/components/ui/Stat';
 
 ---
 
+## ConfirmDialog
+
+`components/ui/ConfirmDialog.tsx`
+
+되돌릴 수 없는 동작을 실행하기 전에 한 번 묻는 창입니다. 시안의 `Alert`입니다.
+
+### 이름을 바꾼 이유
+
+`Alert`는 Banner가 이미 `role="alert"`로 쓰고 있어서 파일 목록에서 헷갈립니다. `Dialog`는 아무 내용이나 담는 껍데기로 읽히는데, 이건 제목·설명·버튼 세 자리가 정해진 확인 전용입니다.
+
+### 네이티브 `<dialog>`를 씁니다
+
+Radix 없이 `showModal()`만으로 아래가 전부 해결됩니다.
+
+| 필요한 것           | 처리          |
+| ------------------- | ------------- |
+| 포커스 가두기       | 브라우저      |
+| ESC로 닫기          | 브라우저      |
+| 뒤 배경 클릭 차단   | 브라우저      |
+| 딤 배경             | `::backdrop`  |
+| 뒤 배경 스크롤 잠금 | `globals.css` |
+
+스크롤 잠금만 `showModal()`이 안 해줍니다. `globals.css`의 `body:has(dialog[open])`가 대신합니다.
+
+외부 컴포넌트 라이브러리 도입은 아직 보류 상태이므로(CLAUDE.md), 이 방식으로 갑니다.
+
+### 스펙
+
+| 항목      | 값                                        |
+| --------- | ----------------------------------------- |
+| 너비      | `w-90` (360), `max-w-[calc(100%_-_2rem)]` |
+| radius    | `rounded-xl` (12)                         |
+| padding   | `p-6` (24)                                |
+| 요소 간격 | `gap-4` (16)                              |
+| 버튼 간격 | `gap-2` (8)                               |
+| 그림자    | `shadow-dialog`                           |
+| 딤 배경   | `backdrop:bg-overlay`                     |
+| 높이      | 176 (내용에서 나오는 값)                  |
+
+| 요소 | 폰트                | 색                    | 대비    |
+| ---- | ------------------- | --------------------- | ------- |
+| 제목 | 18 / Medium / lh28  | `text-text-primary`   | 13.99:1 |
+| 설명 | 14 / Regular / lh20 | `text-text-secondary` | 6.49:1  |
+
+시안은 360 고정이지만 코드에는 `max-w`를 붙였습니다. 320px 화면에서 넘치기 때문입니다.
+
+### `open`이 진실의 원천입니다
+
+DOM의 `open` 속성을 직접 건드리지 않습니다. `open` prop을 보고 `showModal()`·`close()`를 호출합니다.
+
+```tsx
+const [open, setOpen] = useState(false);
+
+<ConfirmDialog open={open} onClose={() => setOpen(false)} ... />
+```
+
+`<dialog open>`처럼 속성으로 열면 **모달이 아닌** 다이얼로그가 됩니다. 포커스도, 배경 차단도, 딤도 없습니다. 그래서 `open`을 props 타입에서 빼고 불리언으로 다시 받습니다.
+
+ESC를 누르면 `onCancel`에서 `preventDefault()`를 하고 `onClose()`만 호출합니다. 브라우저가 먼저 닫아버리면 React는 아직 열려 있다고 알고 있어서 둘이 어긋납니다. 닫는 것은 항상 `open` prop이 합니다.
+
+### 버튼은 밖에서 넘깁니다
+
+FeedItem과 같은 방식입니다. 확인 버튼이 `danger`인지 `primary`인지는 무슨 동작이냐에 달렸고, 그건 컴포넌트가 알 일이 아닙니다.
+
+```tsx
+actions={
+  <>
+    <Button variant="secondary" onClick={() => setOpen(false)}>취소</Button>
+    <Button variant="danger" onClick={handleDelete}>삭제</Button>
+  </>
+}
+```
+
+**취소를 먼저 두세요.** `showModal()`은 첫 번째 포커스 가능한 요소에 포커스를 줍니다. 파괴적 확인창에서 엔터를 눌렀을 때 취소되는 편이 안전합니다.
+
+### 주의
+
+- **`open:flex`입니다. `flex`로 바꾸지 마세요.** 닫힌 `<dialog>`를 숨기는 건 브라우저 기본 스타일인데, 작성자 스타일인 `.flex`가 그걸 이겨서 **닫혀도 화면에 남습니다.** `open:`을 붙이면 열렸을 때만 적용됩니다.
+- **`m-auto`도 지우지 마세요.** Tailwind Preflight가 `dialog { margin: 0 }`으로 초기화해서, 안 넣으면 화면 가운데가 아니라 왼쪽 위에 붙습니다.
+- **`role`·`aria-labelledby`·`aria-describedby`는 밖에서 못 바꿉니다.** `role="alertdialog"` 고정입니다. 되돌릴 수 없는 확인이라 스크린리더가 제목과 설명을 즉시 읽어야 합니다.
+- **`description`은 필수입니다.** 무엇이 일어나는지 안 쓰면 물어보는 의미가 없습니다. `삭제하면 되돌릴 수 없어요`처럼 결과를 적으세요.
+- **클라이언트 컴포넌트입니다.** `useRef`·`useEffect`를 씁니다.
+- 배경을 눌러 닫는 동작은 없습니다. 파괴적 확인창에서는 실수로 닫히는 편이 더 나쁩니다. ESC와 취소 버튼만 남겼습니다.
+
+### 사용 예
+
+```tsx
+import { Button } from '@/components/ui/Button';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+
+<ConfirmDialog
+  open={isConfirmOpen}
+  onClose={handleClose}
+  title="세션을 삭제할까요?"
+  description="삭제하면 되돌릴 수 없어요"
+  actions={
+    <>
+      <Button variant="secondary" onClick={handleClose}>
+        취소
+      </Button>
+      <Button variant="danger" onClick={handleDelete}>
+        삭제
+      </Button>
+    </>
+  }
+/>;
+```
+
+---
+
 ## icons
 
 `components/ui/icons.tsx`
@@ -594,7 +704,7 @@ import { Stat } from '@/components/ui/Stat';
 
 ## 미작성
 
-Card · Dialog
+Card
 
 Toast를 화면에 띄우는 구조(`useToast` · `ToastViewport`)도 아직입니다.
 
@@ -622,4 +732,8 @@ Toast를 화면에 띄우는 구조(`useToast` · `ToastViewport`)도 아직입�
 - 2026.08.06 — Toast는 생김새만 만들고 띄우는 방식은 분리. 위치·스택·타이머는 컴포넌트가 아니라 훅과 뷰포트의 일이라 섞으면 Toast가 비대해짐. 신규 토큰은 `--shadow-toast` 하나
 - 2026.08.06 — Toast 폰트를 Regular로. Banner는 Medium인데, 어두운 배경 위 흰 글씨는 같은 굵기라도 두껍게 보여서 한 단계 낮춰야 균형이 맞음
 - 2026.08.06 (#23) — 컴포넌트가 계산하는 접근성 속성은 밖에서 못 바꾸게 막는다. props 타입에서 `Omit`으로 빼고 JSX에서도 `{...props}` 뒤에 배치한다. 타입만 막으면 느슨한 객체를 펼칠 때 런타임에서 뚫린다. 현재 대상은 Banner의 `role`, Chip의 `aria-pressed`, 아이콘의 `aria-hidden`
+- 2026.08.07 — ConfirmDialog를 네이티브 `<dialog>` + `showModal()`로 구현. 포커스 가두기·ESC·배경 차단·딤을 브라우저가 처리해서 Radix 도입 논의가 필요 없어짐. 스크롤 잠금만 `globals.css`의 `body:has(dialog[open])`로 보완. 신규 토큰은 `--color-overlay`(시안에 딤 배경이 없어 코드에서 정함) 하나
+- 2026.08.07 — 열림 상태를 `open` prop 하나로만 관리. `<dialog open>` 속성으로 열면 모달이 아니게 되어 포커스도 배경 차단도 사라짐. ESC는 `onCancel`에서 `preventDefault()` 후 `onClose()`만 호출해서, 브라우저가 먼저 닫고 React가 뒤늦게 아는 상황을 막음
+- 2026.08.07 — 컴포넌트 이름을 시안의 `Alert`에서 `ConfirmDialog`로 변경. Banner가 이미 `role="alert"`를 쓰고 있어 혼동됨. `Dialog`는 아무 내용이나 담는 껍데기로 읽히는데 이건 제목·설명·버튼이 정해진 확인 전용
+- 2026.08.07 — 버튼을 `actions` prop으로 받고 취소를 먼저 배치. 확인 버튼이 danger인지 primary인지는 도메인 사정이고, `showModal()`이 첫 포커스 가능 요소에 포커스를 주므로 파괴적 확인창에서는 취소가 먼저인 편이 안전함
 - 2026.08.06 (#21) — Banner에 닫기 버튼을 넣지 않음. 현재 두 type이 모두 조건형이라, 닫으면 문제가 남아 있는데 표시만 사라짐. 공지형이 생기면 그때 `onClose` 추가
