@@ -11,6 +11,8 @@ import type {
   PublicReport,
   PulseEvent,
   Report,
+  Session,
+  SessionUpdateRequest,
   SessionView,
   SignupRequest,
   SignupResponse,
@@ -26,6 +28,7 @@ import {
   publicReportSchema,
   pulseEventSchema,
   reportSchema,
+  sessionSchema,
   sessionViewSchema,
   signupResponseSchema,
 } from '@/lib/schemas/api';
@@ -113,6 +116,18 @@ export const fetchSessionsByEventCode = async (eventCode: string): Promise<Sessi
     data,
     'GET /events/{eventCode}/sessions',
   ).items;
+};
+
+export const updateSession = async (
+  eventCode: string,
+  sessionId: number,
+  body: SessionUpdateRequest,
+): Promise<Session> => {
+  const data = await apiClient<unknown>(`/events/${eventCode}/sessions/${sessionId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
+  return parseResponse(sessionSchema, data, 'PATCH /events/{eventCode}/sessions/{sessionId}');
 };
 
 // ─────────────────────────────────────────────────────────────

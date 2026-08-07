@@ -213,6 +213,12 @@ export const sessionCreateRequestSchema = z.object({
   order: z.int(),
 });
 
+/** 전 필드 optional(부분 수정). */
+export const sessionUpdateRequestSchema = z.object({
+  title: z.string().min(1).optional(),
+  order: z.int().optional(),
+});
+
 export const eventListResponseSchema = listResponseSchema(pulseEventSchema);
 
 export type PulseEvent = z.infer<typeof pulseEventSchema>;
@@ -222,6 +228,7 @@ export type EventUpdateRequest = z.infer<typeof eventUpdateRequestSchema>;
 export type Session = z.infer<typeof sessionSchema>;
 export type SessionView = z.infer<typeof sessionViewSchema>;
 export type SessionCreateRequest = z.infer<typeof sessionCreateRequestSchema>;
+export type SessionUpdateRequest = z.infer<typeof sessionUpdateRequestSchema>;
 
 // ─────────────────────────────────────────────────────────────
 // feedback

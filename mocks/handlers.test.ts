@@ -6,10 +6,11 @@ import {
   listResponseSchema,
   publicReportSchema,
   reportSchema,
+  sessionSchema,
   sessionViewSchema,
   signupResponseSchema,
 } from '@/lib/schemas/api';
-import { resetDb } from '@/mocks/data/store';
+import { db, resetDb } from '@/mocks/data/store';
 import { API_BASE_URL } from '@/mocks/handlers/shared';
 import { server } from '@/mocks/server';
 
@@ -179,6 +180,99 @@ describe('세션 목록', () => {
 
     expect(response.status).toBe(404);
     await expect(response.json()).resolves.toMatchObject({ code: 'EVENT_NOT_FOUND' });
+  });
+});
+
+describe('세션 수정', () => {
+  it('title만 주면 title만 바뀌고 order는 그대로다', async () => {
+    const response = await call(`/events/${LIVE_EVENT_CODE}/sessions/101`, {
+      method: 'PATCH',
+      headers: { ...AUTH_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: '1부: 오프닝 키노트' }),
+    });
+
+    expect(response.status).toBe(200);
+    const session = sessionSchema.parse(await response.json());
+    expect(session).toMatchObject({ id: 101, title: '1부: 오프닝 키노트', order: 1 });
+  });
+
+  it('order만 주면 order만 바뀌고 title은 그대로다', async () => {
+    const response = await call(`/events/${LIVE_EVENT_CODE}/sessions/101`, {
+      method: 'PATCH',
+      headers: { ...AUTH_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ order: 2 }),
+    });
+
+    expect(response.status).toBe(200);
+    const session = sessionSchema.parse(await response.json());
+    expect(session).toMatchObject({ id: 101, title: '1부: 키노트', order: 2 });
+  });
+
+  it('title·order 둘 다 주면 둘 다 바뀌고, 저장소에도 반영된다', async () => {
+    const response = await call(`/events/${LIVE_EVENT_CODE}/sessions/101`, {
+      method: 'PATCH',
+      headers: { ...AUTH_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: '1부: 오프닝 키노트', order: 2 }),
+    });
+
+    expect(response.status).toBe(200);
+    const session = sessionSchema.parse(await response.json());
+    expect(session).toMatchObject({ id: 101, title: '1부: 오프닝 키노트', order: 2 });
+
+    // PATCH 응답만이 아니라 저장소 자체가 바뀌었는지 별도 GET으로 확인합니다.
+    const list = await call(`/events/${LIVE_EVENT_CODE}/sessions`);
+    const { items } = listResponseSchema(sessionViewSchema).parse(await list.json());
+    expect(items.find((item) => item.id === 101)).toMatchObject({
+      title: '1부: 오프닝 키노트',
+      order: 2,
+    });
+  });
+
+  it('소유자가 아니면 NOT_OWNER를 준다', async () => {
+    // 시드에는 HOST_USER 소유 이벤트만 있어서, 소유자 불일치를 재현하려면 다른 ownerId의
+    // 이벤트를 직접 심어야 합니다. 세션 존재 여부와 무관하게 소유자 확인이 먼저 걸립니다.
+    db.events.push({
+      id: 999,
+      code: 'other1',
+      title: '다른 사람 이벤트',
+      description: null,
+      ownerId: 999,
+      status: 'LIVE',
+      createdAt: '2026-08-01T09:00:00.000Z',
+    });
+
+    const response = await call('/events/other1/sessions/1', {
+      method: 'PATCH',
+      headers: { ...AUTH_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: '수정 시도' }),
+    });
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({ code: 'NOT_OWNER' });
+  });
+
+  it('없는 세션이면 SESSION_NOT_FOUND를 준다', async () => {
+    const response = await call(`/events/${LIVE_EVENT_CODE}/sessions/9999`, {
+      method: 'PATCH',
+      headers: { ...AUTH_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: '없는 세션' }),
+    });
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({ code: 'SESSION_NOT_FOUND' });
+  });
+
+  it('다른 이벤트 소속 세션이면 SESSION_NOT_FOUND를 준다', async () => {
+    // 세션 201은 존재하지만 이벤트 43(ENDED) 소속입니다. eventId 불일치도 존재 자체와
+    // 똑같이 404로 나와야 합니다 — 다른 이벤트 세션 id를 넣어보면 존재 여부를 추측할 수 있게 됩니다.
+    const response = await call(`/events/${LIVE_EVENT_CODE}/sessions/201`, {
+      method: 'PATCH',
+      headers: { ...AUTH_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: '남의 세션' }),
+    });
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({ code: 'SESSION_NOT_FOUND' });
   });
 });
 
