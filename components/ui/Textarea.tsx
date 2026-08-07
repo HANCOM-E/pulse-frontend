@@ -9,11 +9,11 @@ const BASE = [
   'text-base font-normal leading-6 text-text-primary',
   'placeholder:text-text-disabled',
   'transition-colors',
-  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-default',
+  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-darker',
   'disabled:cursor-not-allowed disabled:bg-background-muted disabled:text-text-disabled',
 ].join(' ');
 
-const DEFAULT = 'border-border-default focus:border-primary-default';
+const DEFAULT = 'border-border-default focus:border-primary-darker';
 const ERROR = 'border-negative-default';
 
 const Textarea = ({ invalid = false, className = '', ...props }: TextareaProps) => {
