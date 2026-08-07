@@ -55,9 +55,10 @@ import type { z } from 'zod';
  * 않습니다(#56).
  *
  * 원래는 배포 시차로 BE·FE 버전이 잠깐 어긋난 경우를 넘기려고 재시도를 두었습니다.
- * 재시도 3회는 백오프를 포함해도 3초 안에 끝나는데 배포 시차는 분 단위라, 의도한
- * 효과가 없으면서 이미 어긋난 서버로 나가는 요청만 3배가 됐습니다. 집계 API를
- * 3초마다 부르는 화면이 붙으면서 실제로 문제가 됩니다.
+ * 기본 정책은 `failureCount < 2`라 최대 2회 재시도(총 3회 요청)이고, 지수 백오프를
+ * 포함해도 3초 안에 끝납니다. 배포 시차는 분 단위라 의도한 효과가 없으면서 이미
+ * 어긋난 서버로 나가는 요청만 3배가 됐습니다. 집계 API를 3초마다 부르는 화면이
+ * 붙으면서 실제로 문제가 됩니다.
  */
 const parseResponse = <T extends z.ZodType>(schema: T, data: unknown, path: string): z.infer<T> => {
   const result = schema.safeParse(data);
