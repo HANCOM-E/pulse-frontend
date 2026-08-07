@@ -1,8 +1,9 @@
 'use client';
 
+import { useQuery } from '@tanstack/react-query';
+
 import { fetchFeedbackSnapshot } from '@/lib/api/endpoints';
 import type { FeedbackSnapshot } from '@/lib/schemas/api';
-import { useQuery } from '@tanstack/react-query';
 
 /**
  * 집계 스냅샷 구독입니다. 지금은 폴링이고 나중에 SSE로 승급합니다.

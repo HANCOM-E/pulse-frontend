@@ -6,16 +6,13 @@
  *
  * `useSearchParams`는 프리렌더 시 가장 가까운 Suspense 경계까지 클라이언트 렌더로
  * 떨어지므로, 이 컴포넌트가 그 경계의 fallback도 겸합니다.
- *
- * 위치: 협의 전까지 라우트 폴더에 co-locate합니다. 다른 화면이 같이 쓰게 되면
- * `components/live/`로 옮깁니다.
  */
 const LiveSkeleton = () => {
   return (
     <div className="flex animate-pulse flex-col gap-6" aria-hidden>
       <section className="flex flex-col gap-2">
         <div className="h-4 w-40 rounded bg-neutral-subtle" />
-        {/* 높이 16은 Thermometer 막대와 같은 값입니다. 실제 화면으로 바뀔 때 자리가 흔들리지 않습니다. */}
+        {/* `h-4`는 Thermometer 막대와 같은 값입니다. 실제 화면으로 바뀔 때 자리가 흔들리지 않습니다. */}
         <div className="h-4 w-full rounded-full bg-neutral-subtle" />
         <div className="h-4 w-full rounded bg-neutral-subtle" />
       </section>

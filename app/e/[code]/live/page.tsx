@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 
-import { LiveResult } from './LiveResult';
-import { LiveSkeleton } from './LiveSkeleton';
+import { LiveResult } from '@/components/live/LiveResult';
+import { LiveSkeleton } from '@/components/live/LiveSkeleton';
 
 /**
  * 참가자용 실시간 결과 화면입니다.

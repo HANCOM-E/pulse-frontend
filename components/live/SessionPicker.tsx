@@ -17,8 +17,6 @@ interface SessionPickerProps {
  *
  * 공개 응답인 `SessionView`에는 `status`가 없어서(스키마에서 omit) "지금 진행 중인 세션"을
  * 프론트가 알아낼 방법이 없습니다. 그래서 자동 선택 대신 사람이 고르게 합니다.
- *
- * 위치: 협의 전까지 라우트 폴더에 co-locate합니다.
  */
 const SessionPicker = ({ sessions, onSelect }: SessionPickerProps) => {
   return (

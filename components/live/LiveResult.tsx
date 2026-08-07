@@ -1,15 +1,15 @@
 'use client';
 
+import { useQuery } from '@tanstack/react-query';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
+
 import { Thermometer } from '@/components/feedback/Thermometer';
+import { LiveSkeleton } from '@/components/live/LiveSkeleton';
+import { SessionPicker } from '@/components/live/SessionPicker';
 import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
 import { useFeedbackSnapshot } from '@/hooks/useFeedbackSnapshot';
 import { fetchSessionsByEventCode } from '@/lib/api/endpoints';
-import { useQuery } from '@tanstack/react-query';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
-
-import { LiveSkeleton } from './LiveSkeleton';
-import { SessionPicker } from './SessionPicker';
 
 /**
  * 세션 하나의 실시간 집계 화면입니다.
