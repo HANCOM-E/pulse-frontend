@@ -141,7 +141,7 @@ gap       8
 
 ### 주의
 
-- **`role`과 `aria-label`은 밖에서 못 바꿉니다.** 개수가 진실의 원천입니다.
+- **`role`·`aria-label`·`aria-labelledby`는 밖에서 못 바꿉니다.** 개수가 진실의 원천입니다. `aria-labelledby`까지 막는 이유는 그게 `aria-label`보다 우선순위가 높아서, 들어오면 계산된 비율이 무시되기 때문입니다.
 - 막대 뒤에 `bg-background-muted`가 깔려 있습니다. 세 값이 모두 0일 때 빈 막대가 보이게 하려는 것입니다.
 - 도넛과 언제 갈리는지는 아직 정해지지 않았습니다. 화면 조립할 때 breakpoint를 정하세요.
 

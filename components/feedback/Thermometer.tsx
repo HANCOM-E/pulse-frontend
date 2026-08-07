@@ -1,6 +1,9 @@
 import type { ComponentProps } from 'react';
 
-interface ThermometerProps extends Omit<ComponentProps<'div'>, 'children' | 'role' | 'aria-label'> {
+interface ThermometerProps extends Omit<
+  ComponentProps<'div'>,
+  'children' | 'role' | 'aria-label' | 'aria-labelledby'
+> {
   positive: number;
   neutral: number;
   negative: number;
@@ -30,6 +33,7 @@ const Thermometer = ({
       {...props}
       role="img"
       aria-label={`긍정 ${rate.positive}%, 중립 ${rate.neutral}%, 부정 ${rate.negative}%`}
+      aria-labelledby={undefined}
     >
       <div className="flex h-4 overflow-hidden rounded-full bg-background-muted">
         <div className="bg-positive-default" style={{ flexGrow: positive }} />
