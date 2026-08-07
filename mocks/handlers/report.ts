@@ -52,7 +52,7 @@ const completeReport = (reportId: number): void => {
   report.status = 'GENERATED';
   report.summaryText = buildSummaryText(report.eventId);
   report.sentimentBreakdown = snapshot.sentimentBreakdown;
-  report.topKeywords = snapshot.topKeywords.map((item) => item.keyword);
+  report.topKeywords = snapshot.topKeywords;
   report.generatedAt = new Date().toISOString();
 };
 

@@ -67,7 +67,8 @@ const isoDateTime = z.iso.datetime();
  * 필드 추가만으로 도입할 수 있도록 봉투를 씌워둔 상태입니다(비파괴 seam).
  * FE는 반드시 `.items`로 언랩해야 합니다.
  */
-export const listResponseSchema = <T extends z.ZodType>(item: T) => z.object({ items: z.array(item) });
+export const listResponseSchema = <T extends z.ZodType>(item: T) =>
+  z.object({ items: z.array(item) });
 
 export const apiErrorBodySchema = z.object({
   code: apiErrorCodeSchema,
@@ -316,7 +317,7 @@ export const reportSchema = z.object({
   status: reportStatusSchema,
   summaryText: z.string().nullable(),
   sentimentBreakdown: sentimentBreakdownSchema.nullable(),
-  topKeywords: z.array(z.string()).nullable(),
+  topKeywords: z.array(keywordCountSchema).nullable(),
   isPublic: z.boolean(),
   generatedAt: isoDateTime.nullable(),
 });
@@ -324,7 +325,7 @@ export const reportSchema = z.object({
 export const publicReportSchema = z.object({
   summaryText: z.string(),
   sentimentBreakdown: sentimentBreakdownSchema,
-  topKeywords: z.array(z.string()),
+  topKeywords: z.array(keywordCountSchema),
 });
 
 export type Report = z.infer<typeof reportSchema>;
