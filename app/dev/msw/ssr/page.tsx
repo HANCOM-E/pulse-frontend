@@ -37,7 +37,9 @@ const DevMswSsrPage = async () => {
           {event.title} · {event.status}
         </h2>
         <p>{report.summaryText}</p>
-        <p className="text-zinc-500">상위 키워드: {report.topKeywords.join(', ')}</p>
+        <p className="text-zinc-500">
+          상위 키워드: {report.topKeywords.map((k) => `${k.keyword}(${k.count})`).join(', ')}
+        </p>
       </section>
     </main>
   );
