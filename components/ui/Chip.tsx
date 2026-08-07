@@ -9,7 +9,7 @@ const BASE = [
   'rounded-full border px-3.5',
   'text-sm leading-5',
   'transition-colors',
-  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-default',
+  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-darker',
   'disabled:cursor-not-allowed disabled:border-border-subtle',
   'disabled:bg-background-muted disabled:font-normal disabled:text-text-disabled',
 ].join(' ');

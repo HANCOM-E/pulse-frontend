@@ -21,16 +21,16 @@ Figma는 "어떻게 생겼는가"를, 코드는 "어떤 상태인가"를 표현�
 
 ## focus
 
-**Button · Chip · Input에 공통으로 적용됩니다.**
+**Button · Chip · Input · Textarea · Header에 공통으로 적용됩니다.**
 
-| 항목   | 값                |
-| ------ | ----------------- |
-| 색     | `Primary/default` |
-| 두께   | 2                 |
-| offset | 2                 |
+| 항목   | 값               |
+| ------ | ---------------- |
+| 색     | `Primary/darker` |
+| 두께   | 2                |
+| offset | 2                |
 
 ```text
-focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-default
+focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-darker
 ```
 
 `border`가 아니라 `outline`입니다. border로 만들면 요소 크기가 밀립니다.
@@ -39,7 +39,36 @@ focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pri
 
 **컴포넌트마다 새로 정하지 마세요.** 여기서 한 번만 정의합니다. Figma도 마찬가지로 링을 컴포넌트 안에 그리지 않고 디자인 시스템 페이지의 States 프레임에만 적어둡니다. 오토레이아웃 안에 링을 넣으면 자기 자리를 차지해서 레이아웃이 밀립니다.
 
-Input은 여기에 더해 테두리 색도 `Primary/default`로 바뀝니다. 링만으로는 2.65:1이라 약해서 두 겹으로 표시합니다.
+### 색이 `Primary/darker`인 이유
+
+`Primary/default`는 어느 배경에서도 3:1을 못 넘깁니다.
+
+| 배경                 | `Primary/default` | `Primary/darker` |
+| -------------------- | ----------------- | ---------------- |
+| `background/default` | 2.62:1            | 5.55:1           |
+| `background/surface` | 2.51:1            | 5.31:1           |
+| `background/muted`   | 2.28:1            | 4.82:1           |
+
+브라우저 기본 포커스 표시를 지우고 이 링으로 대체했기 때문에, 링이 안 보이면 키보드로만 조작하는 사용자는 지금 어디에 있는지 알 수 없습니다. WCAG 1.4.11의 3:1이 기준입니다.
+
+**링은 언제나 `Primary/darker`입니다.** 어느 컴포넌트든, 어떤 상태든 바뀌지 않습니다.
+
+Input·Textarea는 링에 더해 테두리 색도 바뀌는데, **여기에는 예외가 하나 있습니다.**
+
+| 상태            | 링               | 테두리                  |
+| --------------- | ---------------- | ----------------------- |
+| 기본            | `Primary/darker` | `Primary/darker`        |
+| 오류(`invalid`) | `Primary/darker` | `Negative/default` 유지 |
+
+오류일 때 테두리까지 파랗게 바뀌면 문제가 아직 안 풀렸는데 표시가 사라집니다. 링만으로도 포커스 위치는 보입니다.
+
+이 예외 말고는 색을 따로 정하지 마세요. 링과 테두리 규칙이 갈라지면 한쪽만 고쳐집니다.
+
+### 두께는 px입니다
+
+`outline-2`와 `outline-offset-2`는 rem으로 바꾸지 마세요.
+
+CLAUDE.md의 단위 규칙은 "폰트·간격은 rem, px은 1px 고정값(border 등)에만"입니다. outline은 간격이 아니라 테두리와 같은 성격의 선입니다. 글자 크기에 따라 포커스 링이 굵어질 이유가 없고, `outline-[0.125rem]`처럼 쓰면 읽기만 어려워집니다.
 
 ---
 
@@ -96,7 +125,7 @@ Figma 마스터 높이는 52이고, 화면에서는 인스턴스로 조정되어
 `Primary/default`와 `Negative/default`는 흰 글씨를 받으면 각각 2.65:1, 3.87:1로 미달하므로
 버튼 배경으로 쓰지 마세요. 두 색은 아이콘·그래프·테두리 등 텍스트가 얹히지 않는 자리에 씁니다.
 
-focus는 `focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-default`.
+focus는 `focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-darker`.
 `border`가 아니라 `outline`입니다. border로 만들면 버튼 크기가 밀립니다.
 
 ### danger 사용 원칙
@@ -162,7 +191,7 @@ import { Button } from '@/components/ui/Button';
 | 선택 hover   | `bg-primary-subtle`     | `border-primary-darker`  | `text-primary-darker` | Medium  | 5.05:1 |
 | disabled     | `bg-background-muted`   | `border-border-subtle`   | `text-text-disabled`  | Regular | —      |
 
-focus는 Button과 같습니다. `focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-default`
+focus는 Button과 같습니다. `focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-darker`
 
 선택 상태의 hover는 배경이 아니라 테두리를 진하게 합니다.
 배경을 `Primary/lighter`로 채우면 텍스트 대비가 3.79:1로 떨어져 AA에 미달하기 때문입니다.
@@ -295,11 +324,11 @@ import { Banner } from '@/components/ui/Banner';
 | 폰트         | 16 / Regular / lh 24             |
 | 너비         | `w-full`                         |
 
-| 상태  | 테두리                         |
-| ----- | ------------------------------ |
-| 기본  | `border-border-default`        |
-| focus | `focus:border-primary-default` |
-| 오류  | `border-negative-default`      |
+| 상태  | 테두리                        |
+| ----- | ----------------------------- |
+| 기본  | `border-border-default`       |
+| focus | `focus:border-primary-darker` |
+| 오류  | `border-negative-default`     |
 
 오류일 때는 focus를 받아도 테두리가 빨간색 그대로입니다. 문제가 해결되기 전까지 표시가 사라지면 안 됩니다.
 
@@ -340,13 +369,12 @@ gap         4    (오류가 있을 때만)
 
 시안 색을 유지하기로 결정했습니다.
 
-| 항목                           | 대비   | 기준  |
-| ------------------------------ | ------ | ----- |
-| 기본 테두리 `Border/default`   | 1.53:1 | 3:1   |
-| focus 테두리 `Primary/default` | 2.65:1 | 3:1   |
-| placeholder `Text/disabled`    | 2.13:1 | 4.5:1 |
+| 항목                         | 대비   | 기준  |
+| ---------------------------- | ------ | ----- |
+| 기본 테두리 `Border/default` | 1.53:1 | 3:1   |
+| placeholder `Text/disabled`  | 2.13:1 | 4.5:1 |
 
-라벨(`Text/secondary` 6.49:1)과 오류 메시지(`Negative/darker` 10.21:1)는 통과합니다.
+라벨(`Text/secondary` 6.49:1)과 오류 메시지(`Negative/darker` 10.21:1)는 통과합니다. 기본 상태의 focus 테두리는 `Primary/darker`(5.55:1)로 올려서 해결했습니다(#59). 오류 상태의 테두리는 `Negative/default`(3.87:1)로 3:1을 넘습니다.
 
 그래서 아래를 지켜주세요.
 
@@ -713,6 +741,9 @@ Toast를 화면에 띄우는 구조(`useToast` · `ToastViewport`)도 아직입�
 ## 결정 기록
 
 - 2026.08.05 — 모더레이션 버튼 높이 32 → 36으로 통일. size는 lg/md/sm 3종만 유지
+- 2026.08.07 (#59) — 포커스 링 색을 `Primary/default`(2.62:1)에서 `Primary/darker`(5.55:1)로 교체. 브라우저 기본 표시를 지우고 이 링으로 대체했는데 어느 배경에서도 3:1을 못 넘겨, 키보드 사용자가 현재 위치를 알 수 없었음. Button·Chip·Input·Textarea·Header 5곳
+- 2026.08.07 (#59) — Input·Textarea의 **기본 상태** focus 테두리도 같은 `Primary/darker`로 통일. 링과 테두리 색이 갈라지면 규칙이 두 개가 되고 한쪽만 고쳐짐. 오류(`invalid`) 상태의 테두리는 `Negative/default`를 그대로 유지 — 문제가 안 풀렸는데 표시가 사라지면 안 되고, 포커스 위치는 링만으로도 보임
+- 2026.08.07 (#59) — `outline-2`·`outline-offset-2`를 px로 유지하기로 확정(#48 리뷰 지적). outline은 간격이 아니라 테두리와 같은 성격의 선이고, 글자 크기에 따라 포커스 링이 굵어질 이유가 없음
 - 2026.08.06 (#14) — focus 규격은 시안에 정의가 없어 코드에서 정함 (`Primary/default` 2px, offset 2)
 - 2026.08.06 (#14) — primary·secondary hover 색 확정. 이때 추가한 신규 토큰은 `Primary/pressed`(#036176) 하나
 - 2026.08.06 (#16) — danger 배경을 `Negative/default`(3.87:1, AA 미달)에서 `Negative/darker`(10.21:1)로 교체. hover용 `Negative/pressed`(#4F1D0D) 신설. `Negative/default` 값은 그대로 둬서 부정 감정 차트·배지는 영향 없음
