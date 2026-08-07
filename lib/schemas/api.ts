@@ -63,6 +63,15 @@ const id = z.int().positive();
 const isoDateTime = z.iso.datetime();
 
 /**
+ * 집계 개수. 0은 나오지만 음수는 나올 수 없습니다.
+ *
+ * 화면에서 clamp하지 않고 여기서 막습니다. 예를 들어 감정 분포에 음수가 들어오면
+ * 막대 컴포넌트는 그 값을 0으로 접어 "아직 소감 없음"과 똑같이 그리게 되는데,
+ * 그러면 백엔드 집계 버그가 정상 화면으로 위장됩니다.
+ */
+const count = z.int().nonnegative();
+
+/**
  * 목록 응답 봉투. v1에 페이지네이션은 없지만, 나중에 nextCursor/hasMore를
  * 필드 추가만으로 도입할 수 있도록 봉투를 씌워둔 상태입니다(비파괴 seam).
  * FE는 반드시 `.items`로 언랩해야 합니다.
@@ -273,13 +282,13 @@ export const feedbackSchema = feedbackViewSchema.extend({
 
 export const keywordCountSchema = z.object({
   keyword: z.string(),
-  count: z.int(),
+  count,
 });
 
 export const sentimentBreakdownSchema = z.object({
-  POS: z.int(),
-  NEU: z.int(),
-  NEG: z.int(),
+  POS: count,
+  NEU: count,
+  NEG: count,
 });
 
 /**
@@ -290,7 +299,7 @@ export const feedbackSnapshotSchema = z.object({
   /** sentiment != UNKNOWN 집계 */
   sentimentBreakdown: sentimentBreakdownSchema,
   /** sentiment = UNKNOWN(태깅 실패) 건수. 대시보드에 "미분류 N건"으로 별도 표시합니다. */
-  unclassifiedCount: z.int(),
+  unclassifiedCount: count,
   /** 빈도순 상위 10 */
   topKeywords: z.array(keywordCountSchema),
   /** 최신 50 */
