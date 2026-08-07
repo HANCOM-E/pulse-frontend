@@ -5,7 +5,14 @@ import { useSyncExternalStore } from 'react';
 /** 토스트가 화면에 머무는 시간입니다. */
 const DURATION_MS = 4_000;
 
-/** 사라지는 애니메이션 길이입니다. `globals.css`의 `--animate-toast-out`과 같아야 합니다. */
+/**
+ * 사라지는 애니메이션 길이입니다. `globals.css`의 `--animate-toast-out`과 같아야 합니다.
+ *
+ * 이 구간은 `prefers-reduced-motion`과 무관하게 항상 돕니다. 퇴장은 불투명도만
+ * 바뀌고 이동이 없어서, 모션을 줄이는 설정이 막으려는 대상이 아닙니다. 여기서
+ * 갈라놓으면 모션 판단이 CSS와 JS 두 곳에 생기고, 완전히 보이는 시간도
+ * 4초와 4.2초로 어긋납니다.
+ */
 const EXIT_MS = 200;
 
 interface ToastState {

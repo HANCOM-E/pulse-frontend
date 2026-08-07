@@ -20,9 +20,7 @@ const ToastViewport = () => {
       {current ? (
         <Toast
           key={current.id}
-          className={
-            current.isLeaving ? 'motion-safe:animate-toast-out' : 'motion-safe:animate-toast-in'
-          }
+          className={current.isLeaving ? 'animate-toast-out' : 'motion-safe:animate-toast-in'}
         >
           {current.message}
         </Toast>
