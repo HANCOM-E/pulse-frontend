@@ -1,5 +1,6 @@
 'use client';
 
+import { Thermometer } from '@/components/feedback/Thermometer';
 import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
 import { useFeedbackSnapshot } from '@/hooks/useFeedbackSnapshot';
@@ -75,21 +76,10 @@ const LiveResult = () => {
     return <SessionPicker sessions={sessions} onSelect={handleSelectSession} />;
   }
 
+  // 백분율은 계산하지 않습니다. `Thermometer`가 개수를 받아 직접 나눕니다.
   const { POS, NEU, NEG } = snapshot?.sentimentBreakdown ?? { POS: 0, NEU: 0, NEG: 0 };
-  const classified = POS + NEU + NEG;
   const unclassifiedCount = snapshot?.unclassifiedCount ?? 0;
-  const submissionCount = classified + unclassifiedCount;
-
-  const toPercent = (count: number) =>
-    classified === 0 ? 0 : Math.round((count / classified) * 100);
-  const positivePercent = toPercent(POS);
-  const neutralPercent = toPercent(NEU);
-  /*
-   * 세 값을 각각 반올림하면 합이 99나 101이 돼서 막대 끝에 빈틈이 생기거나 마지막 조각이
-   * flex-shrink로 찌그러집니다. 마지막 조각은 계산하지 않고 남은 만큼 채웁니다.
-   */
-  const negativePercent =
-    classified === 0 ? 0 : Math.max(0, 100 - positivePercent - neutralPercent);
+  const submissionCount = POS + NEU + NEG + unclassifiedCount;
 
   const keywords = snapshot?.topKeywords ?? [];
 
@@ -119,21 +109,7 @@ const LiveResult = () => {
               {unclassifiedCount > 0 && ` (미분류 ${unclassifiedCount}개)`}
             </h3>
 
-            <div
-              className="flex h-2.5 w-full overflow-hidden rounded-full bg-neutral-subtle"
-              role="img"
-              aria-label={`긍정 ${positivePercent}%, 중립 ${neutralPercent}%, 부정 ${negativePercent}%`}
-            >
-              <div className="bg-positive-default" style={{ width: `${positivePercent}%` }} />
-              <div className="bg-neutral-default" style={{ width: `${neutralPercent}%` }} />
-              <div className="bg-negative-default" style={{ width: `${negativePercent}%` }} />
-            </div>
-
-            <div className="flex justify-between text-xs" aria-hidden>
-              <div className="text-positive-darker">긍정 {positivePercent}%</div>
-              <div className="text-neutral-darker">중립 {neutralPercent}%</div>
-              <div className="text-negative-darker">부정 {negativePercent}%</div>
-            </div>
+            <Thermometer positive={POS} neutral={NEU} negative={NEG} />
           </section>
 
           <section className="flex flex-col gap-2">
