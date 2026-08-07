@@ -29,7 +29,7 @@ Figma는 "어떻게 생겼는가"를, 코드는 "어떤 상태인가"를 표현�
 | 두께 | 2 |
 | offset | 2 |
 
-```
+```text
 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-default
 ```
 
@@ -303,7 +303,7 @@ import { Banner } from '@/components/ui/Banner';
 
 ### Field 스펙
 
-```
+```text
 라벨       16    12 / Regular / lh16 / text-text-secondary
 gap         4
 Input      48
