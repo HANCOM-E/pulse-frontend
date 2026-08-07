@@ -18,7 +18,12 @@ const Field = ({ label, error, className = '', ...props }: FieldProps) => {
       <label htmlFor={id} className="text-xs font-normal leading-4 text-text-secondary">
         {label}
       </label>
-      <Input id={id} invalid={Boolean(error)} aria-describedby={error ? errorId : undefined} {...props} />
+      <Input
+        {...props}
+        id={id}
+        invalid={Boolean(error)}
+        aria-describedby={error ? errorId : undefined}
+      />
       {error ? (
         <p id={errorId} className="text-xs font-normal leading-4 text-negative-darker">
           {error}
