@@ -23,11 +23,11 @@ Figma는 "어떻게 생겼는가"를, 코드는 "어떤 상태인가"를 표현�
 
 **Button · Chip · Input에 공통으로 적용됩니다.**
 
-| 항목 | 값 |
-| --- | --- |
-| 색 | `Primary/default` |
-| 두께 | 2 |
-| offset | 2 |
+| 항목   | 값                |
+| ------ | ----------------- |
+| 색     | `Primary/default` |
+| 두께   | 2                 |
+| offset | 2                 |
 
 ```text
 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-default
@@ -49,12 +49,12 @@ Input은 여기에 더해 테두리 색도 `Primary/default`로 바뀝니다. �
 
 ### Figma → 코드
 
-| Figma variant | 코드 |
-| --- | --- |
-| `type=primary` | `variant="primary"` (기본값) |
-| `type=secondary` | `variant="secondary"` |
-| `type=danger` | `variant="danger"` |
-| `type=disabled` | **`disabled` 속성** — variant 아님 |
+| Figma variant    | 코드                               |
+| ---------------- | ---------------------------------- |
+| `type=primary`   | `variant="primary"` (기본값)       |
+| `type=secondary` | `variant="secondary"`              |
+| `type=danger`    | `variant="danger"`                 |
+| `type=disabled`  | **`disabled` 속성** — variant 아님 |
 
 `disabled`를 variant로 만들면 회색으로 보이지만 클릭이 되는 버튼이 생깁니다.
 HTML `disabled` 속성을 쓰면 브라우저가 클릭·포커스·폼 제출을 막고
@@ -64,21 +64,21 @@ HTML `disabled` 속성을 쓰면 브라우저가 클릭·포커스·폼 제출�
 
 Figma 마스터 높이는 52이고, 화면에서는 인스턴스로 조정되어 있습니다.
 
-| prop | 높이 | 쓰는 곳 |
-| --- | --- | --- |
-| `lg` | 52 | 모바일 주요 버튼 |
-| `md` | 48 | 기본 (로그인, 다이얼로그) |
-| `sm` | 36 | 대시보드 상단 액션, 모더레이션 |
+| prop | 높이 | 쓰는 곳                        |
+| ---- | ---- | ------------------------------ |
+| `lg` | 52   | 모바일 주요 버튼               |
+| `md` | 48   | 기본 (로그인, 다이얼로그)      |
+| `sm` | 36   | 대시보드 상단 액션, 모더레이션 |
 
 ### 공통 스펙
 
-| 항목 | 값 |
-| --- | --- |
-| radius | `rounded-lg` (8) |
-| 좌우 padding | `px-5` (20) |
-| 아이콘 gap | `gap-2.5` (10) |
-| 폰트 | 16 / SemiBold / lh 24 |
-| 너비 | Hug — 늘리려면 `className="w-full"` |
+| 항목         | 값                                  |
+| ------------ | ----------------------------------- |
+| radius       | `rounded-lg` (8)                    |
+| 좌우 padding | `px-5` (20)                         |
+| 아이콘 gap   | `gap-2.5` (10)                      |
+| 폰트         | 16 / SemiBold / lh 24               |
+| 너비         | Hug — 늘리려면 `className="w-full"` |
 
 ### 주의
 
@@ -86,11 +86,11 @@ Figma 마스터 높이는 52이고, 화면에서는 인스턴스로 조정되어
 
 ### 상태
 
-| variant | 기본 | 기본 대비 | hover | hover 대비 |
-| --- | --- | --- | --- | --- |
-| primary | `bg-primary-darker` | 5.55:1 | `hover:bg-primary-pressed` | 7.06:1 |
-| secondary | `bg-background-default` | 13.99:1 | `hover:bg-background-muted` | 12.16:1 |
-| danger | `bg-negative-darker` | 10.21:1 | `hover:bg-negative-pressed` | 13.87:1 |
+| variant   | 기본                    | 기본 대비 | hover                       | hover 대비 |
+| --------- | ----------------------- | --------- | --------------------------- | ---------- |
+| primary   | `bg-primary-darker`     | 5.55:1    | `hover:bg-primary-pressed`  | 7.06:1     |
+| secondary | `bg-background-default` | 13.99:1   | `hover:bg-background-muted` | 12.16:1    |
+| danger    | `bg-negative-darker`    | 10.21:1   | `hover:bg-negative-pressed` | 13.87:1    |
 
 세 variant 모두 기본과 hover 양쪽에서 WCAG AA(4.5:1)를 충족합니다.
 `Primary/default`와 `Negative/default`는 흰 글씨를 받으면 각각 2.65:1, 3.87:1로 미달하므로
@@ -128,9 +128,9 @@ import { Button } from '@/components/ui/Button';
 
 ### Figma → 코드
 
-| Figma variant | 코드 |
-| --- | --- |
-| `state=default` | 기본값 |
+| Figma variant    | 코드                               |
+| ---------------- | ---------------------------------- |
+| `state=default`  | 기본값                             |
 | `state=selected` | **`selected` prop** — variant 아님 |
 
 값이 둘뿐이고 켜고 끄는 성격이라 `variant="selected"`보다 `selected` 불리언이 자연스럽습니다.
@@ -142,25 +142,25 @@ import { Button } from '@/components/ui/Button';
 
 ### 공통 스펙
 
-| 항목 | 값 |
-| --- | --- |
-| 높이 | `h-8` (32) |
-| radius | `rounded-full` |
-| 좌우 padding | `px-3.5` (14) |
-| 아이콘 gap | `gap-2.5` (10) |
-| 폰트 | 14 / lh 20 |
-| 테두리 | 1 |
-| 너비 | Hug — 늘리려면 `className="w-full"` |
+| 항목         | 값                                  |
+| ------------ | ----------------------------------- |
+| 높이         | `h-8` (32)                          |
+| radius       | `rounded-full`                      |
+| 좌우 padding | `px-3.5` (14)                       |
+| 아이콘 gap   | `gap-2.5` (10)                      |
+| 폰트         | 14 / lh 20                          |
+| 테두리       | 1                                   |
+| 너비         | Hug — 늘리려면 `className="w-full"` |
 
 ### 상태
 
-| 상태 | 배경 | 테두리 | 텍스트 | 굵기 | 대비 |
-| --- | --- | --- | --- | --- | --- |
-| 미선택 | `bg-background-default` | `border-border-default` | `text-text-secondary` | Regular | 6.49:1 |
-| 미선택 hover | `bg-background-muted` | `border-border-default` | `text-text-secondary` | Regular | 5.64:1 |
-| 선택 | `bg-primary-subtle` | `border-primary-default` | `text-primary-darker` | Medium | 5.05:1 |
-| 선택 hover | `bg-primary-subtle` | `border-primary-darker` | `text-primary-darker` | Medium | 5.05:1 |
-| disabled | `bg-background-muted` | `border-border-subtle` | `text-text-disabled` | Regular | — |
+| 상태         | 배경                    | 테두리                   | 텍스트                | 굵기    | 대비   |
+| ------------ | ----------------------- | ------------------------ | --------------------- | ------- | ------ |
+| 미선택       | `bg-background-default` | `border-border-default`  | `text-text-secondary` | Regular | 6.49:1 |
+| 미선택 hover | `bg-background-muted`   | `border-border-default`  | `text-text-secondary` | Regular | 5.64:1 |
+| 선택         | `bg-primary-subtle`     | `border-primary-default` | `text-primary-darker` | Medium  | 5.05:1 |
+| 선택 hover   | `bg-primary-subtle`     | `border-primary-darker`  | `text-primary-darker` | Medium  | 5.05:1 |
+| disabled     | `bg-background-muted`   | `border-border-subtle`   | `text-text-disabled`  | Regular | —      |
 
 focus는 Button과 같습니다. `focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-default`
 
@@ -195,11 +195,11 @@ import { Chip } from '@/components/ui/Chip';
 
 둘을 가르는 기준은 생김새가 아니라 화면에 놓이는 방식입니다.
 
-| | Banner | Toast |
-| --- | --- | --- |
-| 위치 | 흐름 안, 자리를 차지 | 화면 위에 떠 있음 |
-| 사라짐 | 조건이 해소되면 | 몇 초 뒤 자동 |
-| 담당 | 실패 · 주의 | 성공 · 확인 |
+|        | Banner               | Toast             |
+| ------ | -------------------- | ----------------- |
+| 위치   | 흐름 안, 자리를 차지 | 화면 위에 떠 있음 |
+| 사라짐 | 조건이 해소되면      | 몇 초 뒤 자동     |
+| 담당   | 실패 · 주의          | 성공 · 확인       |
 
 **실패를 Toast로 띄우지 마세요.** 몇 초 뒤 사라지므로 다른 곳을 보던 사용자가 놓칩니다.
 
@@ -207,25 +207,27 @@ import { Chip } from '@/components/ui/Chip';
 
 Banner가 사라지는 방식은 두 가지입니다.
 
-| | 사라지는 계기 | 닫기 버튼 |
-| --- | --- | --- |
+|        | 사라지는 계기               | 닫기 버튼 |
+| ------ | --------------------------- | --------- |
 | 조건형 | 문제가 해결되면 렌더를 멈춤 | 필요 없음 |
-| 공지형 | 사용자가 읽고 닫음 | 필요함 |
+| 공지형 | 사용자가 읽고 닫음          | 필요함    |
 
 현재 두 type은 모두 조건형입니다. 닫기 버튼을 달면 등록이 여전히 실패한 상태인데 배너만 사라져서, 사용자가 해결된 줄 알고 넘어갑니다. 입력 폼의 오류 메시지에 X 버튼을 안 다는 것과 같은 이유입니다.
 
 ```tsx
-{isFailed && <Banner type="negative">등록에 실패했어요</Banner>}
+{
+  isFailed && <Banner type="negative">등록에 실패했어요</Banner>;
+}
 ```
 
 닫는 것은 코드가 합니다. 공지형 배너가 필요해지면 그때 `onClose` prop을 추가하세요.
 
 ### Figma → 코드
 
-| Figma variant | 코드 |
-| --- | --- |
+| Figma variant   | 코드              |
+| --------------- | ----------------- |
 | `type=negative` | `type="negative"` |
-| `type=warning` | `type="warning"` |
+| `type=warning`  | `type="warning"`  |
 
 `type`에 기본값이 없습니다. 남은 둘 중 "보통 이것"이라 할 게 없어서, 안 쓰면 타입 에러가 나도록 필수로 두었습니다.
 
@@ -235,22 +237,22 @@ Banner가 사라지는 방식은 두 가지입니다.
 
 ### 공통 스펙
 
-| 항목 | 값 |
-| --- | --- |
-| 높이 | 44 (`py-3` + lh 20) |
-| radius | `rounded-lg` (8) |
-| 좌우 padding | `px-3.5` (14) |
-| 아이콘 gap | `gap-1.5` (6) |
-| 아이콘 | 16 × 16, 선 굵기 2.5 |
-| 폰트 | 14 / Medium / lh 20 |
-| 너비 | Hug — 늘리려면 `className="w-full"` |
+| 항목         | 값                                  |
+| ------------ | ----------------------------------- |
+| 높이         | 44 (`py-3` + lh 20)                 |
+| radius       | `rounded-lg` (8)                    |
+| 좌우 padding | `px-3.5` (14)                       |
+| 아이콘 gap   | `gap-1.5` (6)                       |
+| 아이콘       | 16 × 16, 선 굵기 2.5                |
+| 폰트         | 14 / Medium / lh 20                 |
+| 너비         | Hug — 늘리려면 `className="w-full"` |
 
 ### 상태
 
-| type | 배경 | 글자 · 아이콘 | 대비 |
-| --- | --- | --- | --- |
+| type     | 배경                 | 글자 · 아이콘          | 대비   |
+| -------- | -------------------- | ---------------------- | ------ |
 | negative | `bg-negative-subtle` | `text-negative-darker` | 8.86:1 |
-| warning | `bg-warning-subtle` | `text-warning-darker` | 8.72:1 |
+| warning  | `bg-warning-subtle`  | `text-warning-darker`  | 8.72:1 |
 
 아이콘 색은 `currentColor`라 글자색을 따라갑니다. 타입마다 따로 지정할 필요가 없습니다.
 
@@ -276,28 +278,28 @@ import { Banner } from '@/components/ui/Banner';
 
 두 겹으로 나뉩니다. Figma의 `input`·`field` 세트와 같은 구분입니다.
 
-| | 담당 |
-| --- | --- |
-| `Input` | `<input>` 하나. 크기와 테두리 색 |
+|         | 담당                                                |
+| ------- | --------------------------------------------------- |
+| `Input` | `<input>` 하나. 크기와 테두리 색                    |
 | `Field` | 라벨 + Input + 오류 메시지. `id`와 접근성 속성 연결 |
 
 **폼에서는 `Field`를 쓰세요.** `Input`을 직접 쓰면 라벨 연결과 `aria`를 손으로 해야 하고, 화면이 늘어나면 반드시 빠뜨립니다.
 
 ### Input 스펙
 
-| 항목 | 값 |
-| --- | --- |
-| 높이 | `h-12` (48) — Button `md`와 동일 |
-| radius | `rounded-lg` (8) |
-| 좌우 padding | `px-3.5` (14) |
-| 폰트 | 16 / Regular / lh 24 |
-| 너비 | `w-full` |
+| 항목         | 값                               |
+| ------------ | -------------------------------- |
+| 높이         | `h-12` (48) — Button `md`와 동일 |
+| radius       | `rounded-lg` (8)                 |
+| 좌우 padding | `px-3.5` (14)                    |
+| 폰트         | 16 / Regular / lh 24             |
+| 너비         | `w-full`                         |
 
-| 상태 | 테두리 |
-| --- | --- |
-| 기본 | `border-border-default` |
+| 상태  | 테두리                         |
+| ----- | ------------------------------ |
+| 기본  | `border-border-default`        |
 | focus | `focus:border-primary-default` |
-| 오류 | `border-negative-default` |
+| 오류  | `border-negative-default`      |
 
 오류일 때는 focus를 받아도 테두리가 빨간색 그대로입니다. 문제가 해결되기 전까지 표시가 사라지면 안 됩니다.
 
@@ -338,11 +340,11 @@ gap         4    (오류가 있을 때만)
 
 시안 색을 유지하기로 결정했습니다.
 
-| 항목 | 대비 | 기준 |
-| --- | --- | --- |
-| 기본 테두리 `Border/default` | 1.53:1 | 3:1 |
-| focus 테두리 `Primary/default` | 2.65:1 | 3:1 |
-| placeholder `Text/disabled` | 2.13:1 | 4.5:1 |
+| 항목                           | 대비   | 기준  |
+| ------------------------------ | ------ | ----- |
+| 기본 테두리 `Border/default`   | 1.53:1 | 3:1   |
+| focus 테두리 `Primary/default` | 2.65:1 | 3:1   |
+| placeholder `Text/disabled`    | 2.13:1 | 4.5:1 |
 
 라벨(`Text/secondary` 6.49:1)과 오류 메시지(`Negative/darker` 10.21:1)는 통과합니다.
 
@@ -368,11 +370,11 @@ import { Field } from '@/components/ui/Field';
 
 여러 줄 입력입니다. 소감 입력에 씁니다. 색·테두리·폰트·상태는 Input과 완전히 같습니다.
 
-| 항목 | 값 |
-| --- | --- |
+| 항목      | 값                      |
+| --------- | ----------------------- |
 | 최소 높이 | `min-h-24` (96) — 세 줄 |
-| padding | `py-3 px-3.5` (12 / 14) |
-| 크기 조절 | `resize-none` |
+| padding   | `py-3 px-3.5` (12 / 14) |
+| 크기 조절 | `resize-none`           |
 
 `96 = 12 + 24 × 3 + 12`입니다. 글자는 위에서부터 쌓입니다.
 
@@ -387,7 +389,7 @@ import { Field } from '@/components/ui/Field';
 ```tsx
 import { Textarea } from '@/components/ui/Textarea';
 
-<Textarea placeholder="이번 세션은 어떠셨나요?" maxLength={200} />
+<Textarea placeholder="이번 세션은 어떠셨나요?" maxLength={200} />;
 ```
 
 ---
@@ -400,13 +402,13 @@ import { Textarea } from '@/components/ui/Textarea';
 
 ### Figma → 코드
 
-| Figma variant | 코드 |
-| --- | --- |
-| `type=positive` | `tone="positive"` |
-| `type=neutral` | `tone="neutral"` |
-| `type=negative` | `tone="negative"` |
-| `type=toxic` | `tone="toxic"` |
-| `type=none` | **`tone="outline"`** |
+| Figma variant   | 코드                 |
+| --------------- | -------------------- |
+| `type=positive` | `tone="positive"`    |
+| `type=neutral`  | `tone="neutral"`     |
+| `type=negative` | `tone="negative"`    |
+| `type=toxic`    | `tone="toxic"`       |
+| `type=none`     | **`tone="outline"`** |
 
 `none`은 코드에서 `outline`입니다. `tone="none"`은 "배지 없음"으로 읽혀서 헷갈립니다. 생김새 기준으로 이름 지었습니다.
 
@@ -416,23 +418,23 @@ import { Textarea } from '@/components/ui/Textarea';
 
 ### 공통 스펙
 
-| 항목 | 값 |
-| --- | --- |
-| 높이 | `h-6` (24) |
-| radius | `rounded-full` |
-| 좌우 padding | `px-2.5` (10) |
-| 폰트 | 12 / Regular / lh 16 |
-| 너비 | Hug |
+| 항목         | 값                   |
+| ------------ | -------------------- |
+| 높이         | `h-6` (24)           |
+| radius       | `rounded-full`       |
+| 좌우 padding | `px-2.5` (10)        |
+| 폰트         | 12 / Regular / lh 16 |
+| 너비         | Hug                  |
 
 ### 상태
 
-| tone | 배경 | 글자 | 대비 |
-| --- | --- | --- | --- |
-| positive | `bg-positive-subtle` | `text-positive-darker` | 8.21:1 |
-| neutral | `bg-neutral-subtle` | `text-neutral-darker` | 8.49:1 |
-| negative | `bg-negative-subtle` | `text-negative-darker` | 8.86:1 |
-| toxic | `bg-toxic-subtle` | `text-toxic-darker` | 8.98:1 |
-| outline | `bg-background-default` + `border-border-strong` | `text-text-secondary` | 6.49:1 |
+| tone     | 배경                                             | 글자                   | 대비   |
+| -------- | ------------------------------------------------ | ---------------------- | ------ |
+| positive | `bg-positive-subtle`                             | `text-positive-darker` | 8.21:1 |
+| neutral  | `bg-neutral-subtle`                              | `text-neutral-darker`  | 8.49:1 |
+| negative | `bg-negative-subtle`                             | `text-negative-darker` | 8.86:1 |
+| toxic    | `bg-toxic-subtle`                                | `text-toxic-darker`    | 8.98:1 |
+| outline  | `bg-background-default` + `border-border-strong` | `text-text-secondary`  | 6.49:1 |
 
 `outline`만 테두리가 있습니다. 배경이 흰색이라 테두리 없이는 경계가 사라집니다.
 
@@ -476,17 +478,17 @@ import { Badge } from '@/components/ui/Badge';
 
 ### 공통 스펙
 
-| 항목 | 값 |
-| --- | --- |
-| 높이 | 44 (`py-3` + lh 20) |
-| radius | `rounded-lg` (8) |
-| 좌우 padding | `px-4` (16) |
-| 아이콘 gap | `gap-1.5` (6) |
-| 배경 | `bg-background-inverse` |
-| 글자 · 아이콘 | `text-text-inverse` |
-| 대비 | 13.99:1 |
-| 폰트 | 14 / **Regular** / lh 20 |
-| 그림자 | `shadow-toast` |
+| 항목          | 값                       |
+| ------------- | ------------------------ |
+| 높이          | 44 (`py-3` + lh 20)      |
+| radius        | `rounded-lg` (8)         |
+| 좌우 padding  | `px-4` (16)              |
+| 아이콘 gap    | `gap-1.5` (6)            |
+| 배경          | `bg-background-inverse`  |
+| 글자 · 아이콘 | `text-text-inverse`      |
+| 대비          | 13.99:1                  |
+| 폰트          | 14 / **Regular** / lh 20 |
+| 그림자        | `shadow-toast`           |
 
 Banner는 Medium, Toast는 Regular입니다. 어두운 배경 위의 흰 글씨는 같은 굵기라도 더 두껍게 보여서, 한 단계 낮춰야 균형이 맞습니다.
 
@@ -501,7 +503,61 @@ Banner는 Medium, Toast는 Regular입니다. 어두운 배경 위의 흰 글씨�
 ```tsx
 import { Toast } from '@/components/ui/Toast';
 
-<Toast>링크가 복사되었어요</Toast>
+<Toast>링크가 복사되었어요</Toast>;
+```
+
+---
+
+## Stat
+
+`components/ui/Stat.tsx`
+
+라벨과 숫자를 보여주는 카드입니다. 대시보드 상단에 네 개가 나란히 놓입니다.
+
+### 스펙
+
+| 항목      | 값                                          |
+| --------- | ------------------------------------------- |
+| 배경      | `bg-background-muted`                       |
+| radius    | `rounded-lg` (8)                            |
+| padding   | `py-3.5 px-4` (14 / 16)                     |
+| 요소 간격 | `gap-1` (4)                                 |
+| 라벨      | 12 / Regular / lh16 / `text-text-secondary` |
+| 값        | 20 / SemiBold / lh28                        |
+| 높이      | 76                                          |
+
+테두리가 없습니다. 배경색만으로 구분되며, 차트 카드(흰 배경 + `Border/subtle`)와는 다른 생김새입니다.
+
+### tone
+
+값의 색만 바뀝니다. 라벨은 항상 `text-text-secondary`입니다.
+
+| tone       | 색                     | 쓰는 곳     | 대비    |
+| ---------- | ---------------------- | ----------- | ------- |
+| `default`  | `text-text-primary`    | 총 소감     | 12.16:1 |
+| `positive` | `text-positive-darker` | 긍정 비율   | 8.16:1  |
+| `toxic`    | `text-toxic-darker`    | 독성 플래그 | 9.00:1  |
+| `muted`    | `text-text-secondary`  | 미분류      | 5.64:1  |
+
+`muted`는 처음에 `Text/tertiary`였는데 3.13:1이었습니다. 20px SemiBold가 WCAG '큰 텍스트' 기준에 걸치는 크기라 통과 여부가 해석에 달려 있어서, 논란이 없는 `Text/secondary`로 올렸습니다. 크기와 굵기가 라벨과 달라 흐린 느낌은 그대로입니다.
+
+### 주의
+
+- **`value`는 문자열입니다.** `312`, `58%`, `4`가 모두 들어옵니다. 숫자 타입으로 받으면 `%`를 못 붙입니다.
+- **너비는 `w-full`입니다.** 네 개를 나란히 놓을 때는 `grid`로 감싸세요. 칸 너비가 균등해집니다.
+- 값 색을 화면에서 직접 지정하지 마세요. `tone`을 쓰지 않으면 화면마다 색이 갈라집니다.
+
+### 사용 예
+
+```tsx
+import { Stat } from '@/components/ui/Stat';
+
+<div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+  <Stat label="총 소감" value="312" />
+  <Stat label="긍정 비율" value="58%" tone="positive" />
+  <Stat label="독성 플래그" value="4" tone="toxic" />
+  <Stat label="미분류" value="7" tone="muted" />
+</div>;
 ```
 
 ---
@@ -516,11 +572,11 @@ import { Toast } from '@/components/ui/Toast';
 
 선으로 그린 부분은 `stroke`, `AlertIcon`의 점처럼 면으로 채운 부분은 `fill`을 씁니다. 새 아이콘을 추가할 때도 두 속성 다 `currentColor`로 두세요.
 
-| 이름 | 모양 | 쓰는 곳 |
-| --- | --- | --- |
-| `CheckIcon` | 체크 | Toast |
-| `XIcon` | ✕ | Banner `negative` |
-| `AlertIcon` | 느낌표 | Banner `warning` |
+| 이름        | 모양   | 쓰는 곳           |
+| ----------- | ------ | ----------------- |
+| `CheckIcon` | 체크   | Toast             |
+| `XIcon`     | ✕      | Banner `negative` |
+| `AlertIcon` | 느낌표 | Banner `warning`  |
 
 모양 기준으로 이름 짓습니다. `XIcon`을 `ErrorIcon`으로 두면 나중에 닫기 버튼에 쓸 때 이름이 어색해집니다.
 
@@ -529,7 +585,9 @@ import { Toast } from '@/components/ui/Toast';
 아이콘만 있고 옆에 글자가 없는 버튼을 만들 때는, 아이콘을 노출하지 말고 **버튼에 `aria-label`을 다세요.**
 
 ```tsx
-<button aria-label="닫기"><XIcon /></button>
+<button aria-label="닫기">
+  <XIcon />
+</button>
 ```
 
 ---
@@ -553,6 +611,8 @@ Toast를 화면에 띄우는 구조(`useToast` · `ToastViewport`)도 아직입�
 - 2026.08.06 (#21) — Banner에서 `positive` variant 제거. 성공 알림은 Toast가 담당하므로 흐름 안에 남을 이유가 없음. 필요해지면 다시 추가
 - 2026.08.06 (#21) — Banner의 `type`은 기본값 없이 필수. 남은 둘 다 나쁜 소식이라 기본값을 두면 실패가 조용히 주의 색으로 뜰 수 있음
 - 2026.08.06 (#21) — 아이콘을 텍스트 글자에서 벡터로 교체하고 `icons.tsx`로 분리. `✔️` 같은 이모지는 지정한 색이 안 먹고 OS마다 다르게 렌더됨. 신규 토큰 없음
+- 2026.08.06 (#43) — Stat의 `muted` 값 색을 `Text/tertiary`(3.13:1)에서 `Text/secondary`(5.64:1)로 교체. 20px SemiBold가 WCAG '큰 텍스트' 기준에 걸치는 크기라 통과 여부가 해석에 달려 있었음
+- 2026.08.06 (#43) — Stat의 값 색을 `tone` prop으로 받음. 시안은 인스턴스마다 색을 덮어쓰고 있는데, 화면에서 손으로 지정하면 갈라짐
 - 2026.08.06 (#34) — Input과 Field를 두 파일로 분리. `aria-describedby`·`aria-invalid`를 화면마다 손으로 붙이면 반드시 빠뜨림. Field가 `useId`로 연결을 대신함
 - 2026.08.06 (#34) — Input의 focus에 테두리 색 변경과 outline 링을 함께 적용. 시안에는 테두리만 있지만, 링을 빼면 브라우저 기본 표시를 지운 자리에 2.65:1짜리 테두리만 남아 포커스가 어디 있는지 알기 어려움. Button·Chip과 같은 링이라 시스템도 일관됨
 - 2026.08.06 (#34) — 오류 상태에서는 focus를 받아도 테두리를 빨간색으로 유지. 문제가 해결되기 전에 오류 표시가 사라지면 안 됨
