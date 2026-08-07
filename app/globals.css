@@ -51,6 +51,8 @@
   --color-text-disabled: #b4b2a9;
   --color-text-inverse: #ffffff;
 
+  --color-overlay: rgb(0 0 0 / 0.5);
+
   --shadow-dialog: 0 0.25rem 1rem rgb(0 0 0 / 0.15);
   --shadow-toast: 0 0.25rem 0.25rem rgb(0 0 0 / 0.15);
 }
@@ -59,4 +61,10 @@ body {
   background: var(--color-background-default);
   color: var(--color-text-primary);
   font-family: var(--font-sans);
+}
+
+/* 모달이 열려 있는 동안 뒤 배경 스크롤을 막습니다.
+   showModal()은 포커스와 클릭만 가두고 스크롤은 그대로 두기 때문입니다. */
+body:has(dialog[open]) {
+  overflow: hidden;
 }
