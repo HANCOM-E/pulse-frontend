@@ -29,7 +29,11 @@ const SessionPicker = ({ sessions, onSelect }: SessionPickerProps) => {
         <ul className="flex flex-wrap gap-2">
           {sessions.map((session) => (
             <li key={session.id}>
-              <Chip onClick={() => onSelect(session.id)}>{session.title}</Chip>
+              {/* `cursor-pointer`는 `Chip`에 없어서 여기서 붙입니다. 공용 컴포넌트를 고치면
+                  이 화면 밖 커서까지 바뀌어서 실시간 결과 화면 안에서만 처리했습니다. */}
+              <Chip className="cursor-pointer" onClick={() => onSelect(session.id)}>
+                {session.title}
+              </Chip>
             </li>
           ))}
         </ul>
