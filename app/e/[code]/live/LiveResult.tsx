@@ -2,14 +2,13 @@
 
 import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
-import { fetchFeedbackSnapshot, fetchSessionsByEventCode } from '@/lib/api/endpoints';
+import { useFeedbackSnapshot } from '@/hooks/useFeedbackSnapshot';
+import { fetchSessionsByEventCode } from '@/lib/api/endpoints';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 
 import { LiveSkeleton } from './LiveSkeleton';
 import { SessionPicker } from './SessionPicker';
-
-const REFRESH_INTERVAL_MS = 5_000;
 
 /**
  * 세션 하나의 실시간 집계 화면입니다.
@@ -44,15 +43,11 @@ const LiveResult = () => {
   const sessionId = selectedSession?.id ?? null;
 
   const {
-    data: snapshot,
+    snapshot,
     isPending: isSnapshotPending,
     isError: isSnapshotError,
-  } = useQuery({
-    queryKey: ['feedbackSnapshot', code, sessionId],
-    queryFn: () => fetchFeedbackSnapshot(code, sessionId ?? undefined),
-    enabled: sessionId !== null,
-    refetchInterval: REFRESH_INTERVAL_MS,
-  });
+    refreshIntervalMs,
+  } = useFeedbackSnapshot({ eventCode: code, sessionId });
 
   const handleSelectSession = (nextSessionId: number) => {
     // 세션 선택은 뒤로 가기 히스토리에 쌓을 만한 이동이 아니라 replace를 씁니다.
@@ -159,9 +154,11 @@ const LiveResult = () => {
             )}
           </section>
 
-          <p className="text-center text-xs text-text-tertiary">
-            {REFRESH_INTERVAL_MS / 1000}초마다 자동으로 갱신돼요
-          </p>
+          {refreshIntervalMs !== null && (
+            <p className="text-center text-xs text-text-tertiary">
+              {refreshIntervalMs / 1000}초마다 자동으로 갱신돼요
+            </p>
+          )}
         </>
       )}
 
