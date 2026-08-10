@@ -71,7 +71,9 @@ const DevMswPage = () => {
     mutationFn: logout,
     onSuccess: () => {
       setLoginMessage('로그아웃 완료 — /admin 호출은 다시 401이 납니다.');
-      void queryClient.invalidateQueries({ queryKey: ['moderation'] });
+      // invalidate가 아니라 reset입니다. invalidate는 기존 데이터를 남긴 채 재요청해서,
+      // 401이 돌아올 때까지 로그아웃했는데도 인증 데이터가 화면에 남습니다.
+      void queryClient.resetQueries({ queryKey: ['moderation'] });
     },
     onError: (error: Error) => setLoginMessage(`로그아웃 실패 — ${error.message}`),
   });
