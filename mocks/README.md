@@ -84,16 +84,22 @@ mocks/
 
 **목의 인증 검사는 `request.headers`가 아니라 리졸버의 `cookies` 인자를 봅니다.**
 브라우저가 `Cookie`를 금지 헤더로 막아서 서비스 워커는 요청 헤더에서 쿠키를 읽을 수 없습니다.
-MSW가 목 응답의 `Set-Cookie`를 자체 저장소에 담아 이 인자로 되돌려 줍니다.
-`shared.ts`의 `requireAuth`·`requireOwnedEvent`·`hasAuthCookie`가 전부 `cookies`를 받습니다.
+MSW가 목 응답의 `Set-Cookie`를 자체 저장소(tough-cookie)에 담아 이 인자로 되돌려 줍니다
+(`utils/request/storeResponseCookies` → `utils/request/getRequestCookies`). 브라우저에서는
+`localStorage['__msw-cookie-store__']`에 남습니다. `document.cookie`가 아니라 별도 저장소라
+`HttpOnly` 여부와 무관하게 붙습니다.
+
+**그 저장소는 요청의 `credentials`를 보지 않습니다.** 그래서 `hasAuthCookie`가 `cookies`와
+함께 `request`를 받아 `credentials: 'omit'`이면 쿠키가 없는 것으로 봅니다. 이 처리가 없으면
+`skipAuth`로 게스트 응답을 받아야 하는 자리에서 목이 소유자 응답을 돌려줍니다.
 
 목 쿠키는 `Secure`를 빼고 `SameSite=Lax`로 내려갑니다. 실제 BE는 `Secure; SameSite=None`이지만
 localhost는 http라 `Secure` 쿠키가 저장되지 않고, 목은 같은 오리진이라 `None`이 필요 없습니다.
 
-**CSRF는 목이 아직 검사하지 않습니다.** `apiClient`는 `XSRF-TOKEN` 쿠키를 읽어 상태 변경
-요청에만 `X-XSRF-TOKEN` 헤더로 싣습니다. 브라우저 워커가 합성한 `Set-Cookie`가
-`document.cookie`까지 반영되는지 확인되지 않았고, 안 되면 FE가 토큰을 못 읽어 모든 쓰기가
-막힙니다. `/dev/msw`에서 확인한 뒤 검사를 추가합니다.
+**CSRF는 목이 검사하지 않습니다.** `apiClient`는 `XSRF-TOKEN` 쿠키를 읽어 상태 변경 요청에만
+`X-XSRF-TOKEN` 헤더로 싣는데, MSW는 `document.cookie`를 읽기만 하고 쓰지 않습니다. 목 환경에서는
+FE가 이 값을 손에 넣을 방법이 없어서, 목이 헤더를 요구하면 모든 쓰기가 막힙니다. 실제 BE에
+붙일 때만 동작하는 경로입니다.
 
 ## 알아둘 것
 
