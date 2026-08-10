@@ -1,9 +1,11 @@
 import { z } from 'zod';
 
 /**
- * Pulse API 계약 스키마 (API 명세서 2026-08-10 갱신본 기준)
+ * Pulse API 계약 스키마 (openapi.yaml v0.3, 2026-08-10 갱신본 기준)
  *
- * 원본: Notion "API 명세서".
+ * 원본: Notion "openapi.yaml (v0.3)" — 기계용 단일 소스입니다.
+ * https://app.notion.com/p/3b45f62e86848168936fe869152d748d
+ * 사람용 상세 설명은 "API 명세서" 쪽입니다.
  * https://app.notion.com/p/f3f5f62e868482ee9faf816de775057c
  *
  * 타입을 손으로 따로 쓰지 않고 zod 스키마 하나에서 `z.infer`로 뽑습니다.
@@ -32,12 +34,13 @@ export const reportStatusSchema = z.enum(['GENERATING', 'GENERATED', 'FAILED']);
 /** UNKNOWN은 태깅 실패를 뜻하며 NEU(진짜 중립)와 다릅니다. 감정 분포 집계에서 제외됩니다. */
 export const sentimentSchema = z.enum(['POS', 'NEU', 'NEG', 'UNKNOWN']);
 
-/** 에러 코드 v1 (20개, 2026-08-05 김효인 확정 · 08-07 SESSION_CLOSED · 08-10 SESSION_ALREADY_DELETED 추가) */
+/** 에러 코드 v1 (21개, 2026-08-05 김효인 확정 · 08-07 SESSION_CLOSED·CSRF_TOKEN_INVALID · 08-10 SESSION_ALREADY_DELETED 추가) */
 export const apiErrorCodeSchema = z.enum([
   'VALIDATION_ERROR',
   'INVALID_CREDENTIALS',
   'UNAUTHORIZED',
   'NOT_OWNER',
+  'CSRF_TOKEN_INVALID',
   'EMAIL_ALREADY_EXISTS',
   'EVENT_NOT_FOUND',
   'SESSION_NOT_FOUND',
@@ -103,6 +106,12 @@ export const API_ERROR_STATUS: Record<ApiErrorCode, number> = {
   INVALID_CREDENTIALS: 401,
   UNAUTHORIZED: 401,
   NOT_OWNER: 403,
+  /**
+   * ⚠️ 상태가 명세에 없어 FE가 먼저 정했습니다(김효인 님 확인 필요, #81).
+   * double-submit 토큰이 안 맞으면 로그인 자체는 유효하므로 401이 아니라 403으로 뒀습니다.
+   * Spring Security의 `CsrfFilter` 기본 동작도 403입니다.
+   */
+  CSRF_TOKEN_INVALID: 403,
   EMAIL_ALREADY_EXISTS: 409,
   EVENT_NOT_FOUND: 404,
   SESSION_NOT_FOUND: 404,
@@ -313,6 +322,13 @@ export const sentimentBreakdownSchema = z.object({
 });
 
 /**
+ * 스냅샷 슬라이스 크기입니다. 명세가 `maxItems`로 못 박은 값이라 목의 집계도 같은 상수를 봐야
+ * 합니다. 양쪽이 따로 숫자를 들고 있으면 목이 11개를 내는 순간 자기 스키마 검증에 걸립니다.
+ */
+export const TOP_KEYWORD_LIMIT = 10;
+export const RECENT_FEEDBACK_LIMIT = 50;
+
+/**
  * 폴링 스냅샷. 서버 집계(순수 SQL)이며 VISIBLE 소감만 대상입니다.
  * sentimentBreakdown·unclassifiedCount는 전량 집계, recentFeedbacks만 최신 슬라이스입니다.
  */
@@ -322,9 +338,9 @@ export const feedbackSnapshotSchema = z.object({
   /** sentiment = UNKNOWN(태깅 실패) 건수. 대시보드에 "미분류 N건"으로 별도 표시합니다. */
   unclassifiedCount: count,
   /** 빈도순 상위 10 */
-  topKeywords: z.array(keywordCountSchema),
+  topKeywords: z.array(keywordCountSchema).max(TOP_KEYWORD_LIMIT),
   /** 최신 50 */
-  recentFeedbacks: z.array(feedbackViewSchema),
+  recentFeedbacks: z.array(feedbackViewSchema).max(RECENT_FEEDBACK_LIMIT),
 });
 
 export const feedbackListResponseSchema = listResponseSchema(feedbackSchema);
@@ -347,14 +363,24 @@ export const reportSchema = z.object({
   status: reportStatusSchema,
   summaryText: z.string().nullable(),
   sentimentBreakdown: sentimentBreakdownSchema.nullable(),
+  /** 집계 전(GENERATING·FAILED)에는 null입니다. 나머지 집계 필드와 함께 채워집니다. */
+  unclassifiedCount: count.nullable(),
   topKeywords: z.array(keywordCountSchema).nullable(),
   isPublic: z.boolean(),
   generatedAt: isoDateTime.nullable(),
 });
 
+/**
+ * 게스트 공개 뷰. 생성이 끝난 리포트만 이 모양으로 나가므로 집계 필드가 전부 non-null입니다.
+ *
+ * `unclassifiedCount`가 여기 있어야 하는 이유: 감정 분포는 UNKNOWN을 빼고 세기 때문에
+ * POS+NEU+NEG가 전체 소감 수보다 작습니다. 이 값이 없으면 화면이 "총 몇 건을 분석했는지"를
+ * 복원할 수 없어 비율이 실제보다 부풀어 보입니다.
+ */
 export const publicReportSchema = z.object({
   summaryText: z.string(),
   sentimentBreakdown: sentimentBreakdownSchema,
+  unclassifiedCount: count,
   topKeywords: z.array(keywordCountSchema),
 });
 

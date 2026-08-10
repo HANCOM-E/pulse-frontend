@@ -301,6 +301,14 @@ export const seedFeedbacks: Feedback[] = buildFeedbacks([
     keywords: ['실습'],
     minute: 45,
   },
+  // 공개 리포트의 unclassifiedCount가 0이 아니어야 화면이 "미분류 N건"을 그리는지 확인됩니다.
+  {
+    sessionId: 202,
+    text: '브라우저가 버벅여서 분석이 안 된 채로 남깁니다',
+    sentiment: 'UNKNOWN',
+    keywords: [],
+    minute: 47,
+  },
 ]);
 
 export const seedReports: Report[] = [
@@ -314,6 +322,8 @@ export const seedReports: Report[] = [
       '의견이 반복적으로 나왔습니다. 다음 온보딩에서는 오전 분량을 줄이고 그 시간을 짧은 ' +
       '실습으로 옮기는 편이 좋겠습니다.',
     sentimentBreakdown: { POS: 2, NEU: 2, NEG: 1 },
+    // 감정 분포는 UNKNOWN을 빼고 세므로 5건, 실제 분석 대상은 6건입니다.
+    unclassifiedCount: 1,
     topKeywords: [
       { keyword: '코드리뷰', count: 2 },
       { keyword: '사례', count: 1 },

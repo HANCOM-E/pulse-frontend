@@ -753,6 +753,23 @@ describe('리포트', () => {
     expect(report).toMatchObject({ status: 'GENERATED', isPublic: true });
   });
 
+  it('리포트의 미분류 건수가 같은 이벤트의 집계 스냅샷과 일치한다', async () => {
+    const snapshot = feedbackSnapshotSchema.parse(
+      await (await call(`/events/${ENDED_EVENT_CODE}/feedbacks`)).json(),
+    );
+    const report = publicReportSchema.parse(
+      await (await call(`/events/${ENDED_EVENT_CODE}/report`)).json(),
+    );
+
+    /*
+     * 감정 분포는 UNKNOWN을 빼고 세므로 POS+NEU+NEG가 분석 총 건수보다 작습니다.
+     * 이 필드가 없으면 화면이 분모를 복원할 수 없어 비율이 실제보다 부풀어 보입니다.
+     */
+    expect(snapshot.unclassifiedCount).toBeGreaterThan(0);
+    expect(report.unclassifiedCount).toBe(snapshot.unclassifiedCount);
+    expect(report.sentimentBreakdown).toEqual(snapshot.sentimentBreakdown);
+  });
+
   it('리포트가 없으면 REPORT_NOT_FOUND를 준다', async () => {
     const response = await call(`/events/${LIVE_EVENT_CODE}/report`);
 
