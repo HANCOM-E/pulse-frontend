@@ -154,13 +154,13 @@ export const signupRequestSchema = z.object({
   password: passwordSchema,
 });
 
-export const authTokenResponseSchema = z.object({
-  accessToken: z.string().min(1),
-  /** 초 단위. 1시간 = 3600 */
-  expiresIn: z.int().positive(),
-});
-
-export const signupResponseSchema = authTokenResponseSchema.extend({
+/**
+ * 로그인·회원가입·`GET /auth/me`가 공통으로 돌려주는 유저 정보입니다.
+ *
+ * 토큰은 바디에 없습니다(2026-08-07 명세). `accessToken`이 HttpOnly 쿠키로 내려오므로
+ * FE는 값을 읽을 수 없고, 새로고침 뒤 로그인 상태 복원은 `/auth/me`로 확인합니다.
+ */
+export const authUserSchema = z.object({
   id,
   email: z.email(),
   createdAt: isoDateTime,
@@ -168,8 +168,7 @@ export const signupResponseSchema = authTokenResponseSchema.extend({
 
 export type LoginRequest = z.infer<typeof loginRequestSchema>;
 export type SignupRequest = z.infer<typeof signupRequestSchema>;
-export type AuthTokenResponse = z.infer<typeof authTokenResponseSchema>;
-export type SignupResponse = z.infer<typeof signupResponseSchema>;
+export type AuthUser = z.infer<typeof authUserSchema>;
 
 // ─────────────────────────────────────────────────────────────
 // event

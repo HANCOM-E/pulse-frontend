@@ -10,9 +10,9 @@ import {
   fetchSessionsByEventCode,
   hideFeedback,
   login,
+  logout,
   showFeedback,
 } from '@/lib/api/endpoints';
-import { setStoredAccessToken } from '@/lib/authToken';
 import { isMockingEnabled } from '@/mocks/config';
 
 /**
@@ -49,18 +49,31 @@ const DevMswPage = () => {
   const queueQuery = useQuery({
     queryKey: ['moderation', EVENT_CODE],
     // includeHidden을 켜야 숨긴 건이 큐에 남아서 해제 버튼을 눌러볼 수 있습니다.
-    queryFn: () => fetchModerationQueue({ eventCode: EVENT_CODE, toxic: true, includeHidden: true }),
+    queryFn: () =>
+      fetchModerationQueue({ eventCode: EVENT_CODE, toxic: true, includeHidden: true }),
     retry: false,
   });
 
+  /**
+   * 응답 바디에 토큰이 없습니다. 서버가 내려준 HttpOnly 쿠키가 이후 요청에 자동으로 붙는지가
+   * 이 버튼으로 확인할 것의 전부입니다 — 안 붙으면 아래 모더레이션 큐가 계속 401입니다.
+   */
   const loginMutation = useMutation({
     mutationFn: () => login({ email: 'host@example.com', password: 'pulse1234' }),
-    onSuccess: (data) => {
-      setStoredAccessToken(data.accessToken);
-      setLoginMessage('로그인 완료 — 모더레이션 큐를 불러올 수 있습니다.');
+    onSuccess: (user) => {
+      setLoginMessage(`로그인 완료 (${user.email}) — 모더레이션 큐를 불러올 수 있습니다.`);
       void queryClient.invalidateQueries({ queryKey: ['moderation'] });
     },
     onError: (error: Error) => setLoginMessage(`로그인 실패 — ${error.message}`),
+  });
+
+  const logoutMutation = useMutation({
+    mutationFn: logout,
+    onSuccess: () => {
+      setLoginMessage('로그아웃 완료 — /admin 호출은 다시 401이 납니다.');
+      void queryClient.invalidateQueries({ queryKey: ['moderation'] });
+    },
+    onError: (error: Error) => setLoginMessage(`로그아웃 실패 — ${error.message}`),
   });
 
   const moderationMutation = useMutation({
@@ -78,6 +91,7 @@ const DevMswPage = () => {
   }
 
   const handleLoginClick = () => loginMutation.mutate();
+  const handleLogoutClick = () => logoutMutation.mutate();
 
   const breakdown = snapshotQuery.data?.sentimentBreakdown;
 
@@ -89,14 +103,24 @@ const DevMswPage = () => {
       </header>
 
       <section className="flex flex-col gap-2">
-        <button
-          type="button"
-          onClick={handleLoginClick}
-          disabled={loginMutation.isPending}
-          className="w-fit rounded border border-zinc-300 px-3 py-2 disabled:opacity-50"
-        >
-          시드 계정으로 로그인
-        </button>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={handleLoginClick}
+            disabled={loginMutation.isPending}
+            className="w-fit rounded border border-zinc-300 px-3 py-2 disabled:opacity-50"
+          >
+            시드 계정으로 로그인
+          </button>
+          <button
+            type="button"
+            onClick={handleLogoutClick}
+            disabled={logoutMutation.isPending}
+            className="w-fit rounded border border-zinc-300 px-3 py-2 disabled:opacity-50"
+          >
+            로그아웃
+          </button>
+        </div>
         <p className="text-zinc-500">{loginMessage}</p>
       </section>
 
@@ -117,7 +141,7 @@ const DevMswPage = () => {
         <ul className="flex flex-col gap-1">
           {sessionsQuery.data?.map((session) => (
             <li key={session.id}>
-              #{session.id} {session.title} (order {session.order})
+              [{session.status}] #{session.id} {session.title} (order {session.order})
             </li>
           ))}
         </ul>
@@ -133,7 +157,9 @@ const DevMswPage = () => {
         )}
         <p className="text-zinc-500">
           상위 키워드:{' '}
-          {snapshotQuery.data?.topKeywords.map((item) => `${item.keyword}(${item.count})`).join(', ')}
+          {snapshotQuery.data?.topKeywords
+            .map((item) => `${item.keyword}(${item.count})`)
+            .join(', ')}
         </p>
         <p className="text-zinc-500">공개 소감 {snapshotQuery.data?.recentFeedbacks.length}건</p>
       </section>

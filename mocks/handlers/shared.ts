@@ -41,18 +41,30 @@ export const errorResponse = (code: ApiErrorCode, message?: string) =>
     { status: API_ERROR_STATUS[code] },
   );
 
+/** 인증 쿠키 이름입니다(2026-08-07 명세). 실제 BE가 `Set-Cookie`로 내려주는 이름과 같아야 합니다. */
+export const ACCESS_TOKEN_COOKIE = 'accessToken';
+
+/** CSRF double-submit용 쿠키. HttpOnly가 아니라서 FE가 읽어 `X-XSRF-TOKEN` 헤더로 되돌려 보냅니다. */
+export const XSRF_TOKEN_COOKIE = 'XSRF-TOKEN';
+
 /**
  * 목은 토큰을 검증하지 않고 존재 여부만 봅니다.
  * 같은 경로가 인증 여부로 갈리는 곳(`GET /events/{eventCode}/report`)에서 씁니다.
+ *
+ * `request.headers`가 아니라 리졸버의 `cookies` 인자를 받습니다. 브라우저는 `Cookie`를
+ * 금지 헤더로 막아서 서비스 워커가 요청 헤더에서 쿠키를 읽을 수 없고, MSW가 목 응답의
+ * `Set-Cookie`를 자체 저장소에 담아 이 인자로 되돌려 주기 때문입니다.
  */
-export const hasBearerToken = (request: Request): boolean =>
-  request.headers.get('Authorization')?.startsWith('Bearer ') === true;
+export type RequestCookies = Record<string, string>;
+
+export const hasAuthCookie = (cookies: RequestCookies): boolean =>
+  (cookies[ACCESS_TOKEN_COOKIE]?.length ?? 0) > 0;
 
 /**
- * 인증이 필요한 화면에서 헤더를 빠뜨렸을 때 401이 나야 FE가 실제와 같은 분기를 탑니다.
+ * 인증이 필요한 화면에서 쿠키가 없을 때 401이 나야 FE가 실제와 같은 분기를 탑니다.
  */
-export const requireAuth = (request: Request): Response | null =>
-  hasBearerToken(request) ? null : errorResponse('UNAUTHORIZED');
+export const requireAuth = (cookies: RequestCookies): Response | null =>
+  hasAuthCookie(cookies) ? null : errorResponse('UNAUTHORIZED');
 
 /**
  * 소유자 전용 경로의 공통 앞단입니다. 인증 → code 조회 → 소유자 확인을 순서대로 검사하고,
@@ -62,10 +74,10 @@ export const requireAuth = (request: Request): Response | null =>
  * 이벤트·리포트 쓰기 핸들러가 똑같은 세 단계를 반복하게 돼 한곳으로 모았습니다.
  */
 export const requireOwnedEvent = (
-  request: Request,
+  cookies: RequestCookies,
   eventCode: string | readonly string[] | undefined,
 ): PulseEvent | Response => {
-  const unauthorized = requireAuth(request);
+  const unauthorized = requireAuth(cookies);
   if (unauthorized) return unauthorized;
 
   const event = typeof eventCode === 'string' ? findEventByCode(eventCode) : undefined;

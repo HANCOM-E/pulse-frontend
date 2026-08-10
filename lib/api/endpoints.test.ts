@@ -1,6 +1,6 @@
 import { HttpResponse, http } from 'msw';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { fetchEventByCode, fetchMyEvents } from '@/lib/api/endpoints';
+import { fetchEventByCode, fetchMyEvents, login, logout } from '@/lib/api/endpoints';
 import { ApiError } from '@/lib/apiClient';
 import { API_BASE_URL } from '@/mocks/handlers/shared';
 import { server } from '@/mocks/server';
@@ -14,7 +14,7 @@ import { server } from '@/mocks/server';
  */
 
 const EVENT_CODE = 'ab3f9x';
-const AUTH_HEADERS = { Authorization: 'Bearer mock-access-token' };
+const SEED_CREDENTIALS = { email: 'host@example.com', password: 'pulse1234' };
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => {
@@ -28,7 +28,11 @@ describe('parseResponse', () => {
     server.use(
       http.get(`${API_BASE_URL}/events/:eventCode`, () =>
         // status가 빠진 응답. 필드 하나만 어긋나도 통과하면 안 됩니다.
-        HttpResponse.json({ code: EVENT_CODE, title: '제목', createdAt: '2026-08-01T09:00:00.000Z' }),
+        HttpResponse.json({
+          code: EVENT_CODE,
+          title: '제목',
+          createdAt: '2026-08-01T09:00:00.000Z',
+        }),
       ),
     );
 
@@ -58,17 +62,23 @@ describe('parseResponse', () => {
   });
 });
 
-describe('인증 헤더', () => {
-  it('토큰이 없으면 소유자 목록 조회가 UNAUTHORIZED로 거부된다', async () => {
+/**
+ * 2026-08-07 명세부터 인증이 헤더가 아니라 HttpOnly 쿠키입니다. FE가 토큰을 손에 들고
+ * 헤더에 실어 보내는 단계가 사라져서, 로그인 응답의 `Set-Cookie`가 이후 요청에 자동으로
+ * 따라붙는지가 인증의 전부입니다. 그 왕복을 그대로 태워 봅니다.
+ */
+describe('인증 쿠키', () => {
+  it('로그인 전에는 소유자 목록 조회가 UNAUTHORIZED로 거부된다', async () => {
     await expect(fetchMyEvents()).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
   });
 
-  it('토큰이 있으면 목록이 온다', async () => {
-    const { setStoredAccessToken, clearStoredAccessToken } = await import('@/lib/authToken');
-    setStoredAccessToken(AUTH_HEADERS.Authorization.replace('Bearer ', ''));
+  it('로그인하면 목록이 오고, 로그아웃하면 다시 막힌다', async () => {
+    // 응답 바디에 토큰이 없습니다. 여기서 얻는 건 유저 정보뿐입니다.
+    await expect(login(SEED_CREDENTIALS)).resolves.toMatchObject({ email: SEED_CREDENTIALS.email });
 
     await expect(fetchMyEvents()).resolves.toHaveLength(3);
 
-    clearStoredAccessToken();
+    await logout();
+    await expect(fetchMyEvents()).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
   });
 });

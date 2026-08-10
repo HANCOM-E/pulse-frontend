@@ -28,6 +28,8 @@ export interface MockAccount {
   id: number;
   email: string;
   password: string;
+  /** `AuthUser` 응답에 실립니다. 로그인 때마다 값이 흔들리면 안 되므로 계정에 붙여 둡니다. */
+  createdAt: string;
 }
 
 interface MockDb {
@@ -95,6 +97,10 @@ export const generateEventCode = (): string => {
 /** 로그인·가입 모두 이메일로 계정을 찾습니다(요구사항 "2. 로그인" 1단계, 이메일은 UNIQUE). */
 export const findAccountByEmail = (email: string): MockAccount | undefined =>
   db.accounts.find((account) => account.email === email);
+
+/** `GET /auth/me`가 씁니다. 쿠키에 담긴 토큰에서 계정 id를 되찾아 조회합니다. */
+export const findAccountById = (id: number): MockAccount | undefined =>
+  db.accounts.find((account) => account.id === id);
 
 /** DELETED 이벤트는 조회 대상에서 빠집니다(요구사항 "6. 이벤트 삭제"). */
 export const findEventByCode = (code: string): PulseEvent | undefined =>

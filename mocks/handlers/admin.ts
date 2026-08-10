@@ -8,6 +8,7 @@ import {
   findFeedbackById,
   findSessionById,
 } from '@/mocks/data/store';
+import type { RequestCookies } from '@/mocks/handlers/shared';
 import { API_BASE_URL, errorResponse, requireAuth, toNumericId } from '@/mocks/handlers/shared';
 
 /**
@@ -35,8 +36,12 @@ const isOwnedByHost = (feedback: Feedback): boolean => {
   return event.ownerId === HOST_USER.id;
 };
 
-const transition = (request: Request, feedbackId: string | readonly string[] | undefined, next: FeedbackStatus) => {
-  const unauthorized = requireAuth(request);
+const transition = (
+  cookies: RequestCookies,
+  feedbackId: string | readonly string[] | undefined,
+  next: FeedbackStatus,
+) => {
+  const unauthorized = requireAuth(cookies);
   if (unauthorized) return unauthorized;
 
   const id = toNumericId(feedbackId);
@@ -104,8 +109,8 @@ const selectModerationQueue = (query: URLSearchParams): Feedback[] | Response =>
 };
 
 export const adminHandlers = [
-  http.get(`${API_BASE_URL}/admin/feedbacks`, ({ request }) => {
-    const unauthorized = requireAuth(request);
+  http.get(`${API_BASE_URL}/admin/feedbacks`, ({ request, cookies }) => {
+    const unauthorized = requireAuth(cookies);
     if (unauthorized) return unauthorized;
 
     const selected = selectModerationQueue(new URL(request.url).searchParams);
@@ -114,16 +119,16 @@ export const adminHandlers = [
     return HttpResponse.json({ items: selected });
   }),
 
-  http.patch(`${API_BASE_URL}/admin/feedbacks/:feedbackId/hide`, ({ request, params }) =>
-    transition(request, params.feedbackId, 'HIDDEN'),
+  http.patch(`${API_BASE_URL}/admin/feedbacks/:feedbackId/hide`, ({ params, cookies }) =>
+    transition(cookies, params.feedbackId, 'HIDDEN'),
   ),
 
   // 숨김 해제. 실수로 숨긴 건을 되돌리는 유일한 경로입니다(요구사항 소감 상태 전이 4번).
-  http.patch(`${API_BASE_URL}/admin/feedbacks/:feedbackId/show`, ({ request, params }) =>
-    transition(request, params.feedbackId, 'VISIBLE'),
+  http.patch(`${API_BASE_URL}/admin/feedbacks/:feedbackId/show`, ({ params, cookies }) =>
+    transition(cookies, params.feedbackId, 'VISIBLE'),
   ),
 
-  http.patch(`${API_BASE_URL}/admin/feedbacks/:feedbackId/delete`, ({ request, params }) =>
-    transition(request, params.feedbackId, 'DELETED'),
+  http.patch(`${API_BASE_URL}/admin/feedbacks/:feedbackId/delete`, ({ params, cookies }) =>
+    transition(cookies, params.feedbackId, 'DELETED'),
   ),
 ];

@@ -1,4 +1,3 @@
-import { getStoredAccessToken } from '@/lib/authToken';
 import { API_BASE_URL } from '@/lib/env';
 
 export class ApiError extends Error {
@@ -12,14 +11,32 @@ export class ApiError extends Error {
 }
 
 interface ApiClientOptions extends RequestInit {
+  /**
+   * 인증 쿠키를 일부러 빼고 보냅니다. `GET /events/{eventCode}/report`처럼 같은 경로가
+   * 인증 여부로 응답이 갈리는 자리에서, 로그인 상태여도 게스트 응답을 받아야 할 때 씁니다.
+   */
   skipAuth?: boolean;
 }
 
-function getAccessToken(): string | null {
-  // JWT 저장 방식(localStorage vs 쿠키)은 팀 논의 후 확정됩니다. 축 1이 useAuth와 함께 구현합니다.
-  // 확정 전까지 /admin/* 호출이 401로 막히지 않도록 임시 보관소만 연결해 둡니다.
-  return getStoredAccessToken();
-}
+const XSRF_TOKEN_COOKIE = 'XSRF-TOKEN';
+const XSRF_TOKEN_HEADER = 'X-XSRF-TOKEN';
+
+/** 조회 요청에는 CSRF 토큰이 필요 없습니다. 상태를 바꾸는 메서드만 헤더를 답니다. */
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+
+/**
+ * CSRF double-submit용 토큰입니다. `accessToken`과 달리 HttpOnly가 아니라서 FE가 읽을 수 있고,
+ * 읽은 값을 그대로 헤더에 실어 보내면 서버가 쿠키와 대조합니다(2026-08-07 명세).
+ *
+ * SSR에는 `document`가 없습니다. 서버에서 나가는 요청은 애초에 인증 쿠키도 없어서 상태 변경을
+ * 하지 않으므로 그냥 건너뜁니다.
+ */
+const readXsrfToken = (): string | null => {
+  if (typeof document === 'undefined') return null;
+
+  const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${XSRF_TOKEN_COOKIE}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]) : null;
+};
 
 async function parseJsonSafely(response: Response): Promise<unknown> {
   if (response.status === 204) return null;
@@ -30,18 +47,22 @@ async function parseJsonSafely(response: Response): Promise<unknown> {
 
 export async function apiClient<T>(path: string, options: ApiClientOptions = {}): Promise<T> {
   const { skipAuth, headers, ...rest } = options;
-  const token = skipAuth ? null : getAccessToken();
 
   const mergedHeaders = new Headers(headers);
   if (!mergedHeaders.has('Content-Type')) {
     mergedHeaders.set('Content-Type', 'application/json');
   }
-  if (token) {
-    mergedHeaders.set('Authorization', `Bearer ${token}`);
+
+  const method = (rest.method ?? 'GET').toUpperCase();
+  const xsrfToken = skipAuth ? null : readXsrfToken();
+  if (xsrfToken !== null && !SAFE_METHODS.has(method) && !mergedHeaders.has(XSRF_TOKEN_HEADER)) {
+    mergedHeaders.set(XSRF_TOKEN_HEADER, xsrfToken);
   }
 
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...rest,
+    // 인증은 HttpOnly 쿠키라 FE가 헤더로 실어 보낼 수 없습니다. 브라우저가 붙이게 맡깁니다.
+    credentials: skipAuth ? 'omit' : 'include',
     headers: mergedHeaders,
   });
 
@@ -52,7 +73,10 @@ export async function apiClient<T>(path: string, options: ApiClientOptions = {})
     } catch {
       body = null;
     }
-    throw new ApiError(body?.code ?? 'UNKNOWN_ERROR', body?.message ?? `요청 실패 (${response.status})`);
+    throw new ApiError(
+      body?.code ?? 'UNKNOWN_ERROR',
+      body?.message ?? `요청 실패 (${response.status})`,
+    );
   }
 
   try {

@@ -1,5 +1,6 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import {
+  authUserSchema,
   eventViewSchema,
   feedbackListResponseSchema,
   feedbackSnapshotSchema,
@@ -8,7 +9,6 @@ import {
   reportSchema,
   sessionSchema,
   sessionViewSchema,
-  signupResponseSchema,
 } from '@/lib/schemas/api';
 import { db, resetDb } from '@/mocks/data/store';
 import { API_BASE_URL } from '@/mocks/handlers/shared';
@@ -30,7 +30,11 @@ const LIVE_SESSION_IDS = [101, 102, 103, 104];
 const HIDDEN_FEEDBACK_ID = 915;
 const DELETED_FEEDBACK_ID = 922;
 
-const AUTH_HEADERS = { Authorization: 'Bearer mock-access-token' };
+/**
+ * 인증은 HttpOnly 쿠키입니다(2026-08-07 명세). 목은 토큰을 검증하지 않고 존재만 보지만,
+ * `GET /auth/me`가 계정을 되찾아야 해서 값에 시드 계정 id(1)를 담아 둡니다.
+ */
+const AUTH_HEADERS = { Cookie: 'accessToken=mock-access-token-1' };
 
 const call = (path: string, init?: RequestInit) => fetch(`${API_BASE_URL}${path}`, init);
 
@@ -42,7 +46,7 @@ afterEach(() => {
 afterAll(() => server.close());
 
 describe('auth', () => {
-  it('시드 계정으로 로그인하면 토큰을 준다', async () => {
+  it('시드 계정으로 로그인하면 토큰이 아니라 쿠키를 준다', async () => {
     const response = await call('/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -50,7 +54,17 @@ describe('auth', () => {
     });
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({ expiresIn: 3600 });
+
+    // 토큰이 바디에 실리면 FE가 그 값을 저장하는 코드로 되돌아갑니다.
+    const body = (await response.json()) as Record<string, unknown>;
+    expect(authUserSchema.parse(body).email).toBe('host@example.com');
+    expect(body).not.toHaveProperty('accessToken');
+
+    const setCookie = response.headers.get('Set-Cookie') ?? '';
+    expect(setCookie).toContain('accessToken=');
+    expect(setCookie).toContain('HttpOnly');
+    // CSRF 토큰은 FE가 읽어서 헤더로 되돌려 보내야 해서 HttpOnly면 안 됩니다.
+    expect(setCookie).toContain('XSRF-TOKEN=');
   });
 
   it('비밀번호가 틀리면 INVALID_CREDENTIALS를 준다', async () => {
@@ -73,7 +87,7 @@ describe('auth', () => {
       body: JSON.stringify(credentials),
     });
     expect(signup.status).toBe(201);
-    const created = signupResponseSchema.parse(await signup.json());
+    const created = authUserSchema.parse(await signup.json());
     expect(created.id).not.toBe(1); // 시드 계정(host)과 다른 id
 
     const login = await call('/auth/login', {
@@ -83,7 +97,28 @@ describe('auth', () => {
     });
 
     expect(login.status).toBe(200);
-    await expect(login.json()).resolves.toMatchObject({ expiresIn: 3600 });
+    await expect(login.json()).resolves.toMatchObject({ id: created.id, email: credentials.email });
+  });
+
+  it('쿠키가 있으면 /auth/me가 그 계정을 돌려준다', async () => {
+    const response = await call('/auth/me', { headers: AUTH_HEADERS });
+
+    expect(response.status).toBe(200);
+    expect(authUserSchema.parse(await response.json()).email).toBe('host@example.com');
+  });
+
+  it('쿠키가 없으면 /auth/me는 UNAUTHORIZED를 준다', async () => {
+    const response = await call('/auth/me');
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toMatchObject({ code: 'UNAUTHORIZED' });
+  });
+
+  it('로그아웃은 204와 함께 쿠키를 만료시킨다', async () => {
+    const response = await call('/auth/logout', { method: 'POST', headers: AUTH_HEADERS });
+
+    expect(response.status).toBe(204);
+    expect(response.headers.get('Set-Cookie') ?? '').toContain('Max-Age=0');
   });
 
   it('이미 가입된 이메일이면 EMAIL_ALREADY_EXISTS를 준다', async () => {

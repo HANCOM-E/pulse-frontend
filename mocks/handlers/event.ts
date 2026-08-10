@@ -38,8 +38,8 @@ import {
 
 export const eventHandlers = [
   // 내 이벤트 목록. 페이지네이션은 v1에 없지만 봉투는 씌워서 나갑니다.
-  http.get(`${API_BASE_URL}/events`, ({ request }) => {
-    const unauthorized = requireAuth(request);
+  http.get(`${API_BASE_URL}/events`, ({ cookies }) => {
+    const unauthorized = requireAuth(cookies);
     if (unauthorized) return unauthorized;
 
     const items = db.events.filter(
@@ -48,8 +48,8 @@ export const eventHandlers = [
     return HttpResponse.json({ items });
   }),
 
-  http.post(`${API_BASE_URL}/events`, async ({ request }) => {
-    const unauthorized = requireAuth(request);
+  http.post(`${API_BASE_URL}/events`, async ({ request, cookies }) => {
+    const unauthorized = requireAuth(cookies);
     if (unauthorized) return unauthorized;
 
     const body = await parseBody(request, eventCreateRequestSchema);
@@ -76,8 +76,8 @@ export const eventHandlers = [
     return HttpResponse.json(toEventView(event));
   }),
 
-  http.patch(`${API_BASE_URL}/events/:eventCode`, async ({ request, params }) => {
-    const event = requireOwnedEvent(request, params.eventCode);
+  http.patch(`${API_BASE_URL}/events/:eventCode`, async ({ request, params, cookies }) => {
+    const event = requireOwnedEvent(cookies, params.eventCode);
     if (event instanceof Response) return event;
 
     const body = await parseBody(request, eventUpdateRequestSchema);
@@ -105,8 +105,8 @@ export const eventHandlers = [
     return HttpResponse.json(event);
   }),
 
-  http.delete(`${API_BASE_URL}/events/:eventCode`, ({ request, params }) => {
-    const unauthorized = requireAuth(request);
+  http.delete(`${API_BASE_URL}/events/:eventCode`, ({ params, cookies }) => {
+    const unauthorized = requireAuth(cookies);
     if (unauthorized) return unauthorized;
 
     // requireOwnedEvent를 못 쓰는 자리입니다. 그쪽이 쓰는 findEventByCode는 DELETED를 걸러내서,
@@ -128,8 +128,8 @@ export const eventHandlers = [
     return HttpResponse.json({ items: listSessionsOfEvent(event.id).map(toSessionView) });
   }),
 
-  http.post(`${API_BASE_URL}/events/:eventCode/sessions`, async ({ request, params }) => {
-    const event = requireOwnedEvent(request, params.eventCode);
+  http.post(`${API_BASE_URL}/events/:eventCode/sessions`, async ({ request, params, cookies }) => {
+    const event = requireOwnedEvent(cookies, params.eventCode);
     if (event instanceof Response) return event;
 
     const body = await parseBody(request, sessionCreateRequestSchema);
@@ -150,8 +150,8 @@ export const eventHandlers = [
 
   http.patch(
     `${API_BASE_URL}/events/:eventCode/sessions/:sessionId`,
-    async ({ request, params }) => {
-      const event = requireOwnedEvent(request, params.eventCode);
+    async ({ request, params, cookies }) => {
+      const event = requireOwnedEvent(cookies, params.eventCode);
       if (event instanceof Response) return event;
 
       const sessionId = toNumericId(params.sessionId);
@@ -177,8 +177,8 @@ export const eventHandlers = [
     },
   ),
 
-  http.delete(`${API_BASE_URL}/events/:eventCode/sessions/:sessionId`, ({ request, params }) => {
-    const event = requireOwnedEvent(request, params.eventCode);
+  http.delete(`${API_BASE_URL}/events/:eventCode/sessions/:sessionId`, ({ params, cookies }) => {
+    const event = requireOwnedEvent(cookies, params.eventCode);
     if (event instanceof Response) return event;
 
     const sessionId = toNumericId(params.sessionId);

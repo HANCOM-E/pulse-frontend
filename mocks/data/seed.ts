@@ -13,6 +13,7 @@ export const HOST_USER = {
   id: 1,
   email: 'host@example.com',
   password: 'pulse1234',
+  createdAt: '2026-07-15T00:00:00.000Z',
 } as const;
 
 export const TAGGER_VERSION = 'kobert-sent-v1';

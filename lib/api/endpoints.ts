@@ -1,7 +1,7 @@
 import apiClient, { ApiError } from '@/lib/apiClient';
 import { getClientId } from '@/lib/clientId';
 import type {
-  AuthTokenResponse,
+  AuthUser,
   EventView,
   Feedback,
   FeedbackSnapshot,
@@ -15,10 +15,9 @@ import type {
   SessionUpdateRequest,
   SessionView,
   SignupRequest,
-  SignupResponse,
 } from '@/lib/schemas/api';
 import {
-  authTokenResponseSchema,
+  authUserSchema,
   eventViewSchema,
   feedbackListResponseSchema,
   feedbackSchema,
@@ -30,7 +29,6 @@ import {
   reportSchema,
   sessionSchema,
   sessionViewSchema,
-  signupResponseSchema,
 } from '@/lib/schemas/api';
 import type { z } from 'zod';
 
@@ -77,22 +75,40 @@ const parseResponse = <T extends z.ZodType>(schema: T, data: unknown, path: stri
 // auth
 // ─────────────────────────────────────────────────────────────
 
-export const login = async (body: LoginRequest): Promise<AuthTokenResponse> => {
+/**
+ * 응답 바디에 토큰이 없습니다(2026-08-07 명세). 서버가 `accessToken`을 HttpOnly 쿠키로
+ * 내려주므로, 호출자는 반환값을 저장할 필요 없이 로그인됐다고 보면 됩니다.
+ *
+ * `skipAuth`를 쓰지 않습니다. 쿠키를 받으려면(`Set-Cookie`) 요청이 `credentials: 'include'`여야 합니다.
+ */
+export const login = async (body: LoginRequest): Promise<AuthUser> => {
   const data = await apiClient<unknown>('/auth/login', {
     method: 'POST',
     body: JSON.stringify(body),
-    skipAuth: true,
   });
-  return parseResponse(authTokenResponseSchema, data, 'POST /auth/login');
+  return parseResponse(authUserSchema, data, 'POST /auth/login');
 };
 
-export const signup = async (body: SignupRequest): Promise<SignupResponse> => {
+export const signup = async (body: SignupRequest): Promise<AuthUser> => {
   const data = await apiClient<unknown>('/auth/signup', {
     method: 'POST',
     body: JSON.stringify(body),
-    skipAuth: true,
   });
-  return parseResponse(signupResponseSchema, data, 'POST /auth/signup');
+  return parseResponse(authUserSchema, data, 'POST /auth/signup');
+};
+
+/** 쿠키 만료는 서버가 `Set-Cookie`로 처리합니다. FE가 지울 수 있는 값이 아닙니다. */
+export const logout = async (): Promise<void> => {
+  await apiClient<null>('/auth/logout', { method: 'POST' });
+};
+
+/**
+ * 새로고침 뒤 로그인 상태를 복원합니다. 토큰이 HttpOnly라 FE가 읽고 판단할 수 없어서,
+ * "로그인돼 있나"를 알려면 서버에 물어보는 수밖에 없습니다. 미인증이면 401(`UNAUTHORIZED`)입니다.
+ */
+export const fetchMe = async (): Promise<AuthUser> => {
+  const data = await apiClient<unknown>('/auth/me');
+  return parseResponse(authUserSchema, data, 'GET /auth/me');
 };
 
 // ─────────────────────────────────────────────────────────────
