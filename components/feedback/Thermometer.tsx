@@ -1,16 +1,12 @@
 import type { ComponentProps } from 'react';
 
-interface ThermometerProps extends Omit<
-  ComponentProps<'div'>,
-  'children' | 'role' | 'aria-label' | 'aria-labelledby'
-> {
-  positive: number;
-  neutral: number;
-  negative: number;
-}
+import { SentimentLegend } from '@/components/feedback/SentimentLegend';
+import { toChartLabel, toRates, type SentimentCounts } from '@/components/feedback/sentiment';
 
-const toPercent = (value: number, total: number) =>
-  total === 0 ? 0 : Math.round((value / total) * 100);
+interface ThermometerProps
+  extends
+    Omit<ComponentProps<'div'>, 'children' | 'role' | 'aria-label' | 'aria-labelledby'>,
+    SentimentCounts {}
 
 const Thermometer = ({
   positive,
@@ -19,20 +15,14 @@ const Thermometer = ({
   className = '',
   ...props
 }: ThermometerProps) => {
-  const total = positive + neutral + negative;
-
-  const rate = {
-    positive: toPercent(positive, total),
-    neutral: toPercent(neutral, total),
-    negative: toPercent(negative, total),
-  };
+  const rate = toRates({ positive, neutral, negative });
 
   return (
     <div
       className={`flex flex-col gap-2 ${className}`}
       {...props}
       role="img"
-      aria-label={`긍정 ${rate.positive}%, 중립 ${rate.neutral}%, 부정 ${rate.negative}%`}
+      aria-label={toChartLabel(rate)}
       aria-labelledby={undefined}
     >
       <div className="flex h-4 overflow-hidden rounded-full bg-background-muted">
@@ -41,11 +31,7 @@ const Thermometer = ({
         <div className="bg-negative-default" style={{ flexGrow: negative }} />
       </div>
 
-      <div className="flex justify-between text-xs font-normal leading-4">
-        <span className="text-positive-darker">긍정 {rate.positive}%</span>
-        <span className="text-text-secondary">중립 {rate.neutral}%</span>
-        <span className="text-negative-darker">부정 {rate.negative}%</span>
-      </div>
+      <SentimentLegend rate={rate} />
     </div>
   );
 };
