@@ -6,11 +6,12 @@ import {
   feedbackSnapshotSchema,
   listResponseSchema,
   publicReportSchema,
+  pulseEventSchema,
   reportSchema,
   sessionSchema,
   sessionViewSchema,
 } from '@/lib/schemas/api';
-import { db, resetDb } from '@/mocks/data/store';
+import { db, nextAccountId, resetDb } from '@/mocks/data/store';
 import { API_BASE_URL } from '@/mocks/handlers/shared';
 import { server } from '@/mocks/server';
 
@@ -38,6 +39,24 @@ const AUTH_HEADERS = { Cookie: 'accessToken=mock-access-token-1' };
 
 const call = (path: string, init?: RequestInit) => fetch(`${API_BASE_URL}${path}`, init);
 
+/**
+ * `Set-Cookie`를 쿠키별로 갈라 놓습니다.
+ *
+ * `headers.get('Set-Cookie')`는 두 쿠키를 `, `로 이어 붙인 한 문자열을 줘서, 거기에 대고
+ * `HttpOnly`를 찾으면 그게 어느 쿠키에 붙은 속성인지 구분되지 않습니다. 두 쿠키의 속성이
+ * 서로 달라야 하는 게 이 테스트의 요점이라 `getSetCookie()`로 나눠서 봅니다.
+ */
+const splitSetCookie = (response: Response) => {
+  const cookies = response.headers.getSetCookie();
+  const find = (name: string) => {
+    const cookie = cookies.find((value) => value.startsWith(`${name}=`));
+    expect(cookie, `${name} 쿠키가 응답에 없습니다`).toBeDefined();
+    return cookie as string;
+  };
+
+  return { accessToken: find('accessToken'), xsrfToken: find('XSRF-TOKEN') };
+};
+
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => {
   server.resetHandlers();
@@ -60,11 +79,10 @@ describe('auth', () => {
     expect(authUserSchema.parse(body).email).toBe('host@example.com');
     expect(body).not.toHaveProperty('accessToken');
 
-    const setCookie = response.headers.get('Set-Cookie') ?? '';
-    expect(setCookie).toContain('accessToken=');
-    expect(setCookie).toContain('HttpOnly');
+    const { accessToken, xsrfToken } = splitSetCookie(response);
+    expect(accessToken).toContain('HttpOnly');
     // CSRF 토큰은 FE가 읽어서 헤더로 되돌려 보내야 해서 HttpOnly면 안 됩니다.
-    expect(setCookie).toContain('XSRF-TOKEN=');
+    expect(xsrfToken).not.toContain('HttpOnly');
   });
 
   it('비밀번호가 틀리면 INVALID_CREDENTIALS를 준다', async () => {
@@ -114,11 +132,15 @@ describe('auth', () => {
     await expect(response.json()).resolves.toMatchObject({ code: 'UNAUTHORIZED' });
   });
 
-  it('로그아웃은 204와 함께 쿠키를 만료시킨다', async () => {
+  it('로그아웃은 204와 함께 두 쿠키를 모두 만료시킨다', async () => {
     const response = await call('/auth/logout', { method: 'POST', headers: AUTH_HEADERS });
 
     expect(response.status).toBe(204);
-    expect(response.headers.get('Set-Cookie') ?? '').toContain('Max-Age=0');
+
+    // 하나만 만료시키면 CSRF 토큰이 브라우저에 남습니다.
+    const { accessToken, xsrfToken } = splitSetCookie(response);
+    expect(accessToken).toContain('Max-Age=0');
+    expect(xsrfToken).toContain('Max-Age=0');
   });
 
   it('이미 가입된 이메일이면 EMAIL_ALREADY_EXISTS를 준다', async () => {
@@ -141,6 +163,77 @@ describe('auth', () => {
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toMatchObject({ code: 'VALIDATION_ERROR' });
+  });
+});
+
+/**
+ * 목이 쿠키의 존재만 보고 전부 통과시키면, 가입만 한 계정이 남의 이벤트를 수정하고
+ * 모더레이션 큐를 열 수 있습니다. 화면이 그 위에 붙으면 권한 분기를 테스트할 수 없습니다.
+ */
+describe('다른 계정의 자원 접근', () => {
+  /**
+   * 시드 호스트가 아닌 계정을 만들고 그 계정의 쿠키를 돌려줍니다.
+   *
+   * `/auth/signup`을 부르지 않고 저장소에 직접 넣습니다. 목이 응답에 실은 `Set-Cookie`는
+   * MSW의 쿠키 저장소에 남아 뒤따르는 "쿠키 없음" 케이스까지 로그인 상태로 만듭니다.
+   */
+  const createOtherAccount = (): Record<string, string> => {
+    const account = {
+      id: nextAccountId(),
+      email: 'other@example.com',
+      password: 'pulse5678',
+      createdAt: '2026-08-09T00:00:00.000Z',
+    };
+    db.accounts.push(account);
+
+    return { Cookie: `accessToken=mock-access-token-${account.id}` };
+  };
+
+  it('내 이벤트 목록에 남의 이벤트가 섞이지 않는다', async () => {
+    const other = createOtherAccount();
+    const response = await call('/events', { headers: other });
+
+    expect(response.status).toBe(200);
+    // 시드 이벤트 3개는 전부 호스트 소유입니다. 가입 직후라 자기 이벤트는 없습니다.
+    const { items } = listResponseSchema(pulseEventSchema).parse(await response.json());
+    expect(items).toHaveLength(0);
+  });
+
+  it('남의 이벤트를 수정하면 NOT_OWNER를 준다', async () => {
+    const other = createOtherAccount();
+    const response = await call(`/events/${LIVE_EVENT_CODE}`, {
+      method: 'PATCH',
+      headers: { ...other, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: '남의 이벤트 수정 시도' }),
+    });
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({ code: 'NOT_OWNER' });
+  });
+
+  it('모더레이션 큐에 남의 소감이 나오지 않는다', async () => {
+    const other = createOtherAccount();
+    const response = await call('/admin/feedbacks', { headers: other });
+
+    expect(response.status).toBe(200);
+    const { items } = feedbackListResponseSchema.parse(await response.json());
+    expect(items).toHaveLength(0);
+  });
+
+  it('남의 비공개 리포트는 소유자 응답이 아니라 404다', async () => {
+    const other = createOtherAccount();
+
+    const hidden = await call(`/events/${ENDED_EVENT_CODE}/report`, {
+      method: 'PATCH',
+      headers: { ...AUTH_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ isPublic: false }),
+    });
+    expect(hidden.status).toBe(200);
+
+    const response = await call(`/events/${ENDED_EVENT_CODE}/report`, { headers: other });
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({ code: 'REPORT_NOT_FOUND' });
   });
 });
 
