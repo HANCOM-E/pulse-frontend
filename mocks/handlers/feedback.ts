@@ -35,6 +35,9 @@ export const feedbackHandlers = [
     // LIVE 상태에서만 제출을 받습니다.
     if (event.status !== 'LIVE') return errorResponse('EVENT_NOT_LIVE');
 
+    // 이벤트가 LIVE여도 해당 순서가 마감(CLOSED)이면 신규 소감을 거부합니다(2026-08-07 명세).
+    if (session.status === 'CLOSED') return errorResponse('SESSION_CLOSED');
+
     // 빈도 제한 키 = (sessionId, X-Client-Id). FE가 익명 브라우저 UUID를 헤더로 보냅니다.
     const clientId = request.headers.get('X-Client-Id') ?? 'anonymous';
     if (isRateLimited(session.id, clientId)) return errorResponse('RATE_LIMIT_EXCEEDED');

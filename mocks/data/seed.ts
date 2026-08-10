@@ -50,7 +50,8 @@ export const seedEvents: PulseEvent[] = [
 export const seedSessions: Session[] = [
   { id: 101, eventId: 42, title: '1부: 키노트', order: 1, status: 'ACTIVE' },
   { id: 102, eventId: 42, title: '2부: 패널 토론', order: 2, status: 'ACTIVE' },
-  { id: 103, eventId: 42, title: '3부: Q&A', order: 3, status: 'ACTIVE' },
+  // 마감된 순서. 목록에는 남지만 제출은 SESSION_CLOSED(409)로 막혀야 합니다.
+  { id: 103, eventId: 42, title: '3부: Q&A', order: 3, status: 'CLOSED' },
   { id: 104, eventId: 42, title: '취소된 세션', order: 4, status: 'DELETED' },
   { id: 201, eventId: 43, title: '오전: 조직 소개', order: 1, status: 'ACTIVE' },
   { id: 202, eventId: 43, title: '오후: 코드 리뷰 문화', order: 2, status: 'ACTIVE' },

@@ -113,9 +113,20 @@ export const findSessionById = (sessionId: number): Session | undefined =>
 export const findFeedbackById = (feedbackId: number): Feedback | undefined =>
   db.feedbacks.find((feedback) => feedback.id === feedbackId);
 
-export const listSessionsOfEvent = (eventId: number): Session[] =>
+/** 소프트 삭제되지 않은 세션. 공개 목록으로 나갈 수 있는 것만 이 타입을 얻습니다. */
+export type OpenSession = Session & { status: SessionView['status'] };
+
+const isOpenSession = (session: Session): session is OpenSession => session.status !== 'DELETED';
+
+/**
+ * `DELETED`만 빠집니다. `CLOSED`(피드백 마감)는 남습니다 — 세션은 생성 시 `CLOSED`이므로
+ * (2026-08-07 명세) `ACTIVE`만 세면 방금 만든 세션이 목록에서 사라지고,
+ * `PATCH /events/{eventCode}` 의 "세션 1개 이상" 검사도 통과할 수 없게 됩니다.
+ */
+export const listSessionsOfEvent = (eventId: number): OpenSession[] =>
   db.sessions
-    .filter((session) => session.eventId === eventId && session.status === 'ACTIVE')
+    .filter((session) => session.eventId === eventId)
+    .filter(isOpenSession)
     .sort((a, b) => a.order - b.order);
 
 /** 소감은 세션에 달리므로, 이벤트 단위 조회는 항상 세션을 한 번 거칩니다. */
@@ -156,10 +167,11 @@ export const toEventView = (event: PulseEvent): EventView => ({
   createdAt: event.createdAt,
 });
 
-export const toSessionView = (session: Session): SessionView => ({
+export const toSessionView = (session: OpenSession): SessionView => ({
   id: session.id,
   title: session.title,
   order: session.order,
+  status: session.status,
 });
 
 export const toFeedbackView = (feedback: Feedback): FeedbackView => ({

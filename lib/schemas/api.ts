@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /**
- * Pulse API 계약 스키마 (API 명세서 2026-08-06 갱신본 기준)
+ * Pulse API 계약 스키마 (API 명세서 2026-08-10 갱신본 기준)
  *
  * 원본: Notion "API 명세서".
  * https://app.notion.com/p/f3f5f62e868482ee9faf816de775057c
@@ -19,14 +19,20 @@ import { z } from 'zod';
 // ─────────────────────────────────────────────────────────────
 
 export const eventStatusSchema = z.enum(['DRAFT', 'LIVE', 'ENDED', 'DELETED']);
-export const sessionStatusSchema = z.enum(['ACTIVE', 'DELETED']);
+
+/**
+ * `CLOSED`는 피드백 마감입니다(2026-08-07 명세). 세션은 생성 시 `CLOSED`이고,
+ * 발표가 시작될 때 소유자가 `ACTIVE`로 열어야 소감을 받습니다. 되돌릴 수도 있습니다.
+ * `DELETED`(소프트 삭제)와 달리 종단 상태가 아닙니다.
+ */
+export const sessionStatusSchema = z.enum(['ACTIVE', 'CLOSED', 'DELETED']);
 export const feedbackStatusSchema = z.enum(['VISIBLE', 'HIDDEN', 'DELETED']);
 export const reportStatusSchema = z.enum(['GENERATING', 'GENERATED', 'FAILED']);
 
 /** UNKNOWN은 태깅 실패를 뜻하며 NEU(진짜 중립)와 다릅니다. 감정 분포 집계에서 제외됩니다. */
 export const sentimentSchema = z.enum(['POS', 'NEU', 'NEG', 'UNKNOWN']);
 
-/** 에러 코드 v1 (18개, 2026-08-05 김효인 확정) */
+/** 에러 코드 v1 (20개, 2026-08-05 김효인 확정 · 08-07 SESSION_CLOSED · 08-10 SESSION_ALREADY_DELETED 추가) */
 export const apiErrorCodeSchema = z.enum([
   'VALIDATION_ERROR',
   'INVALID_CREDENTIALS',
@@ -38,9 +44,11 @@ export const apiErrorCodeSchema = z.enum([
   'FEEDBACK_NOT_FOUND',
   'REPORT_NOT_FOUND',
   'EVENT_NOT_LIVE',
+  'SESSION_CLOSED',
   'INVALID_EVENT_STATE_TRANSITION',
   'EVENT_ALREADY_DELETED',
   'FEEDBACK_ALREADY_DELETED',
+  'SESSION_ALREADY_DELETED',
   'EVENT_NOT_ENDED',
   'REPORT_ALREADY_EXISTS',
   'RATE_LIMIT_EXCEEDED',
@@ -101,9 +109,11 @@ export const API_ERROR_STATUS: Record<ApiErrorCode, number> = {
   FEEDBACK_NOT_FOUND: 404,
   REPORT_NOT_FOUND: 404,
   EVENT_NOT_LIVE: 409,
+  SESSION_CLOSED: 409,
   INVALID_EVENT_STATE_TRANSITION: 409,
   EVENT_ALREADY_DELETED: 409,
   FEEDBACK_ALREADY_DELETED: 409,
+  SESSION_ALREADY_DELETED: 409,
   EVENT_NOT_ENDED: 409,
   REPORT_ALREADY_EXISTS: 409,
   RATE_LIMIT_EXCEEDED: 429,
@@ -211,22 +221,34 @@ export const sessionSchema = z.object({
 });
 
 /**
+ * 소프트 삭제를 뺀 상태입니다. `DELETED`는 목록 응답에서 제외되고 수정 요청으로도 갈 수 없어서
+ * (그쪽은 `DELETE`가 담당합니다) 공개뷰와 수정 요청이 같은 좁힌 집합을 씁니다.
+ */
+const openSessionStatusSchema = sessionStatusSchema.exclude(['DELETED']);
+
+/**
  * 공개 세션 목록(`GET /events/{eventCode}/sessions`) 응답입니다.
  *
- * `eventId`는 code로 조회한 목록이라 중복이고, `status`는 응답에 `ACTIVE`만 담기므로
- * 둘 다 뺐습니다. `id`는 남습니다 — 게스트가 소감을 제출하려면 `sessionId`가 필요합니다.
+ * `eventId`는 code로 조회한 목록이라 중복이어서 뺐습니다. `id`는 남습니다 — 게스트가
+ * 소감을 제출하려면 `sessionId`가 필요합니다.
+ *
+ * `status`는 2026-08-07 명세부터 공개뷰에도 담깁니다. 세션이 `CLOSED`면 제출이 409로
+ * 막히는데, 이 필드가 없으면 화면이 그걸 미리 알 방법이 없어 눌러보고 실패해야 합니다.
  */
-export const sessionViewSchema = sessionSchema.omit({ eventId: true, status: true });
+export const sessionViewSchema = sessionSchema
+  .omit({ eventId: true })
+  .extend({ status: openSessionStatusSchema });
 
 export const sessionCreateRequestSchema = z.object({
   title: z.string().min(1),
   order: z.int(),
 });
 
-/** 전 필드 optional(부분 수정). */
+/** 전 필드 optional(부분 수정). `status`는 피드백 마감/재개(`ACTIVE`↔`CLOSED`)에 씁니다. */
 export const sessionUpdateRequestSchema = z.object({
   title: z.string().min(1).optional(),
   order: z.int().optional(),
+  status: openSessionStatusSchema.optional(),
 });
 
 export const eventListResponseSchema = listResponseSchema(pulseEventSchema);

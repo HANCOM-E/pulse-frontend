@@ -160,18 +160,19 @@ describe('이벤트 조회', () => {
 });
 
 describe('세션 목록', () => {
-  it('공개 목록은 SessionView이고 DELETED 세션이 빠진다', async () => {
+  it('공개 목록은 SessionView이고 DELETED 세션만 빠진다', async () => {
     const response = await call(`/events/${LIVE_EVENT_CODE}/sessions`);
     const body = (await response.json()) as { items: Record<string, unknown>[] };
 
     expect(response.status).toBe(200);
     const sessions = listResponseSchema(sessionViewSchema).parse(body);
-    // 시드의 이벤트 42는 ACTIVE 3개 + DELETED 1개입니다.
+    // 시드의 이벤트 42는 ACTIVE 2개 + CLOSED 1개 + DELETED 1개입니다.
     expect(sessions.items.map((item) => item.id)).toEqual([101, 102, 103]);
+    // 마감된 순서도 목록에는 남습니다. 빠지면 화면이 제출 전에 마감 여부를 알 수 없습니다.
+    expect(sessions.items.find((item) => item.id === 103)?.status).toBe('CLOSED');
 
     for (const session of body.items) {
       expect(session).not.toHaveProperty('eventId');
-      expect(session).not.toHaveProperty('status');
     }
   });
 
@@ -180,6 +181,36 @@ describe('세션 목록', () => {
 
     expect(response.status).toBe(404);
     await expect(response.json()).resolves.toMatchObject({ code: 'EVENT_NOT_FOUND' });
+  });
+});
+
+describe('세션 생성·삭제', () => {
+  it('새로 만든 세션은 CLOSED다', async () => {
+    const response = await call(`/events/${LIVE_EVENT_CODE}/sessions`, {
+      method: 'POST',
+      headers: { ...AUTH_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: '4부: 네트워킹', order: 4 }),
+    });
+
+    expect(response.status).toBe(201);
+    // 생성하자마자 소감을 받으면 안 됩니다. 발표 시작 시점에 소유자가 직접 엽니다.
+    await expect(response.json()).resolves.toMatchObject({ status: 'CLOSED' });
+  });
+
+  it('이미 삭제한 세션을 또 지우면 SESSION_ALREADY_DELETED를 준다', async () => {
+    const first = await call(`/events/${LIVE_EVENT_CODE}/sessions/101`, {
+      method: 'DELETE',
+      headers: AUTH_HEADERS,
+    });
+    expect(first.status).toBe(204);
+
+    const second = await call(`/events/${LIVE_EVENT_CODE}/sessions/101`, {
+      method: 'DELETE',
+      headers: AUTH_HEADERS,
+    });
+
+    expect(second.status).toBe(409);
+    await expect(second.json()).resolves.toMatchObject({ code: 'SESSION_ALREADY_DELETED' });
   });
 });
 
@@ -226,6 +257,43 @@ describe('세션 수정', () => {
       title: '1부: 오프닝 키노트',
       order: 2,
     });
+  });
+
+  it('status=ACTIVE로 열면 마감됐던 세션에 소감을 낼 수 있다', async () => {
+    const opened = await call(`/events/${LIVE_EVENT_CODE}/sessions/103`, {
+      method: 'PATCH',
+      headers: { ...AUTH_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'ACTIVE' }),
+    });
+
+    expect(opened.status).toBe(200);
+    expect(sessionSchema.parse(await opened.json()).status).toBe('ACTIVE');
+
+    // 마감 해제가 저장소에 반영되지 않으면 제출이 계속 409로 막힙니다.
+    const submitted = await call(`/events/${LIVE_EVENT_CODE}/feedbacks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Client-Id': 'client-reopen' },
+      body: JSON.stringify({
+        sessionId: 103,
+        text: '다시 열린 세션에 남기는 소감',
+        sentiment: 'POS',
+        toxic: false,
+        keywords: [],
+        taggerVersion: 'kobert-sent-v1',
+      }),
+    });
+    expect(submitted.status).toBe(201);
+  });
+
+  it('삭제된 세션은 SESSION_NOT_FOUND라 status로 되살릴 수 없다', async () => {
+    const response = await call(`/events/${LIVE_EVENT_CODE}/sessions/104`, {
+      method: 'PATCH',
+      headers: { ...AUTH_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'ACTIVE' }),
+    });
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({ code: 'SESSION_NOT_FOUND' });
   });
 
   it('소유자가 아니면 NOT_OWNER를 준다', async () => {
@@ -497,6 +565,24 @@ describe('소감 제출', () => {
 
     expect(response.status).toBe(409);
     await expect(response.json()).resolves.toMatchObject({ code: 'EVENT_NOT_LIVE' });
+  });
+
+  it('이벤트가 LIVE여도 세션이 마감이면 SESSION_CLOSED를 준다', async () => {
+    const response = await call(`/events/${LIVE_EVENT_CODE}/feedbacks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Client-Id': 'client-closed' },
+      body: JSON.stringify({
+        sessionId: 103,
+        text: '마감된 순서에 남기는 소감',
+        sentiment: 'NEU',
+        toxic: false,
+        keywords: [],
+        taggerVersion: 'kobert-sent-v1',
+      }),
+    });
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({ code: 'SESSION_CLOSED' });
   });
 
   it('키워드가 6개면 VALIDATION_ERROR를 준다', async () => {

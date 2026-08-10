@@ -23,9 +23,11 @@ const DEFAULT_MESSAGE: Record<ApiErrorCode, string> = {
   FEEDBACK_NOT_FOUND: '소감을 찾을 수 없습니다.',
   REPORT_NOT_FOUND: '리포트를 찾을 수 없습니다.',
   EVENT_NOT_LIVE: '진행 중인 이벤트가 아닙니다.',
+  SESSION_CLOSED: '지금은 이 순서에 소감을 받지 않습니다.',
   INVALID_EVENT_STATE_TRANSITION: '허용되지 않는 상태 전이입니다.',
   EVENT_ALREADY_DELETED: '이미 삭제된 이벤트입니다.',
   FEEDBACK_ALREADY_DELETED: '이미 삭제된 소감입니다.',
+  SESSION_ALREADY_DELETED: '이미 삭제된 세션입니다.',
   EVENT_NOT_ENDED: '종료된 이벤트에서만 리포트를 만들 수 있습니다.',
   REPORT_ALREADY_EXISTS: '리포트가 이미 생성 중이거나 완료되었습니다.',
   RATE_LIMIT_EXCEEDED: '잠시 후 다시 시도해 주세요.',
@@ -87,7 +89,10 @@ export const parseBody = async <T extends z.ZodType>(
   try {
     raw = await request.json();
   } catch {
-    return { ok: false, response: errorResponse('VALIDATION_ERROR', '요청 본문이 JSON이 아닙니다.') };
+    return {
+      ok: false,
+      response: errorResponse('VALIDATION_ERROR', '요청 본문이 JSON이 아닙니다.'),
+    };
   }
 
   const result = schema.safeParse(raw);
@@ -96,7 +101,10 @@ export const parseBody = async <T extends z.ZodType>(
     const path = issue.path.join('.');
     return {
       ok: false,
-      response: errorResponse('VALIDATION_ERROR', path ? `${path}: ${issue.message}` : issue.message),
+      response: errorResponse(
+        'VALIDATION_ERROR',
+        path ? `${path}: ${issue.message}` : issue.message,
+      ),
     };
   }
 

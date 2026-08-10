@@ -135,34 +135,47 @@ export const eventHandlers = [
     const body = await parseBody(request, sessionCreateRequestSchema);
     if (!body.ok) return body.response;
 
+    // 생성 직후는 피드백 마감 상태입니다. 발표가 시작될 때 소유자가 PATCH로 엽니다(2026-08-07 명세).
     const session: Session = {
       id: nextSessionId(),
       eventId: event.id,
       title: body.data.title,
       order: body.data.order,
-      status: 'ACTIVE',
+      status: 'CLOSED',
     };
     db.sessions.push(session);
 
     return HttpResponse.json(session, { status: 201 });
   }),
 
-  http.patch(`${API_BASE_URL}/events/:eventCode/sessions/:sessionId`, async ({ request, params }) => {
-    const event = requireOwnedEvent(request, params.eventCode);
-    if (event instanceof Response) return event;
+  http.patch(
+    `${API_BASE_URL}/events/:eventCode/sessions/:sessionId`,
+    async ({ request, params }) => {
+      const event = requireOwnedEvent(request, params.eventCode);
+      if (event instanceof Response) return event;
 
-    const sessionId = toNumericId(params.sessionId);
-    const session = sessionId === null ? undefined : findSessionById(sessionId);
-    if (!session || session.eventId !== event.id) return errorResponse('SESSION_NOT_FOUND');
+      const sessionId = toNumericId(params.sessionId);
+      const session = sessionId === null ? undefined : findSessionById(sessionId);
+      if (!session || session.eventId !== event.id) return errorResponse('SESSION_NOT_FOUND');
 
-    const body = await parseBody(request, sessionUpdateRequestSchema);
-    if (!body.ok) return body.response;
+      /*
+       * ⚠️ 명세에 없어 목이 먼저 정한 규칙입니다(김효인 님 확인 필요).
+       * 삭제된 세션은 없는 것으로 봅니다. 2026-08-07에 `status`가 수정 대상이 되면서
+       * 이 검사가 없으면 PATCH `status=ACTIVE`로 삭제된 세션을 되살릴 수 있습니다.
+       */
+      if (session.status === 'DELETED') return errorResponse('SESSION_NOT_FOUND');
 
-    if (body.data.title !== undefined) session.title = body.data.title;
-    if (body.data.order !== undefined) session.order = body.data.order;
+      const body = await parseBody(request, sessionUpdateRequestSchema);
+      if (!body.ok) return body.response;
 
-    return HttpResponse.json(session);
-  }),
+      if (body.data.title !== undefined) session.title = body.data.title;
+      if (body.data.order !== undefined) session.order = body.data.order;
+      // ACTIVE↔CLOSED만 옵니다. 삭제는 DELETE가 담당해서 요청 스키마에 DELETED가 없습니다.
+      if (body.data.status !== undefined) session.status = body.data.status;
+
+      return HttpResponse.json(session);
+    },
+  ),
 
   http.delete(`${API_BASE_URL}/events/:eventCode/sessions/:sessionId`, ({ request, params }) => {
     const event = requireOwnedEvent(request, params.eventCode);
@@ -171,6 +184,7 @@ export const eventHandlers = [
     const sessionId = toNumericId(params.sessionId);
     const session = sessionId === null ? undefined : findSessionById(sessionId);
     if (!session || session.eventId !== event.id) return errorResponse('SESSION_NOT_FOUND');
+    if (session.status === 'DELETED') return errorResponse('SESSION_ALREADY_DELETED');
 
     // 연결된 Feedback 존재 여부는 삭제 조건이 아닙니다.
     session.status = 'DELETED';
