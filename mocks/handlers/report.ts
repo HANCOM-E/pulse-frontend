@@ -2,7 +2,6 @@ import { http, HttpResponse } from 'msw';
 import { z } from 'zod';
 import type { Report } from '@/lib/schemas/api';
 import {
-  HOST_USER,
   buildSnapshot,
   db,
   findEventByCode,
@@ -11,8 +10,8 @@ import {
 } from '@/mocks/data/store';
 import {
   API_BASE_URL,
+  authenticatedAccount,
   errorResponse,
-  hasBearerToken,
   parseBody,
   requireOwnedEvent,
 } from '@/mocks/handlers/shared';
@@ -57,8 +56,8 @@ const completeReport = (reportId: number): void => {
 };
 
 export const reportHandlers = [
-  http.post(`${API_BASE_URL}/events/:eventCode/report/generate`, ({ request, params }) => {
-    const event = requireOwnedEvent(request, params.eventCode);
+  http.post(`${API_BASE_URL}/events/:eventCode/report/generate`, ({ request, params, cookies }) => {
+    const event = requireOwnedEvent(request, cookies, params.eventCode);
     if (event instanceof Response) return event;
 
     if (event.status !== 'ENDED') return errorResponse('EVENT_NOT_ENDED');
@@ -85,8 +84,8 @@ export const reportHandlers = [
     return HttpResponse.json(report, { status: 202 });
   }),
 
-  http.patch(`${API_BASE_URL}/events/:eventCode/report`, async ({ request, params }) => {
-    const event = requireOwnedEvent(request, params.eventCode);
+  http.patch(`${API_BASE_URL}/events/:eventCode/report`, async ({ request, params, cookies }) => {
+    const event = requireOwnedEvent(request, cookies, params.eventCode);
     if (event instanceof Response) return event;
 
     const report = findReportByEventId(event.id);
@@ -101,8 +100,8 @@ export const reportHandlers = [
 
   /**
    * 하나의 경로가 인증 여부로 갈립니다.
-   *   - 소유자(Bearer 있음): isPublic 무관하게 Report 전체. 화면이 GENERATING → GENERATED를 폴링합니다.
-   *   - 게스트(Bearer 없음): isPublic=true이고 생성이 끝났을 때만 PublicReport, 아니면 404.
+   *   - 소유자(인증 쿠키 있음): isPublic 무관하게 Report 전체. 화면이 GENERATING → GENERATED를 폴링합니다.
+   *   - 게스트(쿠키 없음): isPublic=true이고 생성이 끝났을 때만 PublicReport, 아니면 404.
    *
    * 게스트 쪽에서 "없음"과 "비공개"를 같은 404로 병합하는 건 의도입니다(에러 코드 표의
    * REPORT_NOT_FOUND 설명). 비공개 리포트의 존재 자체를 알리지 않습니다.
@@ -111,12 +110,13 @@ export const reportHandlers = [
    * 게스트와 같은 취급(공개면 PublicReport, 아니면 404)입니다. 403을 내면 비공개 리포트가
    * 존재한다는 사실이 새어 나가고, 이 경로는 공개 페이지가 SSR로 때리는 자리이기도 합니다.
    */
-  http.get(`${API_BASE_URL}/events/:eventCode/report`, ({ request, params }) => {
+  http.get(`${API_BASE_URL}/events/:eventCode/report`, ({ request, params, cookies }) => {
     const event = findEventByCode(String(params.eventCode));
     if (!event) return errorResponse('EVENT_NOT_FOUND');
 
     const report = findReportByEventId(event.id);
-    const isOwner = hasBearerToken(request) && event.ownerId === HOST_USER.id;
+    const account = authenticatedAccount(request, cookies);
+    const isOwner = account !== null && event.ownerId === account.id;
 
     if (isOwner) {
       // 행이 없는 상태(개념상 NONE)를 404로 알립니다. 화면은 이걸 "아직 생성 안 함"으로 읽습니다.

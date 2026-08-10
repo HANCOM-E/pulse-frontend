@@ -1,16 +1,17 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import {
+  authUserSchema,
   eventViewSchema,
   feedbackListResponseSchema,
   feedbackSnapshotSchema,
   listResponseSchema,
   publicReportSchema,
+  pulseEventSchema,
   reportSchema,
   sessionSchema,
   sessionViewSchema,
-  signupResponseSchema,
 } from '@/lib/schemas/api';
-import { db, resetDb } from '@/mocks/data/store';
+import { db, nextAccountId, resetDb } from '@/mocks/data/store';
 import { API_BASE_URL } from '@/mocks/handlers/shared';
 import { server } from '@/mocks/server';
 
@@ -30,9 +31,31 @@ const LIVE_SESSION_IDS = [101, 102, 103, 104];
 const HIDDEN_FEEDBACK_ID = 915;
 const DELETED_FEEDBACK_ID = 922;
 
-const AUTH_HEADERS = { Authorization: 'Bearer mock-access-token' };
+/**
+ * 인증은 HttpOnly 쿠키입니다(2026-08-07 명세). 목은 토큰을 검증하지 않고 존재만 보지만,
+ * `GET /auth/me`가 계정을 되찾아야 해서 값에 시드 계정 id(1)를 담아 둡니다.
+ */
+const AUTH_HEADERS = { Cookie: 'accessToken=mock-access-token-1' };
 
 const call = (path: string, init?: RequestInit) => fetch(`${API_BASE_URL}${path}`, init);
+
+/**
+ * `Set-Cookie`를 쿠키별로 갈라 놓습니다.
+ *
+ * `headers.get('Set-Cookie')`는 두 쿠키를 `, `로 이어 붙인 한 문자열을 줘서, 거기에 대고
+ * `HttpOnly`를 찾으면 그게 어느 쿠키에 붙은 속성인지 구분되지 않습니다. 두 쿠키의 속성이
+ * 서로 달라야 하는 게 이 테스트의 요점이라 `getSetCookie()`로 나눠서 봅니다.
+ */
+const splitSetCookie = (response: Response) => {
+  const cookies = response.headers.getSetCookie();
+  const find = (name: string) => {
+    const cookie = cookies.find((value) => value.startsWith(`${name}=`));
+    expect(cookie, `${name} 쿠키가 응답에 없습니다`).toBeDefined();
+    return cookie as string;
+  };
+
+  return { accessToken: find('accessToken'), xsrfToken: find('XSRF-TOKEN') };
+};
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => {
@@ -42,7 +65,7 @@ afterEach(() => {
 afterAll(() => server.close());
 
 describe('auth', () => {
-  it('시드 계정으로 로그인하면 토큰을 준다', async () => {
+  it('시드 계정으로 로그인하면 토큰이 아니라 쿠키를 준다', async () => {
     const response = await call('/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -50,7 +73,16 @@ describe('auth', () => {
     });
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({ expiresIn: 3600 });
+
+    // 토큰이 바디에 실리면 FE가 그 값을 저장하는 코드로 되돌아갑니다.
+    const body = (await response.json()) as Record<string, unknown>;
+    expect(authUserSchema.parse(body).email).toBe('host@example.com');
+    expect(body).not.toHaveProperty('accessToken');
+
+    const { accessToken, xsrfToken } = splitSetCookie(response);
+    expect(accessToken).toContain('HttpOnly');
+    // CSRF 토큰은 FE가 읽어서 헤더로 되돌려 보내야 해서 HttpOnly면 안 됩니다.
+    expect(xsrfToken).not.toContain('HttpOnly');
   });
 
   it('비밀번호가 틀리면 INVALID_CREDENTIALS를 준다', async () => {
@@ -73,7 +105,7 @@ describe('auth', () => {
       body: JSON.stringify(credentials),
     });
     expect(signup.status).toBe(201);
-    const created = signupResponseSchema.parse(await signup.json());
+    const created = authUserSchema.parse(await signup.json());
     expect(created.id).not.toBe(1); // 시드 계정(host)과 다른 id
 
     const login = await call('/auth/login', {
@@ -83,7 +115,32 @@ describe('auth', () => {
     });
 
     expect(login.status).toBe(200);
-    await expect(login.json()).resolves.toMatchObject({ expiresIn: 3600 });
+    await expect(login.json()).resolves.toMatchObject({ id: created.id, email: credentials.email });
+  });
+
+  it('쿠키가 있으면 /auth/me가 그 계정을 돌려준다', async () => {
+    const response = await call('/auth/me', { headers: AUTH_HEADERS });
+
+    expect(response.status).toBe(200);
+    expect(authUserSchema.parse(await response.json()).email).toBe('host@example.com');
+  });
+
+  it('쿠키가 없으면 /auth/me는 UNAUTHORIZED를 준다', async () => {
+    const response = await call('/auth/me');
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toMatchObject({ code: 'UNAUTHORIZED' });
+  });
+
+  it('로그아웃은 204와 함께 두 쿠키를 모두 만료시킨다', async () => {
+    const response = await call('/auth/logout', { method: 'POST', headers: AUTH_HEADERS });
+
+    expect(response.status).toBe(204);
+
+    // 하나만 만료시키면 CSRF 토큰이 브라우저에 남습니다.
+    const { accessToken, xsrfToken } = splitSetCookie(response);
+    expect(accessToken).toContain('Max-Age=0');
+    expect(xsrfToken).toContain('Max-Age=0');
   });
 
   it('이미 가입된 이메일이면 EMAIL_ALREADY_EXISTS를 준다', async () => {
@@ -106,6 +163,77 @@ describe('auth', () => {
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toMatchObject({ code: 'VALIDATION_ERROR' });
+  });
+});
+
+/**
+ * 목이 쿠키의 존재만 보고 전부 통과시키면, 가입만 한 계정이 남의 이벤트를 수정하고
+ * 모더레이션 큐를 열 수 있습니다. 화면이 그 위에 붙으면 권한 분기를 테스트할 수 없습니다.
+ */
+describe('다른 계정의 자원 접근', () => {
+  /**
+   * 시드 호스트가 아닌 계정을 만들고 그 계정의 쿠키를 돌려줍니다.
+   *
+   * `/auth/signup`을 부르지 않고 저장소에 직접 넣습니다. 목이 응답에 실은 `Set-Cookie`는
+   * MSW의 쿠키 저장소에 남아 뒤따르는 "쿠키 없음" 케이스까지 로그인 상태로 만듭니다.
+   */
+  const createOtherAccount = (): Record<string, string> => {
+    const account = {
+      id: nextAccountId(),
+      email: 'other@example.com',
+      password: 'pulse5678',
+      createdAt: '2026-08-09T00:00:00.000Z',
+    };
+    db.accounts.push(account);
+
+    return { Cookie: `accessToken=mock-access-token-${account.id}` };
+  };
+
+  it('내 이벤트 목록에 남의 이벤트가 섞이지 않는다', async () => {
+    const other = createOtherAccount();
+    const response = await call('/events', { headers: other });
+
+    expect(response.status).toBe(200);
+    // 시드 이벤트 3개는 전부 호스트 소유입니다. 가입 직후라 자기 이벤트는 없습니다.
+    const { items } = listResponseSchema(pulseEventSchema).parse(await response.json());
+    expect(items).toHaveLength(0);
+  });
+
+  it('남의 이벤트를 수정하면 NOT_OWNER를 준다', async () => {
+    const other = createOtherAccount();
+    const response = await call(`/events/${LIVE_EVENT_CODE}`, {
+      method: 'PATCH',
+      headers: { ...other, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: '남의 이벤트 수정 시도' }),
+    });
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({ code: 'NOT_OWNER' });
+  });
+
+  it('모더레이션 큐에 남의 소감이 나오지 않는다', async () => {
+    const other = createOtherAccount();
+    const response = await call('/admin/feedbacks', { headers: other });
+
+    expect(response.status).toBe(200);
+    const { items } = feedbackListResponseSchema.parse(await response.json());
+    expect(items).toHaveLength(0);
+  });
+
+  it('남의 비공개 리포트는 소유자 응답이 아니라 404다', async () => {
+    const other = createOtherAccount();
+
+    const hidden = await call(`/events/${ENDED_EVENT_CODE}/report`, {
+      method: 'PATCH',
+      headers: { ...AUTH_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ isPublic: false }),
+    });
+    expect(hidden.status).toBe(200);
+
+    const response = await call(`/events/${ENDED_EVENT_CODE}/report`, { headers: other });
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({ code: 'REPORT_NOT_FOUND' });
   });
 });
 
@@ -160,18 +288,19 @@ describe('이벤트 조회', () => {
 });
 
 describe('세션 목록', () => {
-  it('공개 목록은 SessionView이고 DELETED 세션이 빠진다', async () => {
+  it('공개 목록은 SessionView이고 DELETED 세션만 빠진다', async () => {
     const response = await call(`/events/${LIVE_EVENT_CODE}/sessions`);
     const body = (await response.json()) as { items: Record<string, unknown>[] };
 
     expect(response.status).toBe(200);
     const sessions = listResponseSchema(sessionViewSchema).parse(body);
-    // 시드의 이벤트 42는 ACTIVE 3개 + DELETED 1개입니다.
+    // 시드의 이벤트 42는 ACTIVE 2개 + CLOSED 1개 + DELETED 1개입니다.
     expect(sessions.items.map((item) => item.id)).toEqual([101, 102, 103]);
+    // 마감된 순서도 목록에는 남습니다. 빠지면 화면이 제출 전에 마감 여부를 알 수 없습니다.
+    expect(sessions.items.find((item) => item.id === 103)?.status).toBe('CLOSED');
 
     for (const session of body.items) {
       expect(session).not.toHaveProperty('eventId');
-      expect(session).not.toHaveProperty('status');
     }
   });
 
@@ -180,6 +309,36 @@ describe('세션 목록', () => {
 
     expect(response.status).toBe(404);
     await expect(response.json()).resolves.toMatchObject({ code: 'EVENT_NOT_FOUND' });
+  });
+});
+
+describe('세션 생성·삭제', () => {
+  it('새로 만든 세션은 CLOSED다', async () => {
+    const response = await call(`/events/${LIVE_EVENT_CODE}/sessions`, {
+      method: 'POST',
+      headers: { ...AUTH_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: '4부: 네트워킹', order: 4 }),
+    });
+
+    expect(response.status).toBe(201);
+    // 생성하자마자 소감을 받으면 안 됩니다. 발표 시작 시점에 소유자가 직접 엽니다.
+    await expect(response.json()).resolves.toMatchObject({ status: 'CLOSED' });
+  });
+
+  it('이미 삭제한 세션을 또 지우면 SESSION_ALREADY_DELETED를 준다', async () => {
+    const first = await call(`/events/${LIVE_EVENT_CODE}/sessions/101`, {
+      method: 'DELETE',
+      headers: AUTH_HEADERS,
+    });
+    expect(first.status).toBe(204);
+
+    const second = await call(`/events/${LIVE_EVENT_CODE}/sessions/101`, {
+      method: 'DELETE',
+      headers: AUTH_HEADERS,
+    });
+
+    expect(second.status).toBe(409);
+    await expect(second.json()).resolves.toMatchObject({ code: 'SESSION_ALREADY_DELETED' });
   });
 });
 
@@ -226,6 +385,43 @@ describe('세션 수정', () => {
       title: '1부: 오프닝 키노트',
       order: 2,
     });
+  });
+
+  it('status=ACTIVE로 열면 마감됐던 세션에 소감을 낼 수 있다', async () => {
+    const opened = await call(`/events/${LIVE_EVENT_CODE}/sessions/103`, {
+      method: 'PATCH',
+      headers: { ...AUTH_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'ACTIVE' }),
+    });
+
+    expect(opened.status).toBe(200);
+    expect(sessionSchema.parse(await opened.json()).status).toBe('ACTIVE');
+
+    // 마감 해제가 저장소에 반영되지 않으면 제출이 계속 409로 막힙니다.
+    const submitted = await call(`/events/${LIVE_EVENT_CODE}/feedbacks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Client-Id': 'client-reopen' },
+      body: JSON.stringify({
+        sessionId: 103,
+        text: '다시 열린 세션에 남기는 소감',
+        sentiment: 'POS',
+        toxic: false,
+        keywords: [],
+        taggerVersion: 'kobert-sent-v1',
+      }),
+    });
+    expect(submitted.status).toBe(201);
+  });
+
+  it('삭제된 세션은 SESSION_NOT_FOUND라 status로 되살릴 수 없다', async () => {
+    const response = await call(`/events/${LIVE_EVENT_CODE}/sessions/104`, {
+      method: 'PATCH',
+      headers: { ...AUTH_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'ACTIVE' }),
+    });
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({ code: 'SESSION_NOT_FOUND' });
   });
 
   it('소유자가 아니면 NOT_OWNER를 준다', async () => {
@@ -497,6 +693,24 @@ describe('소감 제출', () => {
 
     expect(response.status).toBe(409);
     await expect(response.json()).resolves.toMatchObject({ code: 'EVENT_NOT_LIVE' });
+  });
+
+  it('이벤트가 LIVE여도 세션이 마감이면 SESSION_CLOSED를 준다', async () => {
+    const response = await call(`/events/${LIVE_EVENT_CODE}/feedbacks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Client-Id': 'client-closed' },
+      body: JSON.stringify({
+        sessionId: 103,
+        text: '마감된 순서에 남기는 소감',
+        sentiment: 'NEU',
+        toxic: false,
+        keywords: [],
+        taggerVersion: 'kobert-sent-v1',
+      }),
+    });
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({ code: 'SESSION_CLOSED' });
   });
 
   it('키워드가 6개면 VALIDATION_ERROR를 준다', async () => {
