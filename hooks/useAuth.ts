@@ -20,9 +20,9 @@ export function useAuth(): UseAuthReturn {
 
   const meQuery = useQuery({
     queryKey: ['auth', 'me'],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       try {
-        return await fetchMe();
+        return await fetchMe(signal);
       } catch (error) {
         if (error instanceof ApiError && error.code === 'UNAUTHORIZED') {
           return null;
@@ -34,6 +34,9 @@ export function useAuth(): UseAuthReturn {
 
   const loginMutation = useMutation({
     mutationFn: login,
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['auth', 'me'] });
+    },
     onSuccess: (data) => {
       queryClient.setQueryData(['auth', 'me'], data);
     },
@@ -41,6 +44,9 @@ export function useAuth(): UseAuthReturn {
 
   const logoutMutation = useMutation({
     mutationFn: logout,
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['auth', 'me'] });
+    },
     onSuccess: () => {
       queryClient.setQueryData(['auth', 'me'], null);
     },

@@ -106,8 +106,8 @@ export const logout = async (): Promise<void> => {
  * 새로고침 뒤 로그인 상태를 복원합니다. 토큰이 HttpOnly라 FE가 읽고 판단할 수 없어서,
  * "로그인돼 있나"를 알려면 서버에 물어보는 수밖에 없습니다. 미인증이면 401(`UNAUTHORIZED`)입니다.
  */
-export const fetchMe = async (): Promise<AuthUser> => {
-  const data = await apiClient<unknown>('/auth/me');
+export const fetchMe = async (signal?: AbortSignal): Promise<AuthUser> => {
+  const data = await apiClient<unknown>('/auth/me', { signal });
   return parseResponse(authUserSchema, data, 'GET /auth/me');
 };
 
