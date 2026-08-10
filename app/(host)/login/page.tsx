@@ -39,11 +39,13 @@ const LoginPage = () => {
             placeholder="••••••••"
             invalid={loginFailed}
           />
-          {loginFailed ? (
-            <p className="text-xs text-negative-darker">
-              이메일 또는 비밀번호가 올바르지 않습니다.
-            </p>
-          ) : null}
+          <p
+            role="alert"
+            aria-atomic="true"
+            className={loginFailed ? 'text-xs text-negative-darker' : 'sr-only'}
+          >
+            {loginFailed ? '이메일 또는 비밀번호가 올바르지 않습니다.' : null}
+          </p>
           <Button type="submit" variant="primary" className="w-full">
             로그인
           </Button>
