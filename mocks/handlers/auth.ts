@@ -2,12 +2,14 @@ import { http, HttpResponse } from 'msw';
 import type { AuthUser } from '@/lib/schemas/api';
 import { loginRequestSchema, signupRequestSchema } from '@/lib/schemas/api';
 import type { MockAccount } from '@/mocks/data/store';
-import { db, findAccountByEmail, findAccountById, nextAccountId } from '@/mocks/data/store';
+import { db, findAccountByEmail, nextAccountId } from '@/mocks/data/store';
 import {
   ACCESS_TOKEN_COOKIE,
   API_BASE_URL,
   XSRF_TOKEN_COOKIE,
+  authenticatedAccount,
   errorResponse,
+  issueAccessToken,
   parseBody,
 } from '@/mocks/handlers/shared';
 
@@ -19,20 +21,7 @@ import {
  * FE가 `GET /auth/me`를 호출해서 확인합니다.
  */
 
-/**
- * 목 토큰은 서명하지 않고 계정 id만 실어 둡니다.
- * `GET /auth/me`가 "누가 로그인했는지"를 답하려면 쿠키에서 계정을 되찾을 수 있어야 합니다.
- */
-const ACCESS_TOKEN_PREFIX = 'mock-access-token-';
 const MOCK_XSRF_TOKEN = 'mock-xsrf-token';
-
-const issueAccessToken = (accountId: number): string => `${ACCESS_TOKEN_PREFIX}${accountId}`;
-
-export const accountIdFromAccessToken = (token: string | undefined): number | null => {
-  if (token === undefined || !token.startsWith(ACCESS_TOKEN_PREFIX)) return null;
-  const parsed = Number(token.slice(ACCESS_TOKEN_PREFIX.length));
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
-};
 
 /**
  * 실제 BE는 `Secure; SameSite=None`으로 내립니다(FE·BE 도메인이 다름).
@@ -112,9 +101,8 @@ export const authHandlers = [
    * 새로고침 뒤 로그인 상태를 복원하는 유일한 경로입니다.
    * 토큰이 HttpOnly라 FE가 직접 읽고 판단할 수 없어서 서버에 물어봐야 합니다.
    */
-  http.get(`${API_BASE_URL}/auth/me`, ({ cookies }) => {
-    const accountId = accountIdFromAccessToken(cookies[ACCESS_TOKEN_COOKIE]);
-    const account = accountId === null ? undefined : findAccountById(accountId);
+  http.get(`${API_BASE_URL}/auth/me`, ({ request, cookies }) => {
+    const account = authenticatedAccount(request, cookies);
     if (!account) return errorResponse('UNAUTHORIZED');
 
     return HttpResponse.json(toAuthUser(account));

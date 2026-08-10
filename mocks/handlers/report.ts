@@ -2,7 +2,6 @@ import { http, HttpResponse } from 'msw';
 import { z } from 'zod';
 import type { Report } from '@/lib/schemas/api';
 import {
-  HOST_USER,
   buildSnapshot,
   db,
   findEventByCode,
@@ -11,8 +10,8 @@ import {
 } from '@/mocks/data/store';
 import {
   API_BASE_URL,
+  authenticatedAccount,
   errorResponse,
-  hasAuthCookie,
   parseBody,
   requireOwnedEvent,
 } from '@/mocks/handlers/shared';
@@ -116,7 +115,8 @@ export const reportHandlers = [
     if (!event) return errorResponse('EVENT_NOT_FOUND');
 
     const report = findReportByEventId(event.id);
-    const isOwner = hasAuthCookie(request, cookies) && event.ownerId === HOST_USER.id;
+    const account = authenticatedAccount(request, cookies);
+    const isOwner = account !== null && event.ownerId === account.id;
 
     if (isOwner) {
       // 행이 없는 상태(개념상 NONE)를 404로 알립니다. 화면은 이걸 "아직 생성 안 함"으로 읽습니다.

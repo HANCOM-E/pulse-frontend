@@ -7,7 +7,6 @@ import {
   sessionUpdateRequestSchema,
 } from '@/lib/schemas/api';
 import {
-  HOST_USER,
   db,
   findEventByCode,
   findEventRowByCode,
@@ -23,7 +22,7 @@ import {
   API_BASE_URL,
   errorResponse,
   parseBody,
-  requireAuth,
+  requireAccount,
   requireOwnedEvent,
   toNumericId,
 } from '@/mocks/handlers/shared';
@@ -39,18 +38,18 @@ import {
 export const eventHandlers = [
   // 내 이벤트 목록. 페이지네이션은 v1에 없지만 봉투는 씌워서 나갑니다.
   http.get(`${API_BASE_URL}/events`, ({ request, cookies }) => {
-    const unauthorized = requireAuth(request, cookies);
-    if (unauthorized) return unauthorized;
+    const account = requireAccount(request, cookies);
+    if (account instanceof Response) return account;
 
     const items = db.events.filter(
-      (event) => event.ownerId === HOST_USER.id && event.status !== 'DELETED',
+      (event) => event.ownerId === account.id && event.status !== 'DELETED',
     );
     return HttpResponse.json({ items });
   }),
 
   http.post(`${API_BASE_URL}/events`, async ({ request, cookies }) => {
-    const unauthorized = requireAuth(request, cookies);
-    if (unauthorized) return unauthorized;
+    const account = requireAccount(request, cookies);
+    if (account instanceof Response) return account;
 
     const body = await parseBody(request, eventCreateRequestSchema);
     if (!body.ok) return body.response;
@@ -60,7 +59,7 @@ export const eventHandlers = [
       code: generateEventCode(),
       title: body.data.title,
       description: body.data.description ?? null,
-      ownerId: HOST_USER.id,
+      ownerId: account.id,
       status: 'DRAFT',
       createdAt: new Date().toISOString(),
     };
@@ -106,14 +105,14 @@ export const eventHandlers = [
   }),
 
   http.delete(`${API_BASE_URL}/events/:eventCode`, ({ request, params, cookies }) => {
-    const unauthorized = requireAuth(request, cookies);
-    if (unauthorized) return unauthorized;
+    const account = requireAccount(request, cookies);
+    if (account instanceof Response) return account;
 
     // requireOwnedEvent를 못 쓰는 자리입니다. 그쪽이 쓰는 findEventByCode는 DELETED를 걸러내서,
     // 재삭제가 409 EVENT_ALREADY_DELETED 대신 404로 나갑니다.
     const event = findEventRowByCode(String(params.eventCode));
     if (!event) return errorResponse('EVENT_NOT_FOUND');
-    if (event.ownerId !== HOST_USER.id) return errorResponse('NOT_OWNER');
+    if (event.ownerId !== account.id) return errorResponse('NOT_OWNER');
     if (event.status === 'DELETED') return errorResponse('EVENT_ALREADY_DELETED');
 
     // 소프트 삭제. 하위 Session·Feedback은 연쇄 삭제하지 않습니다.

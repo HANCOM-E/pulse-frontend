@@ -89,9 +89,15 @@ MSW가 목 응답의 `Set-Cookie`를 자체 저장소(tough-cookie)에 담아 �
 `localStorage['__msw-cookie-store__']`에 남습니다. `document.cookie`가 아니라 별도 저장소라
 `HttpOnly` 여부와 무관하게 붙습니다.
 
-**그 저장소는 요청의 `credentials`를 보지 않습니다.** 그래서 `hasAuthCookie`가 `cookies`와
+**그 저장소는 요청의 `credentials`를 보지 않습니다.** 그래서 `authenticatedAccount`가 `cookies`와
 함께 `request`를 받아 `credentials: 'omit'`이면 쿠키가 없는 것으로 봅니다. 이 처리가 없으면
 `skipAuth`로 게스트 응답을 받아야 하는 자리에서 목이 소유자 응답을 돌려줍니다.
+
+**목 토큰은 계정 id를 싣습니다**(`mock-access-token-{id}`). 쿠키가 있는지만 보면 가입한 아무
+계정이나 남의 이벤트를 수정하고 모더레이션 큐를 열 수 있어서, 인증 판정은 전부
+`shared.ts`의 `authenticatedAccount`로 계정을 복원한 뒤 `event.ownerId`와 비교합니다
+(`requireAccount`·`requireOwnedEvent`가 그 위에 얹힌 형태입니다). 목이 토큰을 검증할 수는
+없지만, "누가 로그인했는지"까지 뭉개면 화면의 권한 분기를 확인할 수 없습니다.
 
 목 쿠키는 `Secure`를 빼고 `SameSite=Lax`로 내려갑니다. 실제 BE는 `Secure; SameSite=None`이지만
 localhost는 http라 `Secure` 쿠키가 저장되지 않고, 목은 같은 오리진이라 `None`이 필요 없습니다.

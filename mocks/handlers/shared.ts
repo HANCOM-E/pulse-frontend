@@ -2,7 +2,8 @@ import { HttpResponse } from 'msw';
 import type { z } from 'zod';
 import type { ApiErrorCode, PulseEvent } from '@/lib/schemas/api';
 import { API_ERROR_STATUS } from '@/lib/schemas/api';
-import { HOST_USER, findEventByCode } from '@/mocks/data/store';
+import type { MockAccount } from '@/mocks/data/store';
+import { findAccountById, findEventByCode } from '@/mocks/data/store';
 
 /**
  * 핸들러 공통 유틸입니다. 에러 봉투·인증 검사·요청 바디 검증처럼
@@ -48,31 +49,52 @@ export const ACCESS_TOKEN_COOKIE = 'accessToken';
 export const XSRF_TOKEN_COOKIE = 'XSRF-TOKEN';
 
 /**
- * 목은 토큰을 검증하지 않고 존재 여부만 봅니다.
- * 같은 경로가 인증 여부로 갈리는 곳(`GET /events/{eventCode}/report`)에서 씁니다.
- *
- * `request.headers`가 아니라 리졸버의 `cookies` 인자를 받습니다. 브라우저는 `Cookie`를
+ * 인증 검사는 `request.headers`가 아니라 리졸버의 `cookies` 인자를 봅니다. 브라우저는 `Cookie`를
  * 금지 헤더로 막아서 서비스 워커가 요청 헤더에서 쿠키를 읽을 수 없고, MSW가 목 응답의
  * `Set-Cookie`를 자체 저장소에 담아 이 인자로 되돌려 주기 때문입니다.
  */
 export type RequestCookies = Record<string, string>;
 
 /**
- * `credentials: 'omit'`이면 쿠키가 없는 것으로 봅니다.
+ * 목 토큰은 서명하지 않고 계정 id만 실어 둡니다.
  *
- * MSW는 목 응답의 `Set-Cookie`를 자체 저장소(tough-cookie)에 담아 두는데, 이 저장소는
- * 요청의 `credentials`를 보지 않고 무조건 `cookies` 인자에 섞습니다. 그대로 두면
- * 브라우저가 쿠키를 빼고 보냈는데도 목만 로그인 상태로 보고, `skipAuth`로 게스트 응답을
- * 받아야 하는 `GET /events/{eventCode}/report`가 소유자 응답을 돌려줍니다.
+ * 목이 토큰을 검증할 수는 없지만, 최소한 "누가 로그인했는지"는 알아야 합니다. 존재 여부만 보면
+ * 가입한 아무 계정이나 남의 이벤트를 수정하고 모더레이션 큐를 열 수 있습니다.
  */
-export const hasAuthCookie = (request: Request, cookies: RequestCookies): boolean =>
-  request.credentials !== 'omit' && (cookies[ACCESS_TOKEN_COOKIE]?.length ?? 0) > 0;
+const ACCESS_TOKEN_PREFIX = 'mock-access-token-';
+
+export const issueAccessToken = (accountId: number): string => `${ACCESS_TOKEN_PREFIX}${accountId}`;
+
+const accountIdFromAccessToken = (token: string | undefined): number | null => {
+  if (token === undefined || !token.startsWith(ACCESS_TOKEN_PREFIX)) return null;
+  const parsed = Number(token.slice(ACCESS_TOKEN_PREFIX.length));
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+};
+
+/**
+ * 요청을 보낸 계정을 복원합니다. 인증 판정은 전부 이 함수를 거칩니다.
+ *
+ * `credentials: 'omit'`이면 쿠키가 없는 것으로 봅니다. MSW는 목 응답의 `Set-Cookie`를 자체
+ * 저장소(tough-cookie)에 담아 두는데, 이 저장소가 요청의 `credentials`를 보지 않고 무조건
+ * `cookies` 인자에 섞습니다. 그대로 두면 브라우저가 쿠키를 빼고 보냈는데도 목만 로그인
+ * 상태로 보고, `skipAuth`로 게스트 응답을 받아야 하는 `GET /events/{eventCode}/report`가
+ * 소유자 응답을 돌려줍니다.
+ */
+export const authenticatedAccount = (
+  request: Request,
+  cookies: RequestCookies,
+): MockAccount | null => {
+  if (request.credentials === 'omit') return null;
+
+  const accountId = accountIdFromAccessToken(cookies[ACCESS_TOKEN_COOKIE]);
+  return accountId === null ? null : (findAccountById(accountId) ?? null);
+};
 
 /**
  * 인증이 필요한 화면에서 쿠키가 없을 때 401이 나야 FE가 실제와 같은 분기를 탑니다.
  */
-export const requireAuth = (request: Request, cookies: RequestCookies): Response | null =>
-  hasAuthCookie(request, cookies) ? null : errorResponse('UNAUTHORIZED');
+export const requireAccount = (request: Request, cookies: RequestCookies): MockAccount | Response =>
+  authenticatedAccount(request, cookies) ?? errorResponse('UNAUTHORIZED');
 
 /**
  * 소유자 전용 경로의 공통 앞단입니다. 인증 → code 조회 → 소유자 확인을 순서대로 검사하고,
@@ -86,12 +108,12 @@ export const requireOwnedEvent = (
   cookies: RequestCookies,
   eventCode: string | readonly string[] | undefined,
 ): PulseEvent | Response => {
-  const unauthorized = requireAuth(request, cookies);
-  if (unauthorized) return unauthorized;
+  const account = requireAccount(request, cookies);
+  if (account instanceof Response) return account;
 
   const event = typeof eventCode === 'string' ? findEventByCode(eventCode) : undefined;
   if (!event) return errorResponse('EVENT_NOT_FOUND');
-  if (event.ownerId !== HOST_USER.id) return errorResponse('NOT_OWNER');
+  if (event.ownerId !== account.id) return errorResponse('NOT_OWNER');
 
   return event;
 };
