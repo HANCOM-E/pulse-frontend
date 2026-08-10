@@ -10,7 +10,7 @@ interface BannerProps extends Omit<ComponentProps<'div'>, 'role'> {
 
 const BASE = [
   'inline-flex items-center gap-1.5',
-  'rounded-lg border px-3.5 py-3',
+  'rounded-lg border border-dashed px-3.5 py-3',
   'text-sm font-normal leading-5',
 ].join(' ');
 
