@@ -6,7 +6,7 @@ const EventNotFound = () => {
           <p className="text-base font-medium leading-6 text-text-primary">
             이벤트를 찾을 수 없어요
           </p>
-          <p className="text-sm dont-normal lading-5 text-text-secondary">
+          <p className="text-sm font-normal leading-5 text-text-secondary">
             링크가 올바른지 다시 확인해 주세요
           </p>
         </div>
