@@ -25,9 +25,15 @@ const QueryProvider = ({ children }: QueryProviderProps) => {
         defaultOptions: {
           queries: {
             staleTime: 10_000,
-            // 4xx는 다시 물어봐도 같은 답이라 재시도하지 않습니다.
+            // 다시 물어봐도 같은 답이 오는 실패는 재시도하지 않습니다.
             retry: (failureCount, error) => {
-              if (error instanceof ApiError && isClientError(error.code)) return false;
+              if (error instanceof ApiError) {
+                // 응답이 계약과 다른 경우. 같은 요청에 같은 응답이 옵니다.
+                if (error.code === 'INVALID_RESPONSE') return false;
+                // 4xx.
+                if (isClientError(error.code)) return false;
+              }
+
               return failureCount < 2;
             },
             refetchOnWindowFocus: false,
