@@ -257,10 +257,11 @@ Banner가 사라지는 방식은 두 가지입니다.
 | --------------- | ----------------- |
 | `type=negative` | `type="negative"` |
 | `type=warning`  | `type="warning"`  |
+| `type=info`     | `type="info"`     |
 
 `type`에 기본값이 없습니다. 남은 둘 중 "보통 이것"이라 할 게 없어서, 안 쓰면 타입 에러가 나도록 필수로 두었습니다.
 
-`negative`는 `role="alert"`, `warning`은 `role="status"`로 렌더합니다. 실패는 스크린리더가 하던 말을 끊고 즉시 읽고, 주의는 하던 말이 끝난 뒤 읽습니다.
+`negative`만 `role="alert"`이고 `warning`·`info`는 `role="status"`입니다. 실패는 스크린리더가 하던 말을 끊고 즉시 읽고, 나머지는 하던 말이 끝난 뒤 읽습니다.
 
 `role`은 밖에서 못 바꿉니다. props 타입에서 `Omit`으로 빼고, `{...props}`보다 뒤에 두었습니다. 접근성 의미를 컴포넌트가 책임지기 위해서입니다.
 
@@ -268,27 +269,32 @@ Banner가 사라지는 방식은 두 가지입니다.
 
 | 항목         | 값                                  |
 | ------------ | ----------------------------------- |
-| 높이         | 44 (`py-3` + lh 20)                 |
+| 높이         | 46 (`py-3` + lh 20 + 테두리 2)      |
 | radius       | `rounded-lg` (8)                    |
+| 테두리       | 1                                   |
 | 좌우 padding | `px-3.5` (14)                       |
 | 아이콘 gap   | `gap-1.5` (6)                       |
 | 아이콘       | 16 × 16, 선 굵기 2.5                |
-| 폰트         | 14 / Medium / lh 20                 |
+| 폰트         | 14 / Regular / lh 20                |
 | 너비         | Hug — 늘리려면 `className="w-full"` |
 
 ### 상태
 
-| type     | 배경                 | 글자 · 아이콘          | 대비   |
-| -------- | -------------------- | ---------------------- | ------ |
-| negative | `bg-negative-subtle` | `text-negative-darker` | 8.86:1 |
-| warning  | `bg-warning-subtle`  | `text-warning-darker`  | 8.72:1 |
+| type     | 배경                 | 테두리                    | 글자 · 아이콘          | 대비   |
+| -------- | -------------------- | ------------------------- | ---------------------- | ------ |
+| negative | `bg-negative-subtle` | `border-negative-lighter` | `text-negative-darker` | 8.86:1 |
+| warning  | `bg-warning-subtle`  | `border-warning-lighter`  | `text-warning-darker`  | 8.72:1 |
+| info     | `bg-primary-subtle`  | `border-primary-lighter`  | `text-primary-darker`  | 5.05:1 |
 
-아이콘 색은 `currentColor`라 글자색을 따라갑니다. 타입마다 따로 지정할 필요가 없습니다.
+배경은 `*/subtle`, 테두리는 `*/lighter`로 세 톤이 같은 규칙입니다.
+
+테두리는 흰 배경 대비 1.5:1 안팎이라 장식입니다. 누를 수 없는 요소라 3:1 규정 대상이 아니고, 배경만으로는 흰 화면과 1.1:1이라 경계가 약해서 넣었습니다.
 
 ### 주의
 
 - **색만으로 종류를 구분하지 않습니다.** `negative`는 ✕, `warning`은 느낌표로 모양이 다릅니다. 아이콘을 지우지 마세요.
 - 아이콘은 뜻이 문구에 이미 있으므로 `aria-hidden`입니다. 스크린리더는 문구만 읽습니다.
+- **아이콘 모양이 셋 다 다릅니다.** `negative` ✕, `warning` 느낌표, `info` 뒤집힌 느낌표(ⓘ 안쪽). 색을 못 보는 사용자에게 종류를 전달하는 유일한 수단입니다.
 
 ### 사용 예
 
@@ -766,6 +772,9 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 ## 결정 기록
 
+- 2026.08.10 — Banner에 `info` 톤 추가. 참가자 소감 입력 화면의 안내 문구가 Banner와 생김새가 같아서 별도 컴포넌트(`Hint`) 대신 톤으로 편입함
+- 2026.08.10 — 세 톤 모두에 `*/lighter` 테두리 추가. 배경만으로는 흰 화면과 1.1:1이라 경계가 약함. 누를 수 없는 요소라 3:1 규정 대상은 아니고 장식임
+- 2026.08.10 — 글자 굵기를 Medium에서 Regular로 변경. Banner는 흐름 안에 계속 남는 요소라 Medium이면 계속 시끄럽고, 강조는 색이 이미 하고 있음
 - 2026.08.05 — 모더레이션 버튼 높이 32 → 36으로 통일. size는 lg/md/sm 3종만 유지
 - 2026.08.07 (#66) — Card 컴포넌트를 만들지 않기로 확정하고 `미작성` 목록에서 제거. 흰 배경 + 테두리 박스가 여러 화면에 반복되지만 Stat(`background/muted`, 테두리 없음)·차트 카드(`background/default` + `border-subtle`)·FeedItem(상태마다 다름)이 배경·테두리·padding 모두 달라, 묶으면 variant가 세 개 생기고 결국 화면마다 `className`으로 덮어쓰게 됨. 세 번째로 같은 모양이 나오면 그때 다시 검토
 - 2026.08.07 (#61) — 토스트를 동시에 하나만 띄우기로 함. Pulse에서 둘이 겹칠 상황이 없고, 쌓기를 넣으면 스택 관리·최대 개수·순서 코드가 전부 따라옴. 연타하면 타이머가 리셋되는 셈이라 오히려 자연스러움

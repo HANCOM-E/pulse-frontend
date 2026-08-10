@@ -1,8 +1,8 @@
 import type { ComponentProps, ComponentType } from 'react';
 
-import { AlertIcon, XIcon, type IconProps } from '@/components/ui/icons';
+import { AlertIcon, InfoIcon, XIcon, type IconProps } from '@/components/ui/icons';
 
-type BannerType = 'negative' | 'warning';
+type BannerType = 'negative' | 'warning' | 'info';
 
 interface BannerProps extends Omit<ComponentProps<'div'>, 'role'> {
   type: BannerType;
@@ -10,18 +10,20 @@ interface BannerProps extends Omit<ComponentProps<'div'>, 'role'> {
 
 const BASE = [
   'inline-flex items-center gap-1.5',
-  'rounded-lg px-3.5 py-3',
-  'text-sm font-medium leading-5',
+  'rounded-lg border px-3.5 py-3',
+  'text-sm font-normal leading-5',
 ].join(' ');
 
 const TONE: Record<BannerType, string> = {
-  negative: 'bg-negative-subtle text-negative-darker',
-  warning: 'bg-warning-subtle text-warning-darker',
+  negative: 'border-negative-lighter bg-negative-subtle text-negative-darker',
+  warning: 'border-warning-lighter bg-warning-subtle text-warning-darker',
+  info: 'border-primary-lighter bg-primary-subtle text-primary-darker',
 };
 
 const ICON: Record<BannerType, ComponentType<IconProps>> = {
   negative: XIcon,
   warning: AlertIcon,
+  info: InfoIcon,
 };
 
 const Banner = ({ type, className = '', children, ...props }: BannerProps) => {
