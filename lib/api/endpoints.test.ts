@@ -1,7 +1,16 @@
 import { HttpResponse, http } from 'msw';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { fetchEventByCode, fetchMyEvents, login, logout } from '@/lib/api/endpoints';
+import {
+  fetchEventByCode,
+  fetchMyEvents,
+  fetchOwnReport,
+  fetchPublicReport,
+  login,
+  logout,
+  setReportPublic,
+} from '@/lib/api/endpoints';
 import { ApiError } from '@/lib/apiClient';
+import { resetDb } from '@/mocks/data/store';
 import { API_BASE_URL } from '@/mocks/handlers/shared';
 import { server } from '@/mocks/server';
 
@@ -14,12 +23,15 @@ import { server } from '@/mocks/server';
  */
 
 const EVENT_CODE = 'ab3f9x';
+const ENDED_EVENT_CODE = 'kd7m2p';
 const SEED_CREDENTIALS = { email: 'host@example.com', password: 'pulse1234' };
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => {
   server.resetHandlers();
   vi.unstubAllEnvs();
+  // 리포트 공개 여부를 뒤집는 케이스가 있어 케이스 간 격리가 필요합니다.
+  resetDb();
 });
 afterAll(() => server.close());
 
@@ -80,5 +92,28 @@ describe('인증 쿠키', () => {
 
     await logout();
     await expect(fetchMyEvents()).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
+  });
+
+  /**
+   * `GET /events/{eventCode}/report`는 인증 여부로 응답 모양이 갈리는 유일한 경로이고,
+   * 로그인 상태에서도 게스트 응답을 받아야 하는 자리가 있어 `skipAuth`(`credentials: 'omit'`)를 씁니다.
+   *
+   * MSW는 목 응답의 `Set-Cookie`를 자체 저장소에 담아 두는데 이 저장소가 `credentials`를 보지
+   * 않습니다. 목이 그대로 받으면 브라우저가 쿠키를 빼고 보냈는데도 소유자로 판정합니다.
+   * 비공개 리포트로 확인합니다 — 공개 리포트는 소유자 응답을 받아도 zod가 여분 필드를 벗겨내
+   * 게스트 응답과 구분되지 않습니다.
+   */
+  it('로그인 상태에서도 skipAuth를 쓰면 비공개 리포트가 404로 막힌다', async () => {
+    await login(SEED_CREDENTIALS);
+    await setReportPublic(ENDED_EVENT_CODE, false);
+
+    // 소유자는 공개 전 검토를 위해 계속 볼 수 있어야 합니다.
+    await expect(fetchOwnReport(ENDED_EVENT_CODE)).resolves.toMatchObject({ isPublic: false });
+
+    await expect(fetchPublicReport(ENDED_EVENT_CODE)).rejects.toMatchObject({
+      code: 'REPORT_NOT_FOUND',
+    });
+
+    await logout();
   });
 });

@@ -57,8 +57,8 @@ const completeReport = (reportId: number): void => {
 };
 
 export const reportHandlers = [
-  http.post(`${API_BASE_URL}/events/:eventCode/report/generate`, ({ params, cookies }) => {
-    const event = requireOwnedEvent(cookies, params.eventCode);
+  http.post(`${API_BASE_URL}/events/:eventCode/report/generate`, ({ request, params, cookies }) => {
+    const event = requireOwnedEvent(request, cookies, params.eventCode);
     if (event instanceof Response) return event;
 
     if (event.status !== 'ENDED') return errorResponse('EVENT_NOT_ENDED');
@@ -86,7 +86,7 @@ export const reportHandlers = [
   }),
 
   http.patch(`${API_BASE_URL}/events/:eventCode/report`, async ({ request, params, cookies }) => {
-    const event = requireOwnedEvent(cookies, params.eventCode);
+    const event = requireOwnedEvent(request, cookies, params.eventCode);
     if (event instanceof Response) return event;
 
     const report = findReportByEventId(event.id);
@@ -111,12 +111,12 @@ export const reportHandlers = [
    * 게스트와 같은 취급(공개면 PublicReport, 아니면 404)입니다. 403을 내면 비공개 리포트가
    * 존재한다는 사실이 새어 나가고, 이 경로는 공개 페이지가 SSR로 때리는 자리이기도 합니다.
    */
-  http.get(`${API_BASE_URL}/events/:eventCode/report`, ({ params, cookies }) => {
+  http.get(`${API_BASE_URL}/events/:eventCode/report`, ({ request, params, cookies }) => {
     const event = findEventByCode(String(params.eventCode));
     if (!event) return errorResponse('EVENT_NOT_FOUND');
 
     const report = findReportByEventId(event.id);
-    const isOwner = hasAuthCookie(cookies) && event.ownerId === HOST_USER.id;
+    const isOwner = hasAuthCookie(request, cookies) && event.ownerId === HOST_USER.id;
 
     if (isOwner) {
       // 행이 없는 상태(개념상 NONE)를 404로 알립니다. 화면은 이걸 "아직 생성 안 함"으로 읽습니다.

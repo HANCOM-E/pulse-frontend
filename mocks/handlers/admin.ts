@@ -37,11 +37,12 @@ const isOwnedByHost = (feedback: Feedback): boolean => {
 };
 
 const transition = (
+  request: Request,
   cookies: RequestCookies,
   feedbackId: string | readonly string[] | undefined,
   next: FeedbackStatus,
 ) => {
-  const unauthorized = requireAuth(cookies);
+  const unauthorized = requireAuth(request, cookies);
   if (unauthorized) return unauthorized;
 
   const id = toNumericId(feedbackId);
@@ -110,7 +111,7 @@ const selectModerationQueue = (query: URLSearchParams): Feedback[] | Response =>
 
 export const adminHandlers = [
   http.get(`${API_BASE_URL}/admin/feedbacks`, ({ request, cookies }) => {
-    const unauthorized = requireAuth(cookies);
+    const unauthorized = requireAuth(request, cookies);
     if (unauthorized) return unauthorized;
 
     const selected = selectModerationQueue(new URL(request.url).searchParams);
@@ -119,16 +120,16 @@ export const adminHandlers = [
     return HttpResponse.json({ items: selected });
   }),
 
-  http.patch(`${API_BASE_URL}/admin/feedbacks/:feedbackId/hide`, ({ params, cookies }) =>
-    transition(cookies, params.feedbackId, 'HIDDEN'),
+  http.patch(`${API_BASE_URL}/admin/feedbacks/:feedbackId/hide`, ({ request, params, cookies }) =>
+    transition(request, cookies, params.feedbackId, 'HIDDEN'),
   ),
 
   // 숨김 해제. 실수로 숨긴 건을 되돌리는 유일한 경로입니다(요구사항 소감 상태 전이 4번).
-  http.patch(`${API_BASE_URL}/admin/feedbacks/:feedbackId/show`, ({ params, cookies }) =>
-    transition(cookies, params.feedbackId, 'VISIBLE'),
+  http.patch(`${API_BASE_URL}/admin/feedbacks/:feedbackId/show`, ({ request, params, cookies }) =>
+    transition(request, cookies, params.feedbackId, 'VISIBLE'),
   ),
 
-  http.patch(`${API_BASE_URL}/admin/feedbacks/:feedbackId/delete`, ({ params, cookies }) =>
-    transition(cookies, params.feedbackId, 'DELETED'),
+  http.patch(`${API_BASE_URL}/admin/feedbacks/:feedbackId/delete`, ({ request, params, cookies }) =>
+    transition(request, cookies, params.feedbackId, 'DELETED'),
   ),
 ];

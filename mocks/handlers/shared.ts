@@ -57,14 +57,22 @@ export const XSRF_TOKEN_COOKIE = 'XSRF-TOKEN';
  */
 export type RequestCookies = Record<string, string>;
 
-export const hasAuthCookie = (cookies: RequestCookies): boolean =>
-  (cookies[ACCESS_TOKEN_COOKIE]?.length ?? 0) > 0;
+/**
+ * `credentials: 'omit'`이면 쿠키가 없는 것으로 봅니다.
+ *
+ * MSW는 목 응답의 `Set-Cookie`를 자체 저장소(tough-cookie)에 담아 두는데, 이 저장소는
+ * 요청의 `credentials`를 보지 않고 무조건 `cookies` 인자에 섞습니다. 그대로 두면
+ * 브라우저가 쿠키를 빼고 보냈는데도 목만 로그인 상태로 보고, `skipAuth`로 게스트 응답을
+ * 받아야 하는 `GET /events/{eventCode}/report`가 소유자 응답을 돌려줍니다.
+ */
+export const hasAuthCookie = (request: Request, cookies: RequestCookies): boolean =>
+  request.credentials !== 'omit' && (cookies[ACCESS_TOKEN_COOKIE]?.length ?? 0) > 0;
 
 /**
  * 인증이 필요한 화면에서 쿠키가 없을 때 401이 나야 FE가 실제와 같은 분기를 탑니다.
  */
-export const requireAuth = (cookies: RequestCookies): Response | null =>
-  hasAuthCookie(cookies) ? null : errorResponse('UNAUTHORIZED');
+export const requireAuth = (request: Request, cookies: RequestCookies): Response | null =>
+  hasAuthCookie(request, cookies) ? null : errorResponse('UNAUTHORIZED');
 
 /**
  * 소유자 전용 경로의 공통 앞단입니다. 인증 → code 조회 → 소유자 확인을 순서대로 검사하고,
@@ -74,10 +82,11 @@ export const requireAuth = (cookies: RequestCookies): Response | null =>
  * 이벤트·리포트 쓰기 핸들러가 똑같은 세 단계를 반복하게 돼 한곳으로 모았습니다.
  */
 export const requireOwnedEvent = (
+  request: Request,
   cookies: RequestCookies,
   eventCode: string | readonly string[] | undefined,
 ): PulseEvent | Response => {
-  const unauthorized = requireAuth(cookies);
+  const unauthorized = requireAuth(request, cookies);
   if (unauthorized) return unauthorized;
 
   const event = typeof eventCode === 'string' ? findEventByCode(eventCode) : undefined;

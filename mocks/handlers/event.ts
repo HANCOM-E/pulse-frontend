@@ -38,8 +38,8 @@ import {
 
 export const eventHandlers = [
   // 내 이벤트 목록. 페이지네이션은 v1에 없지만 봉투는 씌워서 나갑니다.
-  http.get(`${API_BASE_URL}/events`, ({ cookies }) => {
-    const unauthorized = requireAuth(cookies);
+  http.get(`${API_BASE_URL}/events`, ({ request, cookies }) => {
+    const unauthorized = requireAuth(request, cookies);
     if (unauthorized) return unauthorized;
 
     const items = db.events.filter(
@@ -49,7 +49,7 @@ export const eventHandlers = [
   }),
 
   http.post(`${API_BASE_URL}/events`, async ({ request, cookies }) => {
-    const unauthorized = requireAuth(cookies);
+    const unauthorized = requireAuth(request, cookies);
     if (unauthorized) return unauthorized;
 
     const body = await parseBody(request, eventCreateRequestSchema);
@@ -77,7 +77,7 @@ export const eventHandlers = [
   }),
 
   http.patch(`${API_BASE_URL}/events/:eventCode`, async ({ request, params, cookies }) => {
-    const event = requireOwnedEvent(cookies, params.eventCode);
+    const event = requireOwnedEvent(request, cookies, params.eventCode);
     if (event instanceof Response) return event;
 
     const body = await parseBody(request, eventUpdateRequestSchema);
@@ -105,8 +105,8 @@ export const eventHandlers = [
     return HttpResponse.json(event);
   }),
 
-  http.delete(`${API_BASE_URL}/events/:eventCode`, ({ params, cookies }) => {
-    const unauthorized = requireAuth(cookies);
+  http.delete(`${API_BASE_URL}/events/:eventCode`, ({ request, params, cookies }) => {
+    const unauthorized = requireAuth(request, cookies);
     if (unauthorized) return unauthorized;
 
     // requireOwnedEvent를 못 쓰는 자리입니다. 그쪽이 쓰는 findEventByCode는 DELETED를 걸러내서,
@@ -129,7 +129,7 @@ export const eventHandlers = [
   }),
 
   http.post(`${API_BASE_URL}/events/:eventCode/sessions`, async ({ request, params, cookies }) => {
-    const event = requireOwnedEvent(cookies, params.eventCode);
+    const event = requireOwnedEvent(request, cookies, params.eventCode);
     if (event instanceof Response) return event;
 
     const body = await parseBody(request, sessionCreateRequestSchema);
@@ -151,7 +151,7 @@ export const eventHandlers = [
   http.patch(
     `${API_BASE_URL}/events/:eventCode/sessions/:sessionId`,
     async ({ request, params, cookies }) => {
-      const event = requireOwnedEvent(cookies, params.eventCode);
+      const event = requireOwnedEvent(request, cookies, params.eventCode);
       if (event instanceof Response) return event;
 
       const sessionId = toNumericId(params.sessionId);
@@ -177,17 +177,20 @@ export const eventHandlers = [
     },
   ),
 
-  http.delete(`${API_BASE_URL}/events/:eventCode/sessions/:sessionId`, ({ params, cookies }) => {
-    const event = requireOwnedEvent(cookies, params.eventCode);
-    if (event instanceof Response) return event;
+  http.delete(
+    `${API_BASE_URL}/events/:eventCode/sessions/:sessionId`,
+    ({ request, params, cookies }) => {
+      const event = requireOwnedEvent(request, cookies, params.eventCode);
+      if (event instanceof Response) return event;
 
-    const sessionId = toNumericId(params.sessionId);
-    const session = sessionId === null ? undefined : findSessionById(sessionId);
-    if (!session || session.eventId !== event.id) return errorResponse('SESSION_NOT_FOUND');
-    if (session.status === 'DELETED') return errorResponse('SESSION_ALREADY_DELETED');
+      const sessionId = toNumericId(params.sessionId);
+      const session = sessionId === null ? undefined : findSessionById(sessionId);
+      if (!session || session.eventId !== event.id) return errorResponse('SESSION_NOT_FOUND');
+      if (session.status === 'DELETED') return errorResponse('SESSION_ALREADY_DELETED');
 
-    // 연결된 Feedback 존재 여부는 삭제 조건이 아닙니다.
-    session.status = 'DELETED';
-    return new HttpResponse(null, { status: 204 });
-  }),
+      // 연결된 Feedback 존재 여부는 삭제 조건이 아닙니다.
+      session.status = 'DELETED';
+      return new HttpResponse(null, { status: 204 });
+    },
+  ),
 ];
