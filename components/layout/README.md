@@ -74,7 +74,7 @@ export const HostHeader = () => {
 
 `'use client'`만 붙이고 서버 레이아웃에서 바로 `<Header onLogout={...} />`를 쓰면 안 됩니다. 지시문은 Header가 클라이언트에서 실행된다는 뜻일 뿐, 서버가 함수를 건네줄 수 있게 해주지는 않습니다.
 
-**Server Action을 안 쓰는 이유.** 토큰이 `lib/authToken.ts`의 `localStorage`에 있어서 로그아웃은 브라우저에서만 할 수 있습니다. 팀이 쿠키로 옮기기로 하면 `<form action={logoutAction}>`으로 바꿀 수 있고 이 래퍼도 필요 없어집니다. 저장 위치가 아직 미정이라 지금 Server Action을 전제하면 안 됩니다.
+**Server Action을 안 쓰는 이유.** 2026-08-07 명세에서 토큰이 HttpOnly 쿠키(`accessToken`)로 확정됐지만, 그래도 로그아웃은 브라우저에서 해야 합니다. 이 쿠키는 API 도메인 소유(`SameSite=None`)라 Next 서버의 `cookies()`로는 보이지 않고, Server Action이 `POST /auth/logout`을 대신 불러도 만료시킬 쿠키를 가지고 있지 않습니다. `lib/api/endpoints.ts`의 `logout()`을 클라이언트에서 부르세요.
 
 ### 사용 예
 
@@ -94,4 +94,5 @@ import { Header } from '@/components/layout/Header';
 - 2026.08.07 (#59) — 로고 링크에 포커스 링을 추가. 헤더의 첫 탭 정지점인데 스타일이 없어 브라우저 기본 링(검정+흰색 이중선)이 나오고 있었음. 링 색은 `ui/README.md`의 공통 focus 규격을 따름
 - 2026.08.06 — 모바일에서 이메일을 감춤. 자리는 남지만 자기 이메일을 헤더에서 확인할 일이 거의 없고 좁은 화면에서 로고와 경쟁함
 - 2026.08.06 — Header를 클라이언트 컴포넌트로 둠. 토큰이 `localStorage`에 있어 로그아웃이 브라우저 동작이라, 쿠키를 전제하는 Server Action을 지금 도입할 수 없음. 저장 위치가 확정되면 `<form action>`으로 바꾸고 래퍼를 없앨 수 있음
+- 2026.08.10 (#69) — 저장 위치가 HttpOnly 쿠키로 확정됐지만 Header는 클라이언트로 유지. 쿠키가 API 도메인 소유라 Next 서버가 읽지도 만료시키지도 못해서, `<form action>` 전환은 여전히 불가능함
 - 2026.08.06 — 로그아웃을 밑줄로 표시. 색을 바꾸는 대신 밑줄을 쓰면 강조가 늘어나지 않고, 색을 못 보는 사용자에게도 전달됨. 대시보드의 `전체보기` 링크와 같은 규칙
