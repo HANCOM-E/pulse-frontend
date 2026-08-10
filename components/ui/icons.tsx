@@ -28,5 +28,12 @@ const AlertIcon = (props: IconProps) => (
   </svg>
 );
 
-export { AlertIcon, CheckIcon, XIcon };
+const InfoIcon = (props: IconProps) => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" {...props} aria-hidden="true">
+    <circle cx="8" cy="4" r="1.25" fill="currentColor" />
+    <path d="M8 7.5V12.5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+  </svg>
+);
+
+export { AlertIcon, CheckIcon, InfoIcon, XIcon };
 export type { IconProps };
