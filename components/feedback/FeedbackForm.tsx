@@ -38,19 +38,22 @@ const FeedbackForm = ({ eventCode, sessions }: FeedbackFormProps) => {
   const router = useRouter();
 
   const { mutate, isPending, error } = useMutation({
-    mutationFn: () =>
+    mutationFn: (sessionId: number) =>
       submitFeedback(eventCode, {
-        sessionId: selectedId!,
+        sessionId,
         text: text.trim(),
         sentiment: 'UNKNOWN',
         toxic: false,
         keywords: [],
         taggerVersion: 'none',
       }),
-    onSuccess: () => {
-      router.push(`/e/${eventCode}/live?sessionId=${selectedId}`);
+    // 보낸 값을 그대로 돌려받습니다. 여기서 selectedId를 다시 읽으면
+    // 응답을 기다리는 사이 선택이 바뀌었을 때 저장된 세션과 이동할 세션이 어긋납니다.
+    onSuccess: (_data, sessionId) => {
+      router.push(`/e/${eventCode}/live?sessionId=${sessionId}`);
     },
   });
+
   return (
     <>
       <section className="flex flex-col gap-1">
@@ -60,6 +63,7 @@ const FeedbackForm = ({ eventCode, sessions }: FeedbackFormProps) => {
             <Chip
               key={session.id}
               selected={session.id === selectedId}
+              disabled={isPending}
               onClick={() => setSelectedId(session.id)}
             >
               {session.title}
@@ -95,7 +99,7 @@ const FeedbackForm = ({ eventCode, sessions }: FeedbackFormProps) => {
         size="lg"
         className="w-full"
         disabled={selectedId === null || text.trim() === '' || isPending}
-        onClick={() => mutate()}
+        onClick={() => mutate(selectedId!)}
       >
         {isPending ? '보내는 중...' : '소감 남기기'}
       </Button>
