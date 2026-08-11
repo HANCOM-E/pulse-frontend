@@ -111,6 +111,11 @@ const LiveResult = () => {
         {selectedSession !== null && (
           <Banner type="info">소감을 남긴 순서의 반응만 볼 수 있어요</Banner>
         )}
+        {/* 부제는 제목에 붙어야 해서 바깥 `gap-4`에서 빼고 따로 묶습니다. */}
+        <div className="flex flex-col gap-1">
+          <h1 className="text-lg font-semibold text-text-primary">실시간 반응</h1>
+          <p className="text-xs text-text-tertiary">소감을 남긴 순서만 열어볼 수 있어요</p>
+        </div>
 
         <SessionPicker
           sessions={sessions}
@@ -133,8 +138,11 @@ const LiveResult = () => {
     <div className="flex flex-col gap-6">
       {isSnapshotError && <Banner type="negative">지금은 결과를 불러올 수 없어요</Banner>}
 
-      {/* 선택된 칩이 곧 제목이라 제목 줄을 따로 두지 않습니다. 예전에는 "다른 순서 보기"로
-          선택 화면에 다녀와야 세션을 바꿨는데, 여기서 바로 갈아탈 수 있어 그 단계가 없어졌습니다. */}
+      {/* 부제는 선택 화면에만 둡니다. 여기서는 이미 열람 중이라 안내할 것이 없습니다. */}
+      <h1 className="text-lg font-semibold text-text-primary">실시간 반응</h1>
+
+      {/* 어느 세션인지는 선택된 칩이 알려주므로 세션 제목 줄을 따로 두지 않습니다. 예전에는
+          "다른 순서 보기"로 선택 화면에 다녀와야 세션을 바꿨는데, 여기서 바로 갈아탑니다. */}
       <ul className="flex flex-wrap gap-2">
         {sessions.map((session) => (
           <li key={session.id}>
