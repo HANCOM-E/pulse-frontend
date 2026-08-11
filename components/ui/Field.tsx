@@ -4,12 +4,12 @@ import { useId } from 'react';
 
 import { Input, type InputProps } from '@/components/ui/Input';
 
-interface FieldProps extends Omit<InputProps, 'id' | 'invalid' | 'aria-describedby'> {
+interface FieldProps extends Omit<InputProps, 'id' | 'aria-describedby'> {
   label: string;
   error?: string;
 }
 
-const Field = ({ label, error, className = '', ...props }: FieldProps) => {
+const Field = ({ label, error, invalid = false, className = '', ...props }: FieldProps) => {
   const id = useId();
   const errorId = `${id}-error`;
 
@@ -21,7 +21,7 @@ const Field = ({ label, error, className = '', ...props }: FieldProps) => {
       <Input
         {...props}
         id={id}
-        invalid={Boolean(error)}
+        invalid={invalid || Boolean(error)}
         aria-describedby={error ? errorId : undefined}
       />
       {error ? (
