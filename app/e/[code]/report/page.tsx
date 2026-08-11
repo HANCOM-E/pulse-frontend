@@ -9,23 +9,25 @@ interface ReportPageProps {
   params: Promise<{ code: string }>;
 }
 
-/**
- * 404로 넘길 에러입니다.
- *
- * 게스트 응답에서 "리포트 없음"·"비공개"·"생성 중"은 서버가 이미 REPORT_NOT_FOUND 하나로
- * 합쳐서 줍니다(mocks/handlers/report.ts). 비공개 리포트의 존재 자체를 알리지 않으려는
- * 의도라 화면에서도 구분하지 않습니다. 없는 이벤트 코드로 들어오면 EVENT_NOT_FOUND가
- * 먼저 나오는데, 이것도 사용자 입장에서는 같은 "없는 페이지"입니다.
- */
-const NOT_FOUND_CODES = ['REPORT_NOT_FOUND', 'EVENT_NOT_FOUND'];
-
+/** 이벤트가 없을 때만 not-found.tsx로 넘깁니다. */
 const toNotFound = (error: unknown): never => {
-  if (error instanceof ApiError && NOT_FOUND_CODES.includes(error.code)) {
-    notFound();
-  }
+  if (error instanceof ApiError && error.code === 'EVENT_NOT_FOUND') notFound();
   throw error;
 };
 
+/**
+ * 리포트가 없음·비공개·생성 중이면 서버가 REPORT_NOT_FOUND 하나로 합쳐서 줍니다
+ * (mocks/handlers/report.ts). 비공개 리포트의 존재를 알리지 않으려는 의도라 화면도 셋을
+ * 구분하지 않고 null 하나로 받습니다. 다만 "이벤트가 없음"은 별개라 여기서 걸러지지 않고
+ * toNotFound로 넘어갑니다 — 이벤트는 있는데 "링크를 확인하라"고 하면 틀린 안내입니다.
+ */
+const fetchReportOrNull = (code: string) =>
+  fetchPublicReport(code).catch((error: unknown) => {
+    if (error instanceof ApiError && error.code === 'REPORT_NOT_FOUND') return null;
+    return toNotFound(error);
+  });
+
+const PAGE = 'mx-auto flex w-full max-w-3xl flex-col gap-6 p-5 md:p-8';
 const CARD = 'flex flex-col gap-3 rounded-xl border border-border-subtle bg-background-default p-4';
 
 /**
@@ -51,12 +53,29 @@ export const dynamic = 'force-dynamic';
 const ReportPage = async ({ params }: ReportPageProps) => {
   const { code } = await params;
 
-  // 서로 기다릴 이유가 없어 병렬로 부릅니다. 셋 다 같은 404 규칙을 씁니다.
+  // 서로 기다릴 이유가 없어 병렬로 부릅니다. sessions는 빈 상태에서 안 쓰지만, 리포트
+  // 유무를 보고 부르면 정상 경로가 한 왕복 느려져서 그냥 같이 보냅니다.
   const [event, report, sessions] = await Promise.all([
     fetchEventByCode(code).catch(toNotFound),
-    fetchPublicReport(code).catch(toNotFound),
+    fetchReportOrNull(code),
     fetchSessionsByEventCode(code).catch(toNotFound),
   ]);
+
+  if (report === null) {
+    return (
+      <main className={PAGE}>
+        {/* not-found.tsx의 빈 상태 카드와 같은 모양을 씁니다. */}
+        <div className="flex flex-col items-center gap-1 rounded-xl border border-border-subtle px-5 py-10">
+          <p className="text-base font-medium leading-6 text-text-primary">
+            공개된 리포트가 없어요
+          </p>
+          <p className="text-sm font-normal leading-5 text-text-secondary">
+            주최자가 공개하면 이 페이지에서 볼 수 있어요
+          </p>
+        </div>
+      </main>
+    );
+  }
 
   const { summaryText, sentimentBreakdown, topKeywords } = report;
   const counts = {
@@ -75,7 +94,7 @@ const ReportPage = async ({ params }: ReportPageProps) => {
   const positiveRate = toRates(counts).positive;
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-5 md:p-8">
+    <main className={PAGE}>
       <header className="flex flex-col gap-1">
         <time dateTime={event.createdAt} className="text-xs leading-4 text-text-tertiary">
           {formatDate(event.createdAt)} · 참가자 {feedbackCount}명
