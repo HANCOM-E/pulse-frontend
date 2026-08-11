@@ -18,6 +18,7 @@ const DEFAULT_MESSAGE: Record<ApiErrorCode, string> = {
   INVALID_CREDENTIALS: '이메일 또는 비밀번호가 올바르지 않습니다.',
   UNAUTHORIZED: '로그인이 필요합니다.',
   NOT_OWNER: '이 이벤트의 소유자가 아닙니다.',
+  CSRF_TOKEN_INVALID: '요청이 만료되었습니다. 새로고침 후 다시 시도해 주세요.',
   EMAIL_ALREADY_EXISTS: '이미 가입된 이메일입니다.',
   EVENT_NOT_FOUND: '이벤트를 찾을 수 없습니다.',
   SESSION_NOT_FOUND: '세션을 찾을 수 없습니다.',

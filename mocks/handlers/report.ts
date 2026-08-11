@@ -51,6 +51,7 @@ const completeReport = (reportId: number): void => {
   report.status = 'GENERATED';
   report.summaryText = buildSummaryText(report.eventId);
   report.sentimentBreakdown = snapshot.sentimentBreakdown;
+  report.unclassifiedCount = snapshot.unclassifiedCount;
   report.topKeywords = snapshot.topKeywords;
   report.generatedAt = new Date().toISOString();
 };
@@ -72,6 +73,7 @@ export const reportHandlers = [
       status: 'GENERATING',
       summaryText: null,
       sentimentBreakdown: null,
+      unclassifiedCount: null,
       topKeywords: null,
       isPublic: false,
       generatedAt: null,
@@ -131,6 +133,7 @@ export const reportHandlers = [
     return HttpResponse.json({
       summaryText: report.summaryText ?? '',
       sentimentBreakdown: report.sentimentBreakdown ?? { POS: 0, NEU: 0, NEG: 0 },
+      unclassifiedCount: report.unclassifiedCount ?? 0,
       topKeywords: report.topKeywords ?? [],
     });
   }),

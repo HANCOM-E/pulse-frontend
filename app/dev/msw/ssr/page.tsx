@@ -40,6 +40,7 @@ const DevMswSsrPage = async () => {
         <p className="text-zinc-500">
           상위 키워드: {report.topKeywords.map((k) => `${k.keyword}(${k.count})`).join(', ')}
         </p>
+        <p className="text-zinc-500">미분류 {report.unclassifiedCount}건</p>
       </section>
     </main>
   );

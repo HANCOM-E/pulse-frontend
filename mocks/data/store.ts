@@ -10,6 +10,7 @@ import type {
   SentimentBreakdown,
   SessionView,
 } from '@/lib/schemas/api';
+import { RECENT_FEEDBACK_LIMIT, TOP_KEYWORD_LIMIT } from '@/lib/schemas/api';
 import { HOST_USER, seedEvents, seedFeedbacks, seedReports, seedSessions } from '@/mocks/data/seed';
 
 /**
@@ -155,9 +156,6 @@ export const findReportByEventId = (eventId: number): Report | undefined =>
 // ─────────────────────────────────────────────────────────────
 // 집계 (GET /events/{eventCode}/feedbacks)
 // ─────────────────────────────────────────────────────────────
-
-const RECENT_FEEDBACK_LIMIT = 50;
-const TOP_KEYWORD_LIMIT = 10;
 
 /**
  * 저장소 행을 공개 응답 모양으로 좁힙니다.
