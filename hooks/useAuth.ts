@@ -40,6 +40,9 @@ export function useAuth(): UseAuthReturn {
     onSuccess: (data) => {
       queryClient.setQueryData(['auth', 'me'], data);
     },
+    onSettled: () => {
+      return queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
+    },
   });
 
   const logoutMutation = useMutation({
@@ -49,6 +52,9 @@ export function useAuth(): UseAuthReturn {
     },
     onSuccess: () => {
       queryClient.setQueryData(['auth', 'me'], null);
+    },
+    onSettled: () => {
+      return queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
     },
   });
 
