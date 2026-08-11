@@ -22,13 +22,16 @@ const Field = ({ label, error, invalid = false, className = '', ...props }: Fiel
         {...props}
         id={id}
         invalid={invalid || Boolean(error)}
-        aria-describedby={error ? errorId : undefined}
+        aria-describedby={errorId}
       />
-      {error ? (
-        <p id={errorId} className="text-xs font-normal leading-4 text-negative-darker">
-          {error}
-        </p>
-      ) : null}
+      <p
+        id={errorId}
+        className={error ? 'text-xs font-normal leading-4 text-negative-darker' : 'sr-only'}
+        role="alert"
+        aria-atomic="true"
+      >
+        {error}
+      </p>
     </div>
   );
 };
