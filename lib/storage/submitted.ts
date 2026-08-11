@@ -47,8 +47,15 @@ const write = (eventCode: string, sessionIds: number[]): void => {
   }
 };
 
-/** 제출 성공 후 부릅니다. 같은 세션이 두 번 들어가지 않습니다. */
+/**
+ * 제출 성공 후 부릅니다. 같은 세션이 두 번 들어가지 않습니다.
+ *
+ * 유한하지 않은 값(NaN·Infinity)은 저장하지 않습니다. JSON.stringify가 이를 null로
+ * 바꾸고, read가 그 null을 걸러내 기록이 조용히 사라지기 때문입니다.
+ */
 const markSubmitted = (eventCode: string, sessionId: number): void => {
+  if (!Number.isFinite(sessionId)) return;
+
   const submitted = read(eventCode);
   if (submitted.includes(sessionId)) return;
 

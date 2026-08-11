@@ -62,6 +62,14 @@ describe('망가진 값', () => {
     stubBrowser({ [key]: '[101,"102",null]' });
     expect([...listSubmitted(EVENT_CODE)]).toEqual([101]);
   });
+
+  it('유한하지 않은 세션은 기록하지 않는다', () => {
+    stubBrowser();
+    markSubmitted(EVENT_CODE, NaN);
+    markSubmitted(EVENT_CODE, Infinity);
+    markSubmitted(EVENT_CODE, -Infinity);
+    expect(listSubmitted(EVENT_CODE).size).toBe(0);
+  });
 });
 
 describe('접근이 막힌 경우', () => {
