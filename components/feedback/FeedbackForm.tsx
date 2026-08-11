@@ -76,6 +76,11 @@ const FeedbackForm = ({ eventCode, sessions }: FeedbackFormProps) => {
             </Chip>
           ))}
         </div>
+        {sessions.some((session) => session.status === 'CLOSED') ? (
+          <p className="text-xs font-normal leading-4 text-text-tertiary">
+            아직 열리지 않은 세션은 선택할 수 없어요
+          </p>
+        ) : null}
       </section>
 
       <section className="flex flex-col gap-1">
