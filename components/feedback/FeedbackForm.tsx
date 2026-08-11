@@ -78,7 +78,7 @@ const FeedbackForm = ({ eventCode, sessions }: FeedbackFormProps) => {
         </div>
         {sessions.some((session) => session.status === 'CLOSED') ? (
           <p className="text-xs font-normal leading-4 text-text-tertiary">
-            아직 열리지 않은 세션은 선택할 수 없어요
+            지금 소감을 받는 세션만 선택할 수 있어요
           </p>
         ) : null}
       </section>
