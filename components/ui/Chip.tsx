@@ -10,6 +10,7 @@ const BASE = [
   'text-sm leading-5',
   'transition-colors',
   'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-darker',
+  'cursor-pointer',
   'disabled:cursor-not-allowed disabled:border-border-subtle',
   'disabled:bg-background-muted disabled:font-normal disabled:text-text-disabled',
 ].join(' ');

@@ -14,6 +14,7 @@ const BASE = [
   'text-base font-semibold leading-6',
   'transition-colors',
   'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-darker',
+  'cursor-pointer',
   'disabled:cursor-not-allowed disabled:border-transparent',
   'disabled:bg-neutral-subtle disabled:text-text-disabled',
 ].join(' ');
