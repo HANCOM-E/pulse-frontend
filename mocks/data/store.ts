@@ -163,10 +163,18 @@ export const findReportByEventId = (eventId: number): Report | undefined =>
  * 핸들러가 행을 그대로 반환하면 내부 `id`·`ownerId`가 딸려 나갑니다. 명세가 공개뷰에서
  * 이들을 뺐으므로(2026-08-06) 공개 경로는 반드시 이 변환을 거쳐야 합니다.
  */
+/*
+ * `eventViewSchema`는 `pulseEventSchema`에서 파생되지만 이 매퍼는 필드를 손으로 나열합니다.
+ * `Event`에 필드가 붙으면 스키마는 저절로 따라오는데 여기는 안 따라와서, 새 필드를 빠뜨리면
+ * 목이 자기 계약을 어기고 `INVALID_RESPONSE`가 납니다(2026-08-12 `eventDate` 추가 때 실제로
+ * 걸렸습니다). 필드를 지우는 쪽(`id`·`ownerId`)이 목적이라 나열을 유지하되, `Event`에 필드를
+ * 추가할 때는 여기도 같이 봐야 합니다.
+ */
 export const toEventView = (event: PulseEvent): EventView => ({
   code: event.code,
   title: event.title,
   description: event.description,
+  eventDate: event.eventDate,
   status: event.status,
   createdAt: event.createdAt,
 });

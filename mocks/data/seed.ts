@@ -24,6 +24,8 @@ export const seedEvents: PulseEvent[] = [
     code: 'ab3f9x',
     title: '2026 프론트엔드 세미나',
     description: '리액트 서버 컴포넌트와 실시간 UI를 주제로 한 사내 세미나입니다.',
+    // 소감 시드가 2026-08-05 기준으로 깔려 있어서 행사 날짜도 같은 날에 맞췄습니다.
+    eventDate: '2026-08-05',
     ownerId: HOST_USER.id,
     status: 'LIVE',
     createdAt: '2026-08-01T09:00:00.000Z',
@@ -33,6 +35,8 @@ export const seedEvents: PulseEvent[] = [
     code: 'kd7m2p',
     title: '한컴 신입 온보딩 데이',
     description: '신입 개발자 대상 온보딩 세션입니다.',
+    // 이미 끝난 행사. 목록에서 "지난 행사"를 확인하는 용도입니다.
+    eventDate: '2026-07-20',
     ownerId: HOST_USER.id,
     status: 'ENDED',
     createdAt: '2026-07-20T01:00:00.000Z',
@@ -42,6 +46,8 @@ export const seedEvents: PulseEvent[] = [
     code: 'zq1v8t',
     title: '사내 해커톤 리허설',
     description: null,
+    // 아직 열지 않은 행사. createdAt보다 미래라 두 필드가 다른 값임이 드러납니다.
+    eventDate: '2026-09-01',
     ownerId: HOST_USER.id,
     status: 'DRAFT',
     createdAt: '2026-08-04T05:00:00.000Z',
