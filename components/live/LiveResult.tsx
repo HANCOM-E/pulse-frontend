@@ -6,19 +6,17 @@ import { useEffect, useState } from 'react';
 
 import { Thermometer } from '@/components/feedback/Thermometer';
 import { LiveSkeleton } from '@/components/live/LiveSkeleton';
-import { SessionPicker } from '@/components/live/SessionPicker';
 import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
-import { Chip } from '@/components/ui/Chip';
 import { useFeedbackSnapshot } from '@/hooks/useFeedbackSnapshot';
-import { fetchSessionsByEventCode } from '@/lib/api/endpoints';
+import { fetchEventByCode, fetchSessionsByEventCode } from '@/lib/api/endpoints';
 import { listSubmitted } from '@/lib/storage/submitted';
 
 /**
  * 세션 하나의 실시간 집계 화면입니다.
  *
- * 대상 세션은 `?sessionId=`에서 읽습니다. 값이 없거나 이 이벤트의 세션이 아니면
- * `SessionPicker`를 대신 띄웁니다. 제출 화면(`/e/[code]`)에 의존하지 않으려고 이렇게 했습니다.
+ * 대상 세션은 `?sessionId=`에서 읽습니다. 제출 화면(`/e/[code]`)이 소감을 받은 뒤 이 값을
+ * 붙여서 보냅니다. 값이 없거나 이 이벤트의 세션이 아니면 소감을 남기러 돌려보냅니다.
  *
  * 소감을 남긴 세션만 볼 수 있습니다. 판단 근거는 `lib/storage/submitted`의 로컬 기록입니다.
  * 서버가 중복 제출을 막지 않아 프론트가 기록을 남겨 안내만 하는 구조라(#92), 이 차단도
@@ -60,6 +58,15 @@ const LiveResult = () => {
     queryFn: () => fetchSessionsByEventCode(code),
   });
 
+  const {
+    data: event,
+    isPending: isEventPending,
+    isError: isEventError,
+  } = useQuery({
+    queryKey: ['event', code],
+    queryFn: () => fetchEventByCode(code),
+  });
+
   /*
    * 목록에 없는 id는 버립니다. 삭제된 세션을 가리키는 옛 링크나 손으로 고친 쿼리로
    * "0개 소감 · 긍정 0%"라는 멀쩡해 보이는 빈 집계가 나오는 걸 막습니다.
@@ -84,21 +91,17 @@ const LiveResult = () => {
     refreshIntervalMs,
   } = useFeedbackSnapshot({ eventCode: code, sessionId: allowedSession?.id ?? null });
 
-  const handleSelectSession = (nextSessionId: number) => {
-    // 세션 선택은 뒤로 가기 히스토리에 쌓을 만한 이동이 아니라 replace를 씁니다.
-    router.replace(`/e/${code}/live?sessionId=${nextSessionId}`);
-  };
-
   const handleWriteAnother = () => {
     router.push(`/e/${code}`);
   };
 
-  if (isSessionsError) {
-    return <Banner type="negative">세션 목록을 불러올 수 없어요</Banner>;
+  // 둘 중 하나가 실패하면 남은 하나로 그릴 수 있는 화면이 없어서 사유를 나누지 않습니다.
+  if (isSessionsError || isEventError) {
+    return <Banner type="negative">이벤트 정보를 불러올 수 없어요</Banner>;
   }
 
   // `submitted`가 `null`인 동안은 기록을 아직 안 읽은 상태라 판정할 수 없습니다.
-  if (isSessionsPending || submitted === null) {
+  if (isSessionsPending || isEventPending || submitted === null) {
     return <LiveSkeleton />;
   }
 
@@ -111,18 +114,24 @@ const LiveResult = () => {
         {selectedSession !== null && (
           <Banner type="info">소감을 남긴 순서의 반응만 볼 수 있어요</Banner>
         )}
-        {/* 부제는 제목에 붙어야 해서 바깥 `gap-4`에서 빼고 따로 묶습니다. */}
+        {/* 이벤트명은 제목에 붙어야 해서 바깥 `gap-4`에서 빼고 따로 묶습니다. */}
         <div className="flex flex-col gap-1">
-          <h1 className="text-lg font-semibold text-text-primary">실시간 반응</h1>
-          <p className="text-xs text-text-tertiary">소감을 남긴 순서만 열어볼 수 있어요</p>
+          <p className="text-xs font-normal leading-4 text-text-tertiary">{event.title}</p>
+          <h1 className="text-xl font-semibold leading-7 text-text-primary">실시간 반응</h1>
         </div>
 
-        <SessionPicker
-          sessions={sessions}
-          submitted={submitted}
-          onSelect={handleSelectSession}
-          onWrite={handleWriteAnother}
-        />
+        <p className="text-sm font-normal leading-5 text-text-secondary">
+          소감을 남기면 그 순서의 반응을 볼 수 있어요
+        </p>
+
+        <Button
+          variant="secondary"
+          size="lg"
+          className="w-full cursor-pointer"
+          onClick={handleWriteAnother}
+        >
+          소감 남기러 가기
+        </Button>
       </div>
     );
   }
@@ -138,25 +147,13 @@ const LiveResult = () => {
     <div className="flex flex-col gap-6">
       {isSnapshotError && <Banner type="negative">지금은 결과를 불러올 수 없어요</Banner>}
 
-      {/* 부제는 선택 화면에만 둡니다. 여기서는 이미 열람 중이라 안내할 것이 없습니다. */}
-      <h1 className="text-lg font-semibold text-text-primary">실시간 반응</h1>
-
-      {/* 어느 세션인지는 선택된 칩이 알려주므로 세션 제목 줄을 따로 두지 않습니다. 예전에는
-          "다른 순서 보기"로 선택 화면에 다녀와야 세션을 바꿨는데, 여기서 바로 갈아탑니다. */}
-      <ul className="flex flex-wrap gap-2">
-        {sessions.map((session) => (
-          <li key={session.id}>
-            <Chip
-              className="cursor-pointer"
-              selected={session.id === allowedSession.id}
-              disabled={!submitted.has(session.id)}
-              onClick={() => handleSelectSession(session.id)}
-            >
-              {session.title}
-            </Chip>
-          </li>
-        ))}
-      </ul>
+      {/* 이벤트명은 제목에 붙어야 해서 바깥 `gap-6`에서 빼고 따로 묶습니다. */}
+      <div className="flex flex-col gap-1">
+        <p className="text-xs font-normal leading-4 text-text-tertiary">{event.title}</p>
+        <h1 className="text-xl font-semibold leading-7 text-text-primary">
+          {allowedSession.title}
+        </h1>
+      </div>
 
       {isSnapshotPending ? (
         <LiveSkeleton />
@@ -174,11 +171,11 @@ const LiveResult = () => {
           <section className="flex flex-col gap-2">
             <h3 className="text-xs text-text-tertiary">많이 나온 말</h3>
             {keywords.length === 0 ? (
-              <p className="flex min-h-32 items-center justify-center rounded-lg border border-border-default px-5 py-8 text-sm text-text-tertiary">
+              <p className="flex min-h-32 items-center justify-center rounded-lg border border-border-subtle px-5 py-8 text-sm text-text-tertiary">
                 아직 모인 키워드가 없어요
               </p>
             ) : (
-              <ul className="flex min-h-32 flex-wrap items-center justify-center gap-x-6 gap-y-4 rounded-lg border border-border-default px-5 py-8">
+              <ul className="flex min-h-32 flex-wrap items-center justify-center gap-x-6 gap-y-4 rounded-xl border border-border-subtle px-5 py-8">
                 {keywords.map(({ keyword, count }) => (
                   <li key={keyword}>
                     {keyword}
@@ -190,7 +187,7 @@ const LiveResult = () => {
           </section>
 
           {refreshIntervalMs !== null && (
-            <p className="text-center text-xs text-text-tertiary">
+            <p className="text-center text-xs text-text-secondary">
               {refreshIntervalMs / 1000}초마다 자동으로 갱신돼요
             </p>
           )}

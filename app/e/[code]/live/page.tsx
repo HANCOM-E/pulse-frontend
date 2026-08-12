@@ -19,7 +19,7 @@ import { LiveSkeleton } from '@/components/live/LiveSkeleton';
  */
 const LivePage = () => {
   return (
-    <main className="mx-auto flex w-full max-w-md flex-col gap-6 px-5 py-6">
+    <main className="mx-auto flex w-full max-w-md flex-col gap-4 px-5 py-4">
       <Suspense fallback={<LiveSkeleton />}>
         <LiveResult />
       </Suspense>
