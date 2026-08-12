@@ -40,6 +40,8 @@ const LoginPage = () => {
 
   const handleSubmit = async (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setLoginFailed(false);
+    setLoginFailedMessage(null);
 
     try {
       await login(loginInputs.email, loginInputs.password);
