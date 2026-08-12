@@ -48,7 +48,7 @@ const EventCard = ({ event }: EventCardProps) => {
   return (
     <Link
       href={href}
-      className=" h-22.5 flex items-center justify-between p-4 rounded-xl border border-border-subtle"
+      className="flex items-center justify-between p-4 rounded-xl border border-border-subtle"
     >
       <div className="flex flex-col gap-1">
         <div className="flex items-center gap-2">

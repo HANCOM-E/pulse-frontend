@@ -3,10 +3,10 @@ import { Chip } from '@/components/ui/Chip';
 
 export type EventStatusFilter = EventStatus | 'ALL';
 
-export type EventStatusFilterTabsProps = {
+export interface EventStatusFilterTabsProps {
   selectedStatus: EventStatusFilter;
   onChange: (status: EventStatusFilter) => void;
-};
+}
 
 const TABS: { label: string; value: EventStatusFilter }[] = [
   { label: '전체', value: 'ALL' },
@@ -22,7 +22,7 @@ const EventStatusFilterTabs = ({ selectedStatus, onChange }: EventStatusFilterTa
   // 상태를 직접 들고 있지 않고, 부모(page.tsx)가 상태를 관리하며, 이 컴포넌트는 보여주기만 한다.
 
   return (
-    <>
+    <div className="flex gap-2">
       {TABS.map((tab) => (
         <Chip
           key={tab.label}
@@ -32,7 +32,7 @@ const EventStatusFilterTabs = ({ selectedStatus, onChange }: EventStatusFilterTa
           {tab.label}
         </Chip>
       ))}
-    </>
+    </div>
   );
 };
 

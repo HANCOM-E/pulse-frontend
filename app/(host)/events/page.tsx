@@ -46,7 +46,7 @@ const EventsListPage = () => {
   return (
     <>
       <Header email={user?.email ?? ''} onLogout={logout} />
-      <div className="px-20 py-8">
+      <div className="flex flex-col gap-6 px-20 py-8">
         <div className="flex items-center justify-between gap-6">
           <p className="text-xl font-semibold text-text-primary">내 이벤트</p>
           <Link
@@ -64,6 +64,9 @@ const EventsListPage = () => {
             description="첫 이벤트를 만들고 참가자에게 링크를 공유해보세요"
           />
         )}
+        {myEvents.isSuccess && !isEventsEmpty && (
+          <EventStatusFilterTabs selectedStatus={selectedTab} onChange={setSelectedTab} />
+        )}
         {isFilterEmpty && (
           <EventListEmptyState
             title="이 상태의 이벤트가 없어요"
@@ -71,12 +74,11 @@ const EventsListPage = () => {
           />
         )}
         {hasEvents && (
-          <>
-            <EventStatusFilterTabs selectedStatus={selectedTab} onChange={setSelectedTab} />
+          <div className="flex flex-col gap-3">
             {filteredEvents.map((event) => (
               <EventCard key={event.id} event={event} />
             ))}
-          </>
+          </div>
         )}
       </div>
     </>
