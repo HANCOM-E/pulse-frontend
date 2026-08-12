@@ -77,6 +77,14 @@ const LiveResult = () => {
   const selectedSession = sessions?.find((session) => session.id === requestedId) ?? null;
 
   /*
+   * 방금 소감을 내고 넘어온 경우에만 등록 안내를 띄웁니다. 제출 화면이 붙여주는 플래그입니다.
+   *
+   * 제출 기록(`submitted`)으로 판정하지 않는 이유는 그 값이 "언젠가 냈다"만 알려주기
+   * 때문입니다. 며칠 뒤 같은 링크를 다시 열었을 때도 안내가 뜨면 방금 낸 것처럼 읽힙니다.
+   */
+  const justSubmitted = searchParams.get('submitted') === '1';
+
+  /*
    * 기록에 없는 세션은 집계를 아예 부르지 않습니다. 화면만 가리고 요청은 그대로 내보내면
    * 쿼리를 손으로 고쳐서 남의 세션 수치를 받아볼 수 있습니다.
    */
@@ -163,12 +171,13 @@ const LiveResult = () => {
     <div className="flex flex-col gap-6">
       {isSnapshotError && <Banner type="negative">지금은 결과를 불러올 수 없어요</Banner>}
 
-      {/* 이벤트명은 제목에 붙어야 해서 바깥 `gap-6`에서 빼고 따로 묶습니다. */}
+      {/* 이벤트명과 등록 안내는 제목에 붙어야 해서 바깥 `gap-6`에서 빼고 따로 묶습니다. */}
       <div className="flex flex-col gap-1">
         <p className="text-xs font-normal leading-4 text-text-tertiary">{event.title}</p>
         <h1 className="text-xl font-semibold leading-7 text-text-primary">
           {allowedSession.title}
         </h1>
+        {justSubmitted && <Banner type="info">소감이 등록되었어요</Banner>}
       </div>
 
       {isSnapshotPending ? (
