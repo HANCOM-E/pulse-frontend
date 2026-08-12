@@ -157,10 +157,11 @@ import { Button } from '@/components/ui/Button';
 
 ### Figma → 코드
 
-| Figma variant    | 코드                               |
-| ---------------- | ---------------------------------- |
-| `state=default`  | 기본값                             |
-| `state=selected` | **`selected` prop** — variant 아님 |
+| Figma variant    | 코드                                |
+| ---------------- | ----------------------------------- |
+| `state=default`  | 기본값                              |
+| `state=selected` | **`selected` prop** — variant 아님  |
+| `icon=true`      | **`children`에 아이콘** — prop 없음 |
 
 값이 둘뿐이고 켜고 끄는 성격이라 `variant="selected"`보다 `selected` 불리언이 자연스럽습니다.
 `<Chip selected={filter === 'A'}>`처럼 상태와 바로 연결됩니다.
@@ -205,12 +206,31 @@ focus는 Button과 같습니다. `focus-visible:outline-2 focus-visible:outline-
 
 ```tsx
 import { Chip } from '@/components/ui/Chip';
+import { CheckIcon } from '@/components/ui/icons';
 
 <Chip selected={sessionId === 'A'} onClick={() => handleSelect('A')}>
   세션 A
 </Chip>
 <Chip disabled>세션 C</Chip>
+
+<Chip>
+  <CheckIcon />
+  <span className="sr-only">소감을 남긴 세션, </span>
+  세션 B
+</Chip>
 ```
+
+아이콘은 prop이 아니라 `children`으로 넣습니다. `inline-flex`와 `gap-2.5`가 이미 있어서
+간격이 붙고, 아이콘이 `currentColor`를 쓰면 상태별 글자색을 그대로 따라옵니다.
+
+**`sr-only` 문구가 필요합니다.** 아이콘에 `aria-hidden="true"`가 붙어 있어 스크린리더에는
+✓의 의미가 전달되지 않습니다. `sr-only`는 `position: absolute`라 flex 아이템에서 빠지므로
+간격이 늘어나지 않습니다.
+
+아이콘이 없는 칩은 자식이 하나뿐이라 `gap`이 적용될 자리가 없습니다. 너비를 억지로
+맞추지 마세요 — Figma에서 Boolean을 `false`로 두면 자리까지 사라지는 것과 같습니다.
+
+````
 
 ---
 
@@ -250,7 +270,7 @@ Banner가 사라지는 방식은 세 가지입니다.
 {
   isFailed && <Banner type="negative">등록에 실패했어요</Banner>;
 }
-```
+````
 
 닫는 것은 코드가 합니다. 공지형은 아직 없습니다. 필요해지면 그때 `onClose` prop을 추가하세요.
 
@@ -777,6 +797,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 ## 결정 기록
 
+- 2026.08.11 (#106) — `Button`·`Chip`에 `cursor-pointer` 추가. 비활성 커서만 정하고 기본 커서를 안 정해서, `<button>`의 브라우저 기본값인 `default`가 그대로 나왔음. #54가 화면에서 `className="cursor-pointer"`로 덧대고 있었는데 `Chip`은 전부 클릭 가능한 `<button>`이라 예외가 없어 컴포넌트로 올림. 칩 아이콘은 새 prop 없이 `children`으로 넣기로 함 — `gap-2.5`가 이미 있어 간격이 붙고, Figma의 `icon` Boolean과 대응됨
 - 2026.08.11 (#96) — `Text/tertiary` 토큰 값을 `#888780`에서 `#77766f`로 교체. 흰 배경 3.61:1 → 4.56:1로 12px 텍스트 AA를 넘김. 위 항목들의 3.13:1·3.61:1은 변경 전 값 기준임
 - 2026.08.10 (#75) — Banner 테두리를 점선으로 수정. #70에서 실선으로 만든 건 Figma JSON 추출 결과에 선 종류가 담기지 않아 확인 없이 가정한 실수였음. 기능적 이유는 없고 시안 그대로임 — 다른 컴포넌트는 실선이라 Banner만 예외이고, 실수가 아니니 통일하지 말 것
 - 2026.08.10 — Banner에 `info` 톤 추가. 참가자 소감 입력 화면의 안내 문구가 Banner와 생김새가 같아서 별도 컴포넌트(`Hint`) 대신 톤으로 편입함
