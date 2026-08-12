@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 
 import { LiveResult } from '@/components/live/LiveResult';
@@ -14,12 +15,33 @@ import { LiveSkeleton } from '@/components/live/LiveSkeleton';
  * 그래서 초기 HTML에는 스켈레톤만 실립니다. `useSearchParams`가 프리렌더를 가장 가까운
  * Suspense 경계까지 클라이언트 렌더로 떨어뜨리기 때문입니다.
  *
- * 접근 제어(소감을 제출한 사람만 열람)도 `LiveResult` 안에 있습니다. 판단 근거인 제출 기록이
- * `localStorage`라 서버에서는 항상 비어 있어서, 이 파일에서 막으면 모두가 차단됩니다.
+ * 열람 자격 판정은 세 갈래인데 이 파일이 맡는 건 첫 번째뿐입니다.
+ *
+ * 1. `?sessionId=`가 없음 — 아래에서 제출 화면으로 돌려보냅니다.
+ * 2. 값은 있는데 이 이벤트의 세션이 아님 — 세션 목록을 받아봐야 알 수 있어 `LiveResult`가 봅니다.
+ * 3. 세션은 맞는데 소감을 안 남김 — 근거인 제출 기록이 `localStorage`라 서버에서는 항상
+ *    "안 남김"이 됩니다. 여기서 막으면 소감을 낸 사람까지 전부 차단되므로 `LiveResult`가 봅니다.
+ *
+ * `PageProps`는 Next가 라우트 문자열로 만들어주는 전역 타입이라 import하지 않습니다
+ * (`next dev`·`next build`·`next typegen` 시점에 생성됩니다).
  */
-const LivePage = () => {
+const LivePage = async ({ params, searchParams }: PageProps<'/e/[code]/live'>) => {
+  const { code } = await params;
+  const { sessionId } = await searchParams;
+
+  /*
+   * 렌더 전에 끊어야 스켈레톤이 한 번 스쳐 지나가지 않습니다. 클라이언트에서 돌려보내면
+   * 번들을 받아 마운트한 뒤에야 이동이 시작됩니다.
+   *
+   * 배열(`?sessionId=1&sessionId=2`)과 빈 값(`?sessionId=`)도 같이 걸러냅니다. 그대로 넘기면
+   * `LiveResult`의 `Number()`가 각각 `NaN`·0이 되어 어차피 어떤 세션과도 매칭되지 않습니다.
+   */
+  if (typeof sessionId !== 'string' || sessionId === '') {
+    redirect(`/e/${code}`);
+  }
+
   return (
-    <main className="mx-auto flex w-full max-w-md flex-col gap-4 px-5 py-4">
+    <main className="flex flex-col gap-6 p-5">
       <Suspense fallback={<LiveSkeleton />}>
         <LiveResult />
       </Suspense>

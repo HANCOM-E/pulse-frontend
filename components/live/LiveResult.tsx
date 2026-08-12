@@ -16,7 +16,8 @@ import { listSubmitted } from '@/lib/storage/submitted';
  * 세션 하나의 실시간 집계 화면입니다.
  *
  * 대상 세션은 `?sessionId=`에서 읽습니다. 제출 화면(`/e/[code]`)이 소감을 받은 뒤 이 값을
- * 붙여서 보냅니다. 값이 없거나 이 이벤트의 세션이 아니면 소감을 남기러 돌려보냅니다.
+ * 붙여서 보냅니다. 값이 아예 없는 경우는 페이지(`app/e/[code]/live/page.tsx`)가 서버에서
+ * 걸러 제출 화면으로 돌려보내므로, 여기까지 왔다면 값은 있고 내용만 미심쩍은 상태입니다.
  *
  * 소감을 남긴 세션만 볼 수 있습니다. 판단 근거는 `lib/storage/submitted`의 로컬 기록입니다.
  * 서버가 중복 제출을 막지 않아 프론트가 기록을 남겨 안내만 하는 구조라(#92), 이 차단도
@@ -70,7 +71,7 @@ const LiveResult = () => {
   /*
    * 목록에 없는 id는 버립니다. 삭제된 세션을 가리키는 옛 링크나 손으로 고친 쿼리로
    * "0개 소감 · 긍정 0%"라는 멀쩡해 보이는 빈 집계가 나오는 걸 막습니다.
-   * `Number(null)`·`Number('')`은 0인데 세션 id가 0인 경우는 없어서 그대로 걸러집니다.
+   * 숫자가 아닌 값은 `Number()`가 `NaN`으로 만들어서 어떤 세션과도 매칭되지 않습니다.
    */
   const requestedId = Number(searchParams.get('sessionId'));
   const selectedSession = sessions?.find((session) => session.id === requestedId) ?? null;
@@ -108,21 +109,23 @@ const LiveResult = () => {
   // `allowedSession`으로 분기해야 아래에서 `allowedSession.title`이 좁혀집니다.
   if (allowedSession === null) {
     return (
-      <div className="flex flex-col gap-4">
-        {/* 요청한 세션이 있는데 못 여는 경우에만 이유를 밝힙니다. 파라미터 없이 들어온
-            사람에게 "볼 수 없어요"라고만 하면 무엇을 못 본다는 건지 알 수 없습니다. */}
-        {selectedSession !== null && (
-          <Banner type="info">소감을 남긴 순서의 반응만 볼 수 있어요</Banner>
-        )}
-        {/* 이벤트명은 제목에 붙어야 해서 바깥 `gap-4`에서 빼고 따로 묶습니다. */}
+      <div className="flex flex-col gap-6">
+        {/* 이벤트명과 사유 배너는 제목에 붙어야 해서 바깥 `gap-6`에서 빼고 따로 묶습니다. */}
         <div className="flex flex-col gap-1">
           <p className="text-xs font-normal leading-4 text-text-tertiary">{event.title}</p>
-          <h1 className="text-xl font-semibold leading-7 text-text-primary">실시간 반응</h1>
+          {/* 실재하는 세션이면 어느 순서를 못 여는지 제목으로 알려줍니다. 없는 id로 들어왔으면
+              가리킬 세션이 없어서 화면 이름으로 대신합니다. */}
+          <h1 className="text-xl font-semibold leading-7 text-text-primary">
+            {selectedSession?.title ?? '실시간 반응'}
+          </h1>
+          {/* 못 여는 이유가 두 갈래라 문구를 나눕니다. 실재하는 세션이면 소감을 남기는 순간
+            열리지만, 없는 세션을 가리키는 id라면 남겨도 열리지 않아 같은 말을 하면 안 됩니다. */}
+          {selectedSession !== null ? (
+            <Banner type="info">소감을 남긴 순서의 반응만 볼 수 있어요</Banner>
+          ) : (
+            <Banner type="warning">찾을 수 없는 순서예요</Banner>
+          )}
         </div>
-
-        <p className="text-sm font-normal leading-5 text-text-secondary">
-          소감을 남기면 그 순서의 반응을 볼 수 있어요
-        </p>
 
         <Button
           variant="secondary"
@@ -171,7 +174,7 @@ const LiveResult = () => {
           <section className="flex flex-col gap-2">
             <h3 className="text-xs text-text-tertiary">많이 나온 말</h3>
             {keywords.length === 0 ? (
-              <p className="flex min-h-32 items-center justify-center rounded-lg border border-border-subtle px-5 py-8 text-sm text-text-tertiary">
+              <p className="flex min-h-32 items-center justify-center rounded-xl border border-border-subtle px-5 py-8 text-sm text-text-tertiary">
                 아직 모인 키워드가 없어요
               </p>
             ) : (
@@ -194,7 +197,7 @@ const LiveResult = () => {
         </>
       )}
 
-      <hr className="border-border-default" />
+      <hr className="border-border-subtle" />
 
       <Button
         variant="secondary"
