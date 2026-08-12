@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/Textarea';
 import type { SessionView } from '@/lib/schemas/api';
 import { submitFeedback } from '@/lib/api/endpoints';
 import { ApiError } from '@/lib/apiClient';
+import { markSubmitted } from '@/lib/storage/submitted';
 
 /**
  * 제출 실패 사유별 문구입니다.
@@ -49,7 +50,13 @@ const FeedbackForm = ({ eventCode, sessions }: FeedbackFormProps) => {
       }),
     // 보낸 값을 그대로 돌려받습니다. 여기서 selectedId를 다시 읽으면
     // 응답을 기다리는 사이 선택이 바뀌었을 때 저장된 세션과 이동할 세션이 어긋납니다.
+
     onSuccess: (_data, sessionId) => {
+      // 서버가 중복 제출을 막지 않아 프론트가 기록해야 합니다(#92).
+      // 이 줄이 없으면 /live가 읽을 기록이 영영 안 생겨서 접근 제어가
+      // 전부 차단으로 떨어집니다 — 소감을 내고 넘어가도 못 봅니다.
+      markSubmitted(eventCode, sessionId);
+
       router.push(`/e/${eventCode}/live?sessionId=${sessionId}`);
     },
   });
