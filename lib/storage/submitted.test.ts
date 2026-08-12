@@ -65,9 +65,15 @@ describe('망가진 값', () => {
 
   it('유한하지 않은 세션은 기록하지 않는다', () => {
     stubBrowser();
+
     markSubmitted(EVENT_CODE, NaN);
     markSubmitted(EVENT_CODE, Infinity);
     markSubmitted(EVENT_CODE, -Infinity);
+
+    // listSubmitted만 보면 가드가 없어도 통과합니다. read가 숫자 아닌 항목을
+    // 걸러내서 "[null]"이 저장돼 있어도 빈 Set이 나오기 때문입니다.
+    // 저장 자체가 일어나지 않았는지를 원시 값으로 확인합니다.
+    expect(window.localStorage.getItem(`pulse:submitted:${EVENT_CODE}`)).toBeNull();
     expect(listSubmitted(EVENT_CODE).size).toBe(0);
   });
 });
