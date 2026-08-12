@@ -2,6 +2,7 @@ import apiClient, { ApiError } from '@/lib/apiClient';
 import { getClientId } from '@/lib/clientId';
 import type {
   AuthUser,
+  EventCreateRequest,
   EventView,
   Feedback,
   FeedbackSnapshot,
@@ -119,6 +120,14 @@ export const fetchMe = async (signal?: AbortSignal): Promise<AuthUser> => {
 export const fetchMyEvents = async (): Promise<PulseEvent[]> => {
   const data = await apiClient<unknown>('/events');
   return parseResponse(listResponseSchema(pulseEventSchema), data, 'GET /events').items;
+};
+
+export const createEvent = async (body: EventCreateRequest): Promise<PulseEvent> => {
+  const data = await apiClient<unknown>('/events', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+  return parseResponse(pulseEventSchema, data, 'POST /events');
 };
 
 /**
