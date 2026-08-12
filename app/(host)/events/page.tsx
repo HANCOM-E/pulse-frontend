@@ -13,6 +13,7 @@ import { Header } from '@/components/layout/Header';
 import Link from 'next/link';
 import { Banner } from '@/components/ui/Banner';
 import EventListEmptyState from '@/components/events/EventListEmptyState';
+import { buttonStyle } from '@/components/ui/Button';
 
 const EventsListPage = () => {
   const [selectedTab, setSelectedTab] = useState<EventStatusFilter>('ALL');
@@ -49,10 +50,7 @@ const EventsListPage = () => {
       <div className="flex flex-col gap-6 px-20 py-8">
         <div className="flex items-center justify-between gap-6">
           <p className="text-xl font-semibold text-text-primary">내 이벤트</p>
-          <Link
-            href="/events/new"
-            className="inline-flex items-center justify-center gap-2.5 rounded-lg px-5 h-12 text-base font-semibold leading-6 bg-primary-darker text-text-inverse transition-colors hover:bg-primary-pressed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-darker"
-          >
+          <Link href="/events/new" className={buttonStyle('primary', 'md')}>
             + 새 이벤트
           </Link>
         </div>
