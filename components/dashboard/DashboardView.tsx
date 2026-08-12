@@ -25,10 +25,11 @@ import { DASHBOARD_FEED_KEY, useDashboardFeed } from '@/hooks/useDashboardFeed';
 import { showToast } from '@/hooks/useToast';
 import {
   deleteFeedback,
-  fetchEventByCode,
+  fetchMyEvents,
   fetchSessionsByEventCode,
   hideFeedback,
 } from '@/lib/api/endpoints';
+import { ApiError } from '@/lib/apiClient';
 import type { Feedback, Sentiment } from '@/lib/schemas/api';
 
 /**
@@ -151,13 +152,28 @@ const DashboardView = () => {
   /** `null`이 "전체"입니다. 시안의 기본 선택값입니다. */
   const [sessionId, setSessionId] = useState<number | null>(null);
 
+  /*
+   * 공개 조회(`GET /events/{eventCode}`)가 아니라 내 이벤트 목록을 받아 코드로 찾습니다.
+   *
+   * 공개 조회는 인증을 보지 않아서, 로그인하지 않은 사람이 주소를 직접 쳐도 제목과 세션 칩이
+   * 그대로 그려집니다. 소감만 401이 나서 "숫자가 전부 0인 멀쩡한 화면"처럼 보입니다.
+   * 남의 이벤트 코드를 넣었을 때도 마찬가지입니다. `/admin/feedbacks`는 내 소감만 거른 뒤
+   * eventCode로 다시 걸러서, 교집합이 비면 403이 아니라 빈 배열을 200으로 돌려줍니다.
+   *
+   * `GET /events`는 인증과 소유권을 서버가 한 번에 봅니다. 못 보는 이벤트면 목록에 아예
+   * 없으므로 두 경우 다 화면이 뜨기 전에 걸립니다.
+   *
+   * 세션 목록에는 이런 대안이 없습니다. API 명세상 세션은 쓰기만 소유자 전용이고 읽기는
+   * 공개 한 벌뿐입니다(게스트의 제출 대상 선택과 공용). 그래서 그대로 둡니다.
+   */
   const {
-    data: event,
+    data: events,
     isPending: isEventPending,
     isError: isEventError,
+    error: eventError,
   } = useQuery({
-    queryKey: ['event', eventCode],
-    queryFn: () => fetchEventByCode(eventCode),
+    queryKey: ['myEvents'],
+    queryFn: fetchMyEvents,
   });
 
   const {
@@ -208,12 +224,48 @@ const DashboardView = () => {
     deleteMutation.mutate(feedbackId);
   };
 
-  // 둘 중 하나만 실패해도 그릴 수 있는 화면이 없어서 사유를 나누지 않습니다.
-  if (isEventError || isSessionsError) {
+  /*
+   * 미인증만 사유를 나눕니다. 주최자 전용 화면이라 "잠시 실패했다"와 "애초에 볼 자격이 없다"는
+   * 다음 행동이 달라서, 하나로 뭉치면 로그인하면 되는 사람이 새로고침만 반복하게 됩니다.
+   *
+   * 로그인 화면으로 보내는 일까지는 하지 않습니다. host 화면 전체에 걸리는 라우트 가드가
+   * 아직 없고, 어디에 둘지는 이 화면 혼자 정할 문제가 아닙니다.
+   */
+  const isUnauthorized = eventError instanceof ApiError && eventError.code === 'UNAUTHORIZED';
+
+  if (isEventError) {
+    return (
+      <Banner type="negative">
+        {isUnauthorized ? '로그인이 필요한 화면이에요' : '이벤트 정보를 불러올 수 없어요'}
+      </Banner>
+    );
+  }
+
+  if (isEventPending) {
+    return <DashboardSkeleton />;
+  }
+
+  /*
+   * 목록에 없는 코드는 없는 이벤트이거나 남의 이벤트입니다. 주최자에게는 둘 다 "볼 수 없다"로
+   * 같아서 문구를 나누지 않습니다. 나누면 코드를 하나씩 넣어보며 남의 이벤트가 실재하는지
+   * 알아낼 수 있습니다.
+   */
+  const event = events.find((item) => item.code === eventCode) ?? null;
+
+  if (event === null) {
+    return <Banner type="negative">이 이벤트를 볼 수 없어요</Banner>;
+  }
+
+  /*
+   * 세션 판정을 이벤트 뒤로 미룹니다. 세션 목록은 공개 엔드포인트라 없는 코드에 404를 내는데,
+   * 먼저 보면 "볼 수 없는 이벤트"가 전부 "불러올 수 없어요"로 뭉개집니다. 여기까지 왔다면
+   * 이벤트는 실재하고 내 것이므로, 이 실패는 진짜 서버 문제입니다.
+   */
+  if (isSessionsError) {
     return <Banner type="negative">이벤트 정보를 불러올 수 없어요</Banner>;
   }
 
-  if (isEventPending || isSessionsPending) {
+  if (isSessionsPending) {
     return <DashboardSkeleton />;
   }
 
