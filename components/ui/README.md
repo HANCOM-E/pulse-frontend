@@ -136,6 +136,33 @@ focus는 `focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:o
 - 되돌릴 수 없는 동작은 danger 버튼 하나로 끝내지 말고 확인 다이얼로그를 거칩니다
 - 한 화면에 danger 버튼을 여러 개 두지 마세요. 강조가 분산되면 없는 것과 같습니다
 
+### 버튼 모양의 링크
+
+이동은 `<button onClick={router.push}>`가 아니라 `next/link`로 만듭니다.
+`<a>`여야 새 탭 열기(⌘클릭·가운데클릭)·주소 복사·prefetch가 살아 있고,
+스크린리더가 "링크"로 읽습니다.
+
+그런데 `<a>` 안에는 `<button>`을 넣을 수 없습니다. HTML 콘텐츠 모델에서
+`<a>`는 interactive content를 자식으로 받지 못합니다.
+
+그래서 요소는 링크로 두고 모양만 가져다 씁니다.
+
+```tsx
+import Link from 'next/link';
+
+import { buttonStyle } from '@/components/ui/Button';
+
+<Link href={`/e/${code}/report`} className={buttonStyle('primary', 'lg')}>
+  결과 리포트 보기
+</Link>;
+```
+
+기본값은 `Button`과 같은 `primary` · `md`입니다.
+
+**클릭이 이동인지 동작인지로 가릅니다.** 주소를 붙일 수 있으면 링크,
+결과에 따라 목적지가 달라지면 버튼입니다. `소감 남기기`는 제출이 성공해야
+이동하므로 버튼이고, `결과 리포트 보기`는 조건 없이 그 주소로 가므로 링크입니다.
+
 ### 사용 예
 
 ```tsx
@@ -798,12 +825,13 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 ## 결정 기록
 
 - 2026.08.11 (#106) — `Button`·`Chip`에 `cursor-pointer` 추가. 비활성 커서만 정하고 기본 커서를 안 정해서, `<button>`의 브라우저 기본값인 `default`가 그대로 나왔음. #54가 화면에서 `className="cursor-pointer"`로 덧대고 있었는데 `Chip`은 전부 클릭 가능한 `<button>`이라 예외가 없어 컴포넌트로 올림. 칩 아이콘은 새 prop 없이 `children`으로 넣기로 함 — `gap-2.5`가 이미 있어 간격이 붙고, Figma의 `icon` Boolean과 대응됨
+  \=======
+- 2026.08.11 (#88) — 버튼 모양의 링크를 위해 `buttonStyle(variant, size)`를 export. `<a>` 안에 `<button>`을 넣을 수 없어(HTML 콘텐츠 모델) 요소는 `next/link`로 두고 모양만 가져옴. `as` prop으로 폴리모픽하게 만드는 방법도 있었지만 제네릭 타입이 복잡해지고 `type="button"` 기본값이 `<a>`로 새는 것도 막아야 해서 미룸. 사용처가 서넛 넘어가면 `LinkButton` 래퍼를 두기로 함
 - 2026.08.11 (#96) — `Text/tertiary` 토큰 값을 `#888780`에서 `#77766f`로 교체. 흰 배경 3.61:1 → 4.56:1로 12px 텍스트 AA를 넘김. 위 항목들의 3.13:1·3.61:1은 변경 전 값 기준임
 - 2026.08.10 (#75) — Banner 테두리를 점선으로 수정. #70에서 실선으로 만든 건 Figma JSON 추출 결과에 선 종류가 담기지 않아 확인 없이 가정한 실수였음. 기능적 이유는 없고 시안 그대로임 — 다른 컴포넌트는 실선이라 Banner만 예외이고, 실수가 아니니 통일하지 말 것
 - 2026.08.10 — Banner에 `info` 톤 추가. 참가자 소감 입력 화면의 안내 문구가 Banner와 생김새가 같아서 별도 컴포넌트(`Hint`) 대신 톤으로 편입함
 - 2026.08.10 — 세 톤 모두에 `*/lighter` 테두리 추가. 배경만으로는 흰 화면과 1.1:1이라 경계가 약함. 누를 수 없는 요소라 3:1 규정 대상은 아니고 장식임
 - 2026.08.10 — 글자 굵기를 Medium에서 Regular로 변경. Banner는 흐름 안에 계속 남는 요소라 Medium이면 계속 시끄럽고, 강조는 색이 이미 하고 있음
-- 2026.08.05 — 모더레이션 버튼 높이 32 → 36으로 통일. size는 lg/md/sm 3종만 유지
 - 2026.08.07 (#66) — Card 컴포넌트를 만들지 않기로 확정하고 `미작성` 목록에서 제거. 흰 배경 + 테두리 박스가 여러 화면에 반복되지만 Stat(`background/muted`, 테두리 없음)·차트 카드(`background/default` + `border-subtle`)·FeedItem(상태마다 다름)이 배경·테두리·padding 모두 달라, 묶으면 variant가 세 개 생기고 결국 화면마다 `className`으로 덮어쓰게 됨. 세 번째로 같은 모양이 나오면 그때 다시 검토
 - 2026.08.07 (#61) — 토스트를 동시에 하나만 띄우기로 함. Pulse에서 둘이 겹칠 상황이 없고, 쌓기를 넣으면 스택 관리·최대 개수·순서 코드가 전부 따라옴. 연타하면 타이머가 리셋되는 셈이라 오히려 자연스러움
 - 2026.08.07 (#61) — 상태를 Context가 아니라 모듈 변수 + `useSyncExternalStore`로 둠. 호출부가 훅 없이 `showToast('...')`만 부르면 되고, 프로바이더가 하나 더 늘지 않음. 공유할 상태가 객체 하나뿐이라 Context의 이점이 없음
@@ -813,6 +841,10 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 - 2026.08.07 (#59) — 포커스 링 색을 `Primary/default`(2.62:1)에서 `Primary/darker`(5.55:1)로 교체. 브라우저 기본 표시를 지우고 이 링으로 대체했는데 어느 배경에서도 3:1을 못 넘겨, 키보드 사용자가 현재 위치를 알 수 없었음. Button·Chip·Input·Textarea·Header 5곳
 - 2026.08.07 (#59) — Input·Textarea의 **기본 상태** focus 테두리도 같은 `Primary/darker`로 통일. 링과 테두리 색이 갈라지면 규칙이 두 개가 되고 한쪽만 고쳐짐. 오류(`invalid`) 상태의 테두리는 `Negative/default`를 그대로 유지 — 문제가 안 풀렸는데 표시가 사라지면 안 되고, 포커스 위치는 링만으로도 보임
 - 2026.08.07 (#59) — `outline-2`·`outline-offset-2`를 px로 유지하기로 확정(#48 리뷰 지적). outline은 간격이 아니라 테두리와 같은 성격의 선이고, 글자 크기에 따라 포커스 링이 굵어질 이유가 없음
+- 2026.08.07 — ConfirmDialog를 네이티브 `<dialog>` + `showModal()`로 구현. 포커스 가두기·ESC·배경 차단·딤을 브라우저가 처리해서 Radix 도입 논의가 필요 없어짐. 스크롤 잠금만 `globals.css`의 `body:has(dialog[open])`로 보완. 신규 토큰은 `--color-overlay`(시안에 딤 배경이 없어 코드에서 정함) 하나
+- 2026.08.07 — 열림 상태를 `open` prop 하나로만 관리. `<dialog open>` 속성으로 열면 모달이 아니게 되어 포커스도 배경 차단도 사라짐. ESC는 `onCancel`에서 `preventDefault()` 후 `onClose()`만 호출해서, 브라우저가 먼저 닫고 React가 뒤늦게 아는 상황을 막음
+- 2026.08.07 — 컴포넌트 이름을 시안의 `Alert`에서 `ConfirmDialog`로 변경. Banner가 이미 `role="alert"`를 쓰고 있어 혼동됨. `Dialog`는 아무 내용이나 담는 껍데기로 읽히는데 이건 제목·설명·버튼이 정해진 확인 전용
+- 2026.08.07 — 버튼을 `actions` prop으로 받고 취소를 먼저 배치. 확인 버튼이 danger인지 primary인지는 도메인 사정이고, `showModal()`이 첫 포커스 가능 요소에 포커스를 주므로 파괴적 확인창에서는 취소가 먼저인 편이 안전함
 - 2026.08.06 (#14) — focus 규격은 시안에 정의가 없어 코드에서 정함 (`Primary/default` 2px, offset 2)
 - 2026.08.06 (#14) — primary·secondary hover 색 확정. 이때 추가한 신규 토큰은 `Primary/pressed`(#036176) 하나
 - 2026.08.06 (#16) — danger 배경을 `Negative/default`(3.87:1, AA 미달)에서 `Negative/darker`(10.21:1)로 교체. hover용 `Negative/pressed`(#4F1D0D) 신설. `Negative/default` 값은 그대로 둬서 부정 감정 차트·배지는 영향 없음
@@ -821,6 +853,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 - 2026.08.06 (#21) — Banner에서 `positive` variant 제거. 성공 알림은 Toast가 담당하므로 흐름 안에 남을 이유가 없음. 필요해지면 다시 추가
 - 2026.08.06 (#21) — Banner의 `type`은 기본값 없이 필수. 남은 둘 다 나쁜 소식이라 기본값을 두면 실패가 조용히 주의 색으로 뜰 수 있음
 - 2026.08.06 (#21) — 아이콘을 텍스트 글자에서 벡터로 교체하고 `icons.tsx`로 분리. `✔️` 같은 이모지는 지정한 색이 안 먹고 OS마다 다르게 렌더됨. 신규 토큰 없음
+- 2026.08.06 (#21) — Banner에 닫기 버튼을 넣지 않음. 현재 두 type이 모두 조건형이라, 닫으면 문제가 남아 있는데 표시만 사라짐. 공지형이 생기면 그때 `onClose` 추가
 - 2026.08.06 (#43) — Stat의 `muted` 값 색을 `Text/tertiary`(3.13:1)에서 `Text/secondary`(5.64:1)로 교체. 20px SemiBold가 WCAG '큰 텍스트' 기준에 걸치는 크기라 통과 여부가 해석에 달려 있었음
 - 2026.08.06 (#43) — Stat의 값 색을 `tone` prop으로 받음. 시안은 인스턴스마다 색을 덮어쓰고 있는데, 화면에서 손으로 지정하면 갈라짐
 - 2026.08.06 (#34) — Input과 Field를 두 파일로 분리. `aria-describedby`·`aria-invalid`를 화면마다 손으로 붙이면 반드시 빠뜨림. Field가 `useId`로 연결을 대신함
@@ -832,8 +865,4 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 - 2026.08.06 — Toast는 생김새만 만들고 띄우는 방식은 분리. 위치·스택·타이머는 컴포넌트가 아니라 훅과 뷰포트의 일이라 섞으면 Toast가 비대해짐. 신규 토큰은 `--shadow-toast` 하나
 - 2026.08.06 — Toast 폰트를 Regular로. Banner는 Medium인데, 어두운 배경 위 흰 글씨는 같은 굵기라도 두껍게 보여서 한 단계 낮춰야 균형이 맞음
 - 2026.08.06 (#23) — 컴포넌트가 계산하는 접근성 속성은 밖에서 못 바꾸게 막는다. props 타입에서 `Omit`으로 빼고 JSX에서도 `{...props}` 뒤에 배치한다. 타입만 막으면 느슨한 객체를 펼칠 때 런타임에서 뚫린다. 현재 대상은 Banner의 `role`, Chip의 `aria-pressed`, 아이콘의 `aria-hidden`
-- 2026.08.07 — ConfirmDialog를 네이티브 `<dialog>` + `showModal()`로 구현. 포커스 가두기·ESC·배경 차단·딤을 브라우저가 처리해서 Radix 도입 논의가 필요 없어짐. 스크롤 잠금만 `globals.css`의 `body:has(dialog[open])`로 보완. 신규 토큰은 `--color-overlay`(시안에 딤 배경이 없어 코드에서 정함) 하나
-- 2026.08.07 — 열림 상태를 `open` prop 하나로만 관리. `<dialog open>` 속성으로 열면 모달이 아니게 되어 포커스도 배경 차단도 사라짐. ESC는 `onCancel`에서 `preventDefault()` 후 `onClose()`만 호출해서, 브라우저가 먼저 닫고 React가 뒤늦게 아는 상황을 막음
-- 2026.08.07 — 컴포넌트 이름을 시안의 `Alert`에서 `ConfirmDialog`로 변경. Banner가 이미 `role="alert"`를 쓰고 있어 혼동됨. `Dialog`는 아무 내용이나 담는 껍데기로 읽히는데 이건 제목·설명·버튼이 정해진 확인 전용
-- 2026.08.07 — 버튼을 `actions` prop으로 받고 취소를 먼저 배치. 확인 버튼이 danger인지 primary인지는 도메인 사정이고, `showModal()`이 첫 포커스 가능 요소에 포커스를 주므로 파괴적 확인창에서는 취소가 먼저인 편이 안전함
-- 2026.08.06 (#21) — Banner에 닫기 버튼을 넣지 않음. 현재 두 type이 모두 조건형이라, 닫으면 문제가 남아 있는데 표시만 사라짐. 공지형이 생기면 그때 `onClose` 추가
+- 2026.08.05 — 모더레이션 버튼 높이 32 → 36으로 통일. size는 lg/md/sm 3종만 유지
