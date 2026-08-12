@@ -148,6 +148,8 @@ focus는 `focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:o
 그래서 요소는 링크로 두고 모양만 가져다 씁니다.
 
 ```tsx
+import Link from 'next/link';
+
 import { buttonStyle } from '@/components/ui/Button';
 
 <Link href={`/e/${code}/report`} className={buttonStyle('primary', 'lg')}>
@@ -822,11 +824,9 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 ## 결정 기록
 
-<<<<<<< HEAD
 - 2026.08.11 (#106) — `Button`·`Chip`에 `cursor-pointer` 추가. 비활성 커서만 정하고 기본 커서를 안 정해서, `<button>`의 브라우저 기본값인 `default`가 그대로 나왔음. #54가 화면에서 `className="cursor-pointer"`로 덧대고 있었는데 `Chip`은 전부 클릭 가능한 `<button>`이라 예외가 없어 컴포넌트로 올림. 칩 아이콘은 새 prop 없이 `children`으로 넣기로 함 — `gap-2.5`가 이미 있어 간격이 붙고, Figma의 `icon` Boolean과 대응됨
-=======
+  \=======
 - 2026.08.11 (#88) — 버튼 모양의 링크를 위해 `buttonStyle(variant, size)`를 export. `<a>` 안에 `<button>`을 넣을 수 없어(HTML 콘텐츠 모델) 요소는 `next/link`로 두고 모양만 가져옴. `as` prop으로 폴리모픽하게 만드는 방법도 있었지만 제네릭 타입이 복잡해지고 `type="button"` 기본값이 `<a>`로 새는 것도 막아야 해서 미룸. 사용처가 서넛 넘어가면 `LinkButton` 래퍼를 두기로 함
->>>>>>> 075ca4b (feat(ui): 상황 안내 카드 EmptyState 추가)
 - 2026.08.11 (#96) — `Text/tertiary` 토큰 값을 `#888780`에서 `#77766f`로 교체. 흰 배경 3.61:1 → 4.56:1로 12px 텍스트 AA를 넘김. 위 항목들의 3.13:1·3.61:1은 변경 전 값 기준임
 - 2026.08.10 (#75) — Banner 테두리를 점선으로 수정. #70에서 실선으로 만든 건 Figma JSON 추출 결과에 선 종류가 담기지 않아 확인 없이 가정한 실수였음. 기능적 이유는 없고 시안 그대로임 — 다른 컴포넌트는 실선이라 Banner만 예외이고, 실수가 아니니 통일하지 말 것
 - 2026.08.10 — Banner에 `info` 톤 추가. 참가자 소감 입력 화면의 안내 문구가 Banner와 생김새가 같아서 별도 컴포넌트(`Hint`) 대신 톤으로 편입함
