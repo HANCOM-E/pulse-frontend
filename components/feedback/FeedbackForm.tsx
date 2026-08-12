@@ -24,6 +24,7 @@ const ERROR_MESSAGE: Record<string, string> = {
   RATE_LIMIT_EXCEEDED: '너무 자주 보내셨어요. 잠시 후 다시 시도해주세요',
   EVENT_NOT_LIVE: '지금은 소감을 받지 않는 이벤트예요',
   SESSION_NOT_FOUND: '세션을 찾을 수 없어요. 새로고침 후 다시 시도해주세요',
+  SESSION_CLOSED: '이 세션은 소감을 받지 않아요',
 };
 
 const FALLBACK_MESSAGE = '소감을 보내지 못했어요. 잠시 후 다시 시도해주세요';
@@ -33,7 +34,12 @@ interface FeedbackFormProps {
 }
 
 const FeedbackForm = ({ eventCode, sessions }: FeedbackFormProps) => {
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+  // CLOSED 세션은 목록에 남지만 고를 수 없습니다.
+  const openSessions = sessions.filter((session) => session.status === 'ACTIVE');
+
+  const [selectedId, setSelectedId] = useState<number | null>(
+    openSessions.length === 1 ? openSessions[0].id : null,
+  );
   const [text, setText] = useState('');
 
   const router = useRouter();
@@ -70,13 +76,18 @@ const FeedbackForm = ({ eventCode, sessions }: FeedbackFormProps) => {
             <Chip
               key={session.id}
               selected={session.id === selectedId}
-              disabled={isPending}
+              disabled={session.status === 'CLOSED' || isPending}
               onClick={() => setSelectedId(session.id)}
             >
               {session.title}
             </Chip>
           ))}
         </div>
+        {sessions.some((session) => session.status === 'CLOSED') ? (
+          <p className="text-xs font-normal leading-4 text-text-tertiary">
+            지금 소감을 받는 세션만 선택할 수 있어요
+          </p>
+        ) : null}
       </section>
 
       <section className="flex flex-col gap-1">
