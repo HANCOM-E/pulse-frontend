@@ -146,6 +146,19 @@ const LiveResult = () => {
 
   const keywords = snapshot?.topKeywords ?? [];
 
+  /*
+   * 안 남긴 세션이 하나라도 있으면 하단 버튼은 소감을 받으러 가는 길이고, 전부 남겼으면
+   * 남은 용무는 다른 순서의 결과를 보는 것뿐이라 문구를 바꿉니다.
+   */
+  const unsubmittedSession = sessions.find((session) => !submitted.has(session.id)) ?? null;
+
+  /*
+   * 세션이 하나뿐인 이벤트면 넘어갈 순서가 없어 버튼을 구분선까지 통째로 뺍니다.
+   * 이 화면은 소감을 남겨야 열리므로 세션이 하나면 항상 "전부 남김"이고, 그래서
+   * 개수만 보면 됩니다.
+   */
+  const hasSomewhereToGo = unsubmittedSession !== null || sessions.length > 1;
+
   return (
     <div className="flex flex-col gap-6">
       {isSnapshotError && <Banner type="negative">지금은 결과를 불러올 수 없어요</Banner>}
@@ -197,16 +210,22 @@ const LiveResult = () => {
         </>
       )}
 
-      <hr className="border-border-subtle" />
+      {/* 목적지는 둘 다 제출 화면입니다. 거기서 이미 남긴 세션 칩을 누르면 그 세션의 실시간
+          결과로 보내기로 해서, 결과를 보러 갈 때도 같은 화면을 거치면 됩니다. */}
+      {hasSomewhereToGo && (
+        <>
+          <hr className="border-border-subtle" />
 
-      <Button
-        variant="secondary"
-        size="lg"
-        className="w-full cursor-pointer"
-        onClick={handleWriteAnother}
-      >
-        다른 세션에도 남기기
-      </Button>
+          <Button
+            variant="secondary"
+            size="lg"
+            className="w-full cursor-pointer"
+            onClick={handleWriteAnother}
+          >
+            {unsubmittedSession !== null ? '다른 세션에도 남기기' : '다른 세션 결과 보기'}
+          </Button>
+        </>
+      )}
     </div>
   );
 };
