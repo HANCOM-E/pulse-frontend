@@ -209,8 +209,8 @@ export const pulseEventSchema = z.object({
 export const eventViewSchema = pulseEventSchema.omit({ id: true, ownerId: true });
 
 export const eventCreateRequestSchema = z.object({
-  title: z.string().min(2).max(60),
-  description: z.string().max(500).optional(),
+  title: z.string().min(2, '제목은 2자 이상이어야 합니다.').max(60, '제목은 60자 이하여야 합니다.'),
+  description: z.string().max(500, '설명은 500자 이하여야 합니다.').optional(),
 });
 
 /** 전 필드 optional(부분 수정). code/ownerId/createdAt은 수정 대상이 아닙니다. */
