@@ -240,6 +240,7 @@ const EventForm = ({ eventCode }: EventFormProps) => {
         <section className="flex flex-col gap-1">
           <p className="text-xs font-normal leading-4 text-text-secondary">설명 (선택)</p>
           <Textarea
+            name="description"
             invalid={Boolean(eventFormErrors.description)}
             maxLength={500}
             placeholder="이벤트에 대한 간단한 설명을 남겨주세요."
