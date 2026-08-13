@@ -1,6 +1,6 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'next/navigation';
 import { useState } from 'react';
 import {
@@ -23,21 +23,16 @@ import {
 } from '@/components/dashboard/metrics';
 import { Donut } from '@/components/feedback/Donut';
 import { FeedItem, type Sentiment as FeedItemSentiment } from '@/components/feedback/FeedItem';
+import { ModerationQueue } from '@/components/moderation/ModerationQueue';
 import { Badge } from '@/components/ui/Badge';
 import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/Chip';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Stat } from '@/components/ui/Stat';
-import { DASHBOARD_FEED_KEY, useDashboardFeed } from '@/hooks/useDashboardFeed';
-import { showToast } from '@/hooks/useToast';
-import {
-  deleteFeedback,
-  fetchMyEvents,
-  fetchSessionsByEventCode,
-  hideFeedback,
-  showFeedback,
-} from '@/lib/api/endpoints';
+import { useDashboardFeed } from '@/hooks/useDashboardFeed';
+import { useModerationActions } from '@/hooks/useModerationActions';
+import { fetchMyEvents, fetchSessionsByEventCode } from '@/lib/api/endpoints';
 import { ApiError } from '@/lib/apiClient';
 import type { Feedback, Sentiment } from '@/lib/schemas/api';
 
@@ -51,9 +46,6 @@ import type { Feedback, Sentiment } from '@/lib/schemas/api';
  * 스냅샷을 쓰지 않는 이유는 `hooks/useDashboardFeed.ts`에 적어뒀습니다.
  */
 
-/** 모더레이션 큐 위젯이 미리 보여주는 건수입니다. 나머지는 "전체보기"로 넘깁니다. */
-const MODERATION_PREVIEW_LIMIT = 3;
-
 const CARD = 'flex flex-col gap-3 rounded-xl border border-border-subtle p-4';
 const CARD_TITLE = 'text-xs font-normal leading-4 text-text-tertiary';
 
@@ -66,7 +58,6 @@ const FEED_SENTIMENT: Record<Sentiment, FeedItemSentiment> = {
 
 const DashboardView = () => {
   const { eventCode } = useParams<{ eventCode: string }>();
-  const queryClient = useQueryClient();
 
   /** `null`이 "전체"입니다. 시안의 기본 선택값입니다. */
   const [sessionId, setSessionId] = useState<number | null>(null);
@@ -111,54 +102,10 @@ const DashboardView = () => {
     refreshIntervalMs,
   } = useDashboardFeed({ eventCode, sessionId });
 
-  const invalidateFeed = () => {
-    queryClient.invalidateQueries({ queryKey: [DASHBOARD_FEED_KEY] });
-  };
-
-  const hideMutation = useMutation({
-    mutationFn: hideFeedback,
-    onSuccess: () => {
-      invalidateFeed();
-      showToast('소감을 숨겼어요');
-    },
-  });
-
-  /*
-   * 숨김은 되돌릴 수 있는 상태입니다(요구사항 소감 상태 전이 4번). 종단 상태는 `DELETED`뿐이라,
-   * 숨긴 건은 큐에 남겨두고 같은 버튼으로 되돌립니다. 큐가 `includeHidden=true`로 받는 것도
-   * 이 되돌리기 때문입니다.
-   */
-  const showMutation = useMutation({
-    mutationFn: showFeedback,
-    onSuccess: () => {
-      invalidateFeed();
-      showToast('숨김을 해제했어요');
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: deleteFeedback,
-    onSuccess: () => {
-      invalidateFeed();
-      showToast('소감을 삭제했어요');
-    },
-  });
+  const moderation = useModerationActions();
 
   const handleSelectSession = (nextSessionId: number | null) => {
     setSessionId(nextSessionId);
-  };
-
-  const handleToggleHidden = (feedback: Feedback) => {
-    if (feedback.status === 'HIDDEN') {
-      showMutation.mutate(feedback.id);
-      return;
-    }
-
-    hideMutation.mutate(feedback.id);
-  };
-
-  const handleDelete = (feedbackId: number) => {
-    deleteMutation.mutate(feedbackId);
   };
 
   /*
@@ -261,9 +208,7 @@ const DashboardView = () => {
       </div>
 
       {isFeedError && <Banner type="negative">지금은 소감을 불러올 수 없어요</Banner>}
-      {(hideMutation.isError || showMutation.isError || deleteMutation.isError) && (
-        <Banner type="negative">소감 처리에 실패했어요</Banner>
-      )}
+      {moderation.isError && <Banner type="negative">소감 처리에 실패했어요</Banner>}
 
       {isFeedPending ? (
         <DashboardSkeleton />
@@ -387,67 +332,12 @@ const DashboardView = () => {
             </section>
 
             <div className="flex flex-col gap-3">
-              <section className={CARD}>
-                <div className="flex items-center justify-between gap-2">
-                  <h2 className={CARD_TITLE}>모더레이션 큐</h2>
-                  <div className="flex items-center gap-2">
-                    <Badge tone="toxic">{toxicCount}건 대기</Badge>
-                    {/* 전체보기 모달은 별도 이슈입니다. 지금은 자리만 잡습니다. */}
-                    <span className="text-xs font-normal leading-4 text-text-tertiary">
-                      전체보기
-                    </span>
-                  </div>
-                </div>
-
-                {toxicItems.length === 0 ? (
-                  <EmptyState title="검토할 소감이 없어요" />
-                ) : (
-                  <ul className="flex flex-col gap-2">
-                    {toxicItems.slice(0, MODERATION_PREVIEW_LIMIT).map((feedback) => (
-                      <li key={feedback.id}>
-                        <FeedItem
-                          state={feedback.status === 'HIDDEN' ? 'hidden' : 'flagged'}
-                          sentiment="toxic"
-                          meta={toMeta(feedback)}
-                          content={feedback.text}
-                          actions={
-                            <>
-                              <Button
-                                variant="secondary"
-                                size="sm"
-                                /*
-                                 * 누른 항목만 잠급니다. `isPending`만 보면 미리보기 세 건이
-                                 * mutation 하나를 공유해서 누르지 않은 항목까지 같이 잠깁니다.
-                                 * `variables`는 `mutate`에 넘긴 id라 요청이 도는 동안 남습니다.
-                                 */
-                                disabled={
-                                  (hideMutation.isPending &&
-                                    hideMutation.variables === feedback.id) ||
-                                  (showMutation.isPending && showMutation.variables === feedback.id)
-                                }
-                                onClick={() => handleToggleHidden(feedback)}
-                              >
-                                {feedback.status === 'HIDDEN' ? '숨김 해제' : '숨기기'}
-                              </Button>
-                              <Button
-                                variant="danger"
-                                size="sm"
-                                disabled={
-                                  deleteMutation.isPending &&
-                                  deleteMutation.variables === feedback.id
-                                }
-                                onClick={() => handleDelete(feedback.id)}
-                              >
-                                삭제
-                              </Button>
-                            </>
-                          }
-                        />
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </section>
+              <ModerationQueue
+                items={toxicItems}
+                waitingCount={toxicCount}
+                formatMeta={toMeta}
+                actions={moderation}
+              />
 
               <section className={CARD}>
                 <h2 className={CARD_TITLE}>상위 키워드</h2>
