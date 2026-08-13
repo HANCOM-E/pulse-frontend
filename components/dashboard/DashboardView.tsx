@@ -508,7 +508,16 @@ const DashboardView = () => {
                               <Button
                                 variant="secondary"
                                 size="sm"
-                                disabled={hideMutation.isPending || showMutation.isPending}
+                                /*
+                                 * 누른 항목만 잠급니다. `isPending`만 보면 미리보기 세 건이
+                                 * mutation 하나를 공유해서 누르지 않은 항목까지 같이 잠깁니다.
+                                 * `variables`는 `mutate`에 넘긴 id라 요청이 도는 동안 남습니다.
+                                 */
+                                disabled={
+                                  (hideMutation.isPending &&
+                                    hideMutation.variables === feedback.id) ||
+                                  (showMutation.isPending && showMutation.variables === feedback.id)
+                                }
                                 onClick={() => handleToggleHidden(feedback)}
                               >
                                 {feedback.status === 'HIDDEN' ? '숨김 해제' : '숨기기'}
@@ -516,7 +525,10 @@ const DashboardView = () => {
                               <Button
                                 variant="danger"
                                 size="sm"
-                                disabled={deleteMutation.isPending}
+                                disabled={
+                                  deleteMutation.isPending &&
+                                  deleteMutation.variables === feedback.id
+                                }
                                 onClick={() => handleDelete(feedback.id)}
                               >
                                 삭제
