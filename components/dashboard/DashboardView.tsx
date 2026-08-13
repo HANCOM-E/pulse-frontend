@@ -381,13 +381,15 @@ const DashboardView = () => {
             <section className={CARD}>
               <h2 className={CARD_TITLE}>실시간 소감 피드</h2>
 
+              {/* 모더레이션 큐와 같은 이유로 높이를 고정합니다(`ModerationQueue.tsx`). */}
               {visible.length === 0 ? (
                 <EmptyState
+                  className="h-80 justify-center"
                   title="아직 들어온 소감이 없어요"
                   description="참가자가 소감을 남기면 여기에 바로 올라와요"
                 />
               ) : (
-                <ul className="flex max-h-80 flex-col gap-2 overflow-y-auto">
+                <ul className="flex h-80 flex-col gap-2 overflow-y-auto">
                   {visible.map((feedback) => (
                     <li key={feedback.id}>
                       <FeedItem

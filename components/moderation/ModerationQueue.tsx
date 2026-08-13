@@ -15,9 +15,6 @@ import type { Feedback } from '@/lib/schemas/api';
  * 숨긴 항목은 목록에서 빼지 않습니다. 되돌릴 수 있는 상태라 같은 자리에서 해제해야 합니다.
  */
 
-/** 미리 보여주는 건수입니다. 나머지는 "전체보기"로 넘깁니다. */
-const PREVIEW_LIMIT = 3;
-
 /*
  * 카드 모양이 대시보드의 다른 섹션과 같습니다. `components/ui/`에 카드 프리미티브가 아직
  * 없어서 두 줄이 겹치는데, 이 위젯 하나 때문에 공용 컴포넌트를 새로 만들지는 않았습니다.
@@ -46,11 +43,15 @@ const ModerationQueue = ({ items, waitingCount, formatMeta, actions }: Moderatio
       </div>
     </div>
 
+    {/*
+     * 목록 높이를 내용에 맡기지 않고 고정합니다. 조치할 때마다 건수가 줄어서, 늘어난 만큼만
+     * 잡아두면 숨기기 한 번에 카드가 주저앉고 옆 카드까지 따라 올라옵니다.
+     */}
     {items.length === 0 ? (
-      <EmptyState title="검토할 소감이 없어요" />
+      <EmptyState className="h-80 justify-center" title="검토할 소감이 없어요" />
     ) : (
-      <ul className="flex flex-col gap-2">
-        {items.slice(0, PREVIEW_LIMIT).map((feedback) => {
+      <ul className="flex h-80 flex-col gap-2 overflow-y-auto">
+        {items.map((feedback) => {
           const isHidden = feedback.status === 'HIDDEN';
 
           /*
