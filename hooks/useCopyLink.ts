@@ -39,6 +39,12 @@ const useCopyLink = (): UseCopyLinkResult => {
     try {
       await navigator.clipboard.writeText(text);
     } catch {
+      /*
+       * 앞선 성공 표시를 걷어냅니다. 남겨두면 QR 모달이 「복사 완료」 버튼과 실패 배너를
+       * 같이 띄우고, 살아 있던 타이머가 원래 시각에 표시를 끕니다.
+       */
+      clearTimeout(timerRef.current);
+      setIsCopied(false);
       setIsFailed(true);
       return false;
     }

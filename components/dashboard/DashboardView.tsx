@@ -130,6 +130,13 @@ const DashboardView = () => {
       // 다이얼로그를 닫은 뒤에 띄웁니다. 열려 있으면 토스트가 그 뒤에 가립니다(ui/README.md).
       showToast('이벤트를 종료했어요');
     },
+    /*
+     * 실패해도 닫습니다. 열어두면 아래 실패 배너가 최상위 레이어와 딤 뒤로 밀리는 데다,
+     * showModal()이 바깥을 inert로 만들어서 role="alert"조차 읽히지 않습니다.
+     */
+    onError: () => {
+      setIsEndConfirmOpen(false);
+    },
   });
 
   const handleSelectSession = (nextSessionId: number | null) => {
