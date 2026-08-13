@@ -74,6 +74,15 @@ const id = z.int().positive();
 const isoDateTime = z.iso.datetime();
 
 /**
+ * 타임존이 없는 달력 날짜(`YYYY-MM-DD`)입니다. `isoDateTime`과 달리 시각이 없습니다.
+ *
+ * 이 값을 `new Date(...)`에 넣지 마세요. 날짜만 있는 문자열은 UTC 자정으로 해석돼서,
+ * UTC보다 서쪽 지역에서는 하루 앞선 날짜로 보입니다(명세 2026-08-12 경고). 화면까지
+ * 문자열로 나르고, 포맷이 필요하면 그 자리에서 연·월·일을 직접 쪼개 씁니다.
+ */
+const calendarDate = z.iso.date();
+
+/**
  * 집계 개수. 0은 나오지만 음수는 나올 수 없습니다.
  *
  * 화면에서 clamp하지 않고 여기서 막습니다. 예를 들어 감정 분포에 음수가 들어오면
@@ -194,6 +203,8 @@ export const pulseEventSchema = z.object({
   code: z.string().min(1),
   title: z.string().min(2).max(60),
   description: z.string().max(500).nullable(),
+  /** 행사 당일 날짜. 이벤트를 만든 시각인 `createdAt`과 다릅니다(2026-08-12 명세). */
+  eventDate: calendarDate,
   ownerId: id,
   status: eventStatusSchema,
   createdAt: isoDateTime,
@@ -211,6 +222,8 @@ export const eventViewSchema = pulseEventSchema.omit({ id: true, ownerId: true }
 export const eventCreateRequestSchema = z.object({
   title: z.string().min(2).max(60),
   description: z.string().max(500).optional(),
+  /** 생성 시 필수입니다. 나머지 선택 필드와 달리 빠지면 VALIDATION_ERROR입니다. */
+  eventDate: calendarDate,
 });
 
 /** 전 필드 optional(부분 수정). code/ownerId/createdAt은 수정 대상이 아닙니다. */
@@ -218,6 +231,7 @@ export const eventUpdateRequestSchema = z.object({
   title: z.string().min(2).max(60).optional(),
   description: z.string().max(500).optional(),
   status: z.enum(['LIVE', 'ENDED']).optional(),
+  eventDate: calendarDate.optional(),
 });
 
 export const sessionSchema = z.object({

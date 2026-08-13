@@ -59,6 +59,7 @@ export const eventHandlers = [
       code: generateEventCode(),
       title: body.data.title,
       description: body.data.description ?? null,
+      eventDate: body.data.eventDate,
       ownerId: account.id,
       status: 'DRAFT',
       createdAt: new Date().toISOString(),
@@ -100,6 +101,7 @@ export const eventHandlers = [
 
     if (body.data.title !== undefined) event.title = body.data.title;
     if (body.data.description !== undefined) event.description = body.data.description;
+    if (body.data.eventDate !== undefined) event.eventDate = body.data.eventDate;
 
     return HttpResponse.json(event);
   }),
