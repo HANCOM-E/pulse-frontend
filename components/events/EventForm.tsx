@@ -13,16 +13,19 @@ import { Banner } from '@/components/ui/Banner';
 type EventFormInputs = {
   title: string;
   description: string;
+  eventDate: string;
 };
 
 type EventFormErrors = {
   title?: string;
   description?: string;
+  eventDate?: string;
 };
 
 const initialEventFormInputs: EventFormInputs = {
   title: '',
   description: '',
+  eventDate: '',
 };
 
 const EventForm = () => {
@@ -55,14 +58,18 @@ const EventForm = () => {
     const descriptionValidation = eventCreateRequestSchema.shape.description.safeParse(
       eventFormInputs.description,
     );
+    const eventDateValidation = eventCreateRequestSchema.shape.eventDate.safeParse(
+      eventFormInputs.eventDate,
+    );
 
     setEventFormErrors((prev) => ({
       ...prev,
       title: titleValidation.error?.issues[0]?.message,
       description: descriptionValidation.error?.issues[0]?.message,
+      eventDate: eventDateValidation.error?.issues[0]?.message,
     }));
 
-    if (titleValidation.success && descriptionValidation.success) {
+    if (titleValidation.success && descriptionValidation.success && eventDateValidation.success) {
       mutate(eventFormInputs);
     }
   };
@@ -78,6 +85,14 @@ const EventForm = () => {
           value={eventFormInputs.title}
           onChange={handleInputChange}
           error={eventFormErrors.title}
+        />
+        <Field
+          label="행사 날짜"
+          name="eventDate"
+          type="date"
+          value={eventFormInputs.eventDate}
+          onChange={handleInputChange}
+          error={eventFormErrors.eventDate}
         />
         <section className="flex flex-col gap-1">
           <p className="text-xs font-normal leading-4 text-text-secondary">설명 (선택)</p>
