@@ -80,7 +80,11 @@ describe('auth', () => {
     expect(body).not.toHaveProperty('accessToken');
 
     const { accessToken, xsrfToken } = splitSetCookie(response);
-    expect(accessToken).toContain('HttpOnly');
+    // 실제 명세는 accessToken에 HttpOnly를 붙이지만, 목은 일부러 뺍니다. Service Worker가
+    // 가로챈 응답은 HttpOnly Set-Cookie를 브라우저 저장소에 반영하지 못해서(이슈 #128,
+    // mocks/handlers/auth.ts의 sessionCookies 주석 참고), 목에서 HttpOnly를 유지하면
+    // 로컬 브라우저 테스트에서 로그인 이후 화면을 전혀 열어볼 수 없습니다.
+    expect(accessToken).not.toContain('HttpOnly');
     // CSRF 토큰은 FE가 읽어서 헤더로 되돌려 보내야 해서 HttpOnly면 안 됩니다.
     expect(xsrfToken).not.toContain('HttpOnly');
   });

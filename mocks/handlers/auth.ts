@@ -27,27 +27,50 @@ const MOCK_XSRF_TOKEN = 'mock-xsrf-token';
  * 실제 BE는 `Secure; SameSite=None`으로 내립니다(FE·BE 도메인이 다름).
  * 목은 `Secure`를 빼고 `SameSite=Lax`로 둡니다 — localhost는 http라서 `Secure` 쿠키가 저장되지 않고,
  * 목은 같은 오리진이라 `None`이 필요 없습니다.
+ *
+ * `Headers`에 `Set-Cookie`를 `.append()`로 두 번 넣으면 MSW가 마지막 값만 적용하고
+ * 앞의 값을 버려서(https://github.com/mswjs/msw/issues/1290), 배열로 직접 넘깁니다.
+ *
+ * ---
+ *
+ * `accessToken`에는 실제 명세와 달리 `HttpOnly`를 붙이지 않습니다(이슈 #128).
+ *
+ * AS-IS: 원래는 실제 BE와 동일하게 `HttpOnly`를 붙였습니다.
+ * TO-BE: 목 환경에서는 `HttpOnly`를 빼야 브라우저에 쿠키가 실제로 저장됩니다.
+ *
+ * 브라우저에서 MSW는 Service Worker(`mockServiceWorker.js`)가 페이지의 `fetch`를
+ * 가로채서, 이 파일이 만든 응답을 `FetchEvent.respondWith()`로 대신 돌려주는 방식으로
+ * 동작합니다. 브라우저는 이렇게 Service Worker가 대신 돌려준 응답에 대해서는,
+ * `HttpOnly`가 붙은 `Set-Cookie`를 실제 쿠키 저장소에 반영하지 않습니다. 스크립트가
+ * 제어하는 계층(Service Worker)이 "스크립트가 못 건드리는 쿠키(HttpOnly)"를 마음대로
+ * 심을 수 있게 되면 `HttpOnly`의 존재 이유 자체가 무너지기 때문입니다.
+ *
+ * 이슈 #128에서 아래 순서로 이 원인을 좁혔습니다.
+ * - Node 환경(`msw/node`, `mocks/handlers.test.ts`)에서는 이 함수가 두 쿠키를 모두
+ *   정확히 만든다는 걸 테스트로 확인했습니다. 즉 이 파일의 로직 자체는 원래도 맞았습니다.
+ * - 그런데 실제 브라우저에서 로그인해보면 `HttpOnly`가 없는 `XSRF-TOKEN`만 저장되고,
+ *   `HttpOnly`가 붙은 `accessToken`은 쿠키를 완전히 지운 뒤 다시 로그인해도 저장되지
+ *   않았습니다. 두 쿠키의 유일한 차이가 `HttpOnly`라 원인이 여기로 좁혀졌습니다.
+ * - 이 현상은 MDN 문서(Service Worker가 `HttpOnly` 쿠키를 다루지 못한다는 설명,
+ *   https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API/Using_Service_Workers)와
+ *   WHATWG 쿠키 스토어 제안의 논의(https://github.com/whatwg/cookiestore/issues/37)에서도
+ *   같은 제약으로 설명되고 있어서, 이 프로젝트만의 버그가 아니라 브라우저 자체의 제약으로 판단했습니다.
+ *
+ * 실제 BE 응답은 이 파일을 거치지 않으므로(`mocks/config.ts`의 `isMockingEnabled`가 꺼지면
+ * 이 핸들러 자체가 실행되지 않습니다), 실제 배포 환경의 보안에는 영향이 없습니다. FE 코드
+ * 어디에도 `accessToken`을 `document.cookie`로 직접 읽는 곳이 없어서(애초에 `HttpOnly`라
+ * 못 읽는 게 설계 의도), 목에서만 `HttpOnly`를 빼도 놓치는 실제 버그는 없습니다.
  */
-const sessionCookies = (accountId: number): Headers => {
-  const headers = new Headers();
-  headers.append(
-    'Set-Cookie',
-    `${ACCESS_TOKEN_COOKIE}=${issueAccessToken(accountId)}; Path=/; HttpOnly; SameSite=Lax`,
-  );
+const sessionCookies = (accountId: number): [string, string][] => [
+  ['Set-Cookie', `${ACCESS_TOKEN_COOKIE}=${issueAccessToken(accountId)}; Path=/; SameSite=Lax`],
   // CSRF double-submit용이라 HttpOnly가 아닙니다. FE가 읽어서 X-XSRF-TOKEN 헤더로 되돌려 보냅니다.
-  headers.append('Set-Cookie', `${XSRF_TOKEN_COOKIE}=${MOCK_XSRF_TOKEN}; Path=/; SameSite=Lax`);
-  return headers;
-};
+  ['Set-Cookie', `${XSRF_TOKEN_COOKIE}=${MOCK_XSRF_TOKEN}; Path=/; SameSite=Lax`],
+];
 
-const expiredCookies = (): Headers => {
-  const headers = new Headers();
-  headers.append(
-    'Set-Cookie',
-    `${ACCESS_TOKEN_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`,
-  );
-  headers.append('Set-Cookie', `${XSRF_TOKEN_COOKIE}=; Path=/; SameSite=Lax; Max-Age=0`);
-  return headers;
-};
+const expiredCookies = (): [string, string][] => [
+  ['Set-Cookie', `${ACCESS_TOKEN_COOKIE}=; Path=/; SameSite=Lax; Max-Age=0`],
+  ['Set-Cookie', `${XSRF_TOKEN_COOKIE}=; Path=/; SameSite=Lax; Max-Age=0`],
+];
 
 const toAuthUser = (account: MockAccount): AuthUser => ({
   id: account.id,
