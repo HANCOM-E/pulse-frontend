@@ -3,7 +3,8 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { fetchModerationQueue } from '@/lib/api/endpoints';
-import type { Feedback } from '@/lib/schemas/api';
+import { ApiError } from '@/lib/apiClient';
+import { isClientError, type Feedback } from '@/lib/schemas/api';
 
 /**
  * 주최자 대시보드가 보는 소감 목록입니다. 지금은 폴링이고 나중에 SSE로 승급합니다.
@@ -30,6 +31,13 @@ const REFRESH_INTERVAL_MS = 5_000;
 /** 숨기기·삭제 뒤 목록을 다시 받을 때 쓰는 키 앞자리입니다. */
 const DASHBOARD_FEED_KEY = 'dashboardFeed';
 
+/**
+ * 다시 물어봐도 같은 답이 오는 실패인지 봅니다. `QueryProvider`의 `retry`가 재시도를 거르는
+ * 기준(4xx + `INVALID_RESPONSE`)과 같습니다. 재시도하지 않기로 한 실패는 폴링도 하지 않습니다.
+ */
+const isPermanentFailure = (error: Error | null): boolean =>
+  error instanceof ApiError && (error.code === 'INVALID_RESPONSE' || isClientError(error.code));
+
 interface UseDashboardFeedParams {
   eventCode: string;
   /** `null`이면 이벤트 전체입니다. 세션 필터의 "전체"가 이 값입니다. */
@@ -41,8 +49,8 @@ interface UseDashboardFeedResult {
   isPending: boolean;
   isError: boolean;
   /**
-   * 화면이 "N초마다 갱신돼요"를 그릴 때 쓰는 값입니다.
-   * SSE로 바뀌면 `null`이 됩니다.
+   * 화면이 "N초마다 갱신돼요"를 그릴 때 쓰는 값입니다. 주기 갱신이 돌고 있지 않으면 `null`입니다.
+   * 폴링을 멈춘 실패에서 그렇고, SSE로 바뀌면 항상 `null`이 됩니다.
    */
   refreshIntervalMs: number | null;
 }
@@ -51,7 +59,7 @@ const useDashboardFeed = ({
   eventCode,
   sessionId,
 }: UseDashboardFeedParams): UseDashboardFeedResult => {
-  const { data, isPending, isError } = useQuery({
+  const { data, isPending, isError, error } = useQuery({
     queryKey: [DASHBOARD_FEED_KEY, eventCode, sessionId],
     queryFn: () =>
       fetchModerationQueue({
@@ -59,14 +67,24 @@ const useDashboardFeed = ({
         sessionId: sessionId ?? undefined,
         includeHidden: true,
       }),
-    refetchInterval: REFRESH_INTERVAL_MS,
+    /*
+     * 폴링 타이머는 에러 상태에서도 그대로 돕니다. `QueryObserver`가 간격을 다시 잴 때 보는 건
+     * `enabled`와 간격값뿐이라 실패 여부는 아예 안 봅니다. 그래서 로그인이 풀린 화면이 401을
+     * 5초마다 새로 받아냅니다. `retry`가 이미 4xx를 거르고 있어서 재시도로도 안 잡힙니다.
+     *
+     * 5xx·네트워크 끊김은 계속 돌립니다. 저쪽은 다음 번에 성공할 수 있는 실패라, 여기서 같이
+     * 멈추면 순간 장애 한 번에 진행 중인 이벤트의 대시보드가 영영 멈춥니다. `refetchOnWindowFocus`도
+     * 꺼져 있어서 탭을 다시 봐도 살아나지 않고, 남는 복구 수단이 새로고침뿐입니다.
+     */
+    refetchInterval: ({ state }) => (isPermanentFailure(state.error) ? false : REFRESH_INTERVAL_MS),
   });
 
   return {
     feedbacks: data,
     isPending,
     isError,
-    refreshIntervalMs: REFRESH_INTERVAL_MS,
+    /* 폴링이 멈춘 뒤에도 "5초마다 갱신"을 그리면 거짓말이 됩니다. 화면은 `null`이면 라벨을 감춥니다. */
+    refreshIntervalMs: isPermanentFailure(error) ? null : REFRESH_INTERVAL_MS,
   };
 };
 
