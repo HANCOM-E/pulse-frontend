@@ -26,6 +26,7 @@ const LoginForm = () => {
   const [loginFailed, setLoginFailed] = useState(false);
   const [loginFailedMessage, setLoginFailedMessage] = useState<string | null>(null);
   const [loginInputs, setLoginInputs] = useState<LoginInputs>(initialLoginInputs);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const router = useRouter();
   const { login } = useAuth();
@@ -39,9 +40,11 @@ const LoginForm = () => {
 
   const handleSubmit = async (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (isSubmitting) return;
     setLoginFailed(false);
     setLoginFailedMessage(null);
 
+    setIsSubmitting(true);
     try {
       await login(loginInputs.email, loginInputs.password);
       router.push('/events');
@@ -53,6 +56,8 @@ const LoginForm = () => {
       } else {
         setLoginFailedMessage('로그인에 실패했습니다. 잠시 후 다시 시도해주세요.');
       }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -85,7 +90,7 @@ const LoginForm = () => {
       >
         {loginFailed ? loginFailedMessage : null}
       </p>
-      <Button type="submit" variant="primary" className="w-full">
+      <Button type="submit" variant="primary" className="w-full" disabled={isSubmitting}>
         로그인
       </Button>
     </form>
