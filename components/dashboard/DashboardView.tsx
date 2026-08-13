@@ -43,6 +43,7 @@ import {
   generateReport,
   setReportPublic,
   updateEvent,
+  updateSession,
 } from '@/lib/api/endpoints';
 import { ApiError } from '@/lib/apiClient';
 import type { Feedback, Sentiment } from '@/lib/schemas/api';
@@ -201,6 +202,22 @@ const DashboardView = () => {
     },
   });
 
+  /*
+   * 선택한 세션의 소감 수신을 켜고 끕니다. 세션은 생성 시 `CLOSED`라, 발표가 시작될 때 주최자가
+   * 열어야 소감이 들어옵니다(2026-08-07 명세).
+   *
+   * 이벤트 종료와 달리 확인 다이얼로그를 두지 않습니다. `ACTIVE ↔ CLOSED`는 되돌릴 수 있어서
+   * 잘못 눌러도 다시 누르면 그만입니다.
+   */
+  const toggleSessionMutation = useMutation({
+    mutationFn: ({ id, status }: { id: number; status: 'ACTIVE' | 'CLOSED' }) =>
+      updateSession(eventCode, id, { status }),
+    onSuccess: (session) => {
+      queryClient.invalidateQueries({ queryKey: ['sessions', eventCode] });
+      showToast(session.status === 'ACTIVE' ? '이제 소감을 받아요' : '소감 받기를 멈췄어요');
+    },
+  });
+
   const handleSelectSession = (nextSessionId: number | null) => {
     setSessionId(nextSessionId);
   };
@@ -306,6 +323,10 @@ const DashboardView = () => {
 
   const isReportPublic = report?.isPublic ?? false;
 
+  /* 칩에서 고른 세션입니다. "전체"(`null`)에는 켜고 끌 대상이 없어 아래 토글을 감춥니다. */
+  const selectedSession =
+    sessionId === null ? null : (sessions.find((session) => session.id === sessionId) ?? null);
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -320,47 +341,80 @@ const DashboardView = () => {
         </div>
 
         {/*
-         * QR과 이벤트 종료는 `LIVE`에서만 내놓습니다.
+         * QR·링크 복사·이벤트 종료는 `LIVE`에서만 내놓습니다.
          *
          * 종료는 서버가 허용하는 전이가 `DRAFT → LIVE`와 `LIVE → ENDED` 둘뿐이라, 그 밖에서
-         * 누르면 INVALID_EVENT_STATE_TRANSITION만 받습니다. QR은 참가자를 제출 화면으로
-         * 보내는 물건이라 제출을 받는 동안에만 쓸모가 있습니다. 눌러보고 실패하게 두는 대신
-         * 아예 내놓지 않습니다.
+         * 누르면 INVALID_EVENT_STATE_TRANSITION만 받습니다. QR과 참가자 링크는 소감을 받는
+         * 동안에만 쓸모가 있습니다 — 시작 전이거나 끝난 이벤트의 주소를 건네봐야 받는 쪽은
+         * 제출이 막힌 화면을 봅니다. 눌러보고 실패하게 두는 대신 아예 내놓지 않습니다.
          *
-         * 링크 복사만 상태와 무관하게 남습니다. 끝난 이벤트의 주소도 여전히 유효합니다.
+         * 리포트 공개 전환만 `ENDED` 쪽에 남습니다. 주소는 제목 아래에 늘 떠 있습니다.
          */}
-        <div className="flex items-center gap-2">
-          {event.status === 'LIVE' && (
-            <Button variant="secondary" size="sm" onClick={() => setIsQrOpen(true)}>
-              QR
-            </Button>
-          )}
-          <Button variant="secondary" size="sm" onClick={handleCopyLink}>
-            링크 복사
-          </Button>
+        <div className="flex flex-col items-end gap-2">
+          <div className="flex items-center gap-2">
+            {event.status === 'LIVE' && (
+              <>
+                <Button variant="secondary" size="sm" onClick={() => setIsQrOpen(true)}>
+                  QR
+                </Button>
+                <Button variant="secondary" size="sm" onClick={handleCopyLink}>
+                  링크 복사
+                </Button>
+              </>
+            )}
+
+            {/*
+             * 다 만든 리포트에만 붙습니다. 만들기 전이나 만드는 중에는 뒤집을 공개 여부 자체가
+             * 없습니다(`GENERATED`가 아니면 공개해도 게스트는 404를 봅니다).
+             */}
+            {isReportGenerated && (
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={setReportPublicMutation.isPending}
+                onClick={() => setReportPublicMutation.mutate(!isReportPublic)}
+              >
+                {isReportPublic ? '비공개로 전환' : '공개로 전환'}
+              </Button>
+            )}
+            {event.status === 'LIVE' && (
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={endEventMutation.isPending}
+                onClick={() => setIsEndConfirmOpen(true)}
+              >
+                이벤트 종료
+              </Button>
+            )}
+          </div>
+
           {/*
-           * 다 만든 리포트에만 붙습니다. 만들기 전이나 만드는 중에는 뒤집을 공개 여부 자체가
-           * 없습니다(`GENERATED`가 아니면 공개해도 게스트는 404를 봅니다).
+           * 선택한 세션의 소감 수신 상태와 그걸 뒤집는 버튼입니다.
+           *
+           * `LIVE`에서만 내놓습니다. 제출은 이벤트가 `LIVE`이고 세션이 `ACTIVE`여야 통과하는데,
+           * 시작 전이나 끝난 뒤에 세션만 열어두면 여기서는 "소감 받는 중"이라고 하고 참가자는
+           * `EVENT_NOT_LIVE`로 막히는 거짓말이 됩니다.
            */}
-          {isReportGenerated && (
-            <Button
-              variant="secondary"
-              size="sm"
-              disabled={setReportPublicMutation.isPending}
-              onClick={() => setReportPublicMutation.mutate(!isReportPublic)}
-            >
-              {isReportPublic ? '비공개로 전환' : '공개로 전환'}
-            </Button>
-          )}
-          {event.status === 'LIVE' && (
-            <Button
-              variant="secondary"
-              size="sm"
-              disabled={endEventMutation.isPending}
-              onClick={() => setIsEndConfirmOpen(true)}
-            >
-              이벤트 종료
-            </Button>
+          {event.status === 'LIVE' && selectedSession !== null && (
+            <div className="flex items-center gap-2">
+              <Badge tone={selectedSession.status === 'ACTIVE' ? 'positive' : 'neutral'}>
+                {selectedSession.status === 'ACTIVE' ? '소감 받는 중' : '소감 멈춤'}
+              </Badge>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={toggleSessionMutation.isPending}
+                onClick={() =>
+                  toggleSessionMutation.mutate({
+                    id: selectedSession.id,
+                    status: selectedSession.status === 'ACTIVE' ? 'CLOSED' : 'ACTIVE',
+                  })
+                }
+              >
+                {selectedSession.status === 'ACTIVE' ? '멈추기' : '다시 받기'}
+              </Button>
+            </div>
           )}
         </div>
       </div>
@@ -391,6 +445,9 @@ const DashboardView = () => {
       )}
       {setReportPublicMutation.isError && (
         <Banner type="negative">리포트 공개 설정을 바꾸지 못했어요</Banner>
+      )}
+      {toggleSessionMutation.isError && (
+        <Banner type="negative">세션의 소감 수신 상태를 바꾸지 못했어요</Banner>
       )}
       {isCopyFailed && (
         <Banner type="negative">링크를 복사하지 못했어요. 위 주소를 직접 복사해주세요</Banner>
