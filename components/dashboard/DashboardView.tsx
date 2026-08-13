@@ -240,35 +240,35 @@ const DashboardView = () => {
           <p className="text-xs font-normal leading-4 break-all text-text-tertiary">{publicUrl}</p>
         </div>
 
+        {/*
+         * QR과 이벤트 종료는 `LIVE`에서만 내놓습니다.
+         *
+         * 종료는 서버가 허용하는 전이가 `DRAFT → LIVE`와 `LIVE → ENDED` 둘뿐이라, 그 밖에서
+         * 누르면 INVALID_EVENT_STATE_TRANSITION만 받습니다. QR은 참가자를 제출 화면으로
+         * 보내는 물건이라 제출을 받는 동안에만 쓸모가 있습니다. 눌러보고 실패하게 두는 대신
+         * 아예 내놓지 않습니다.
+         *
+         * 링크 복사만 상태와 무관하게 남습니다. 끝난 이벤트의 주소도 여전히 유효합니다.
+         */}
         <div className="flex items-center gap-2">
-          {event.status === 'LIVE' ? (
-            <>
-              <Button variant="secondary" size="sm" onClick={() => setIsQrOpen(true)}>
-                QR
-              </Button>
-              <Button variant="secondary" size="sm" onClick={handleCopyLink}>
-                링크 복사
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={event.status !== 'LIVE' || endEventMutation.isPending}
-                onClick={() => setIsEndConfirmOpen(true)}
-              >
-                이벤트 종료
-              </Button>
-            </>
-          ) : (
-            <Button variant="secondary" size="sm" onClick={handleCopyLink}>
-              링크 복사
+          {event.status === 'LIVE' && (
+            <Button variant="secondary" size="sm" onClick={() => setIsQrOpen(true)}>
+              QR
             </Button>
           )}
-
-          {/*
-           * `LIVE`에서만 엽니다. 서버가 허용하는 전이는 `DRAFT → LIVE`와 `LIVE → ENDED` 둘뿐이라,
-           * 아직 시작하지 않았거나 이미 끝난 이벤트에서 누르면 INVALID_EVENT_STATE_TRANSITION만
-           * 받습니다. 눌러보고 실패하게 두는 대신 미리 잠급니다.
-           */}
+          <Button variant="secondary" size="sm" onClick={handleCopyLink}>
+            링크 복사
+          </Button>
+          {event.status === 'LIVE' && (
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={endEventMutation.isPending}
+              onClick={() => setIsEndConfirmOpen(true)}
+            >
+              이벤트 종료
+            </Button>
+          )}
         </div>
       </div>
 
