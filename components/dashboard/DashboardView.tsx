@@ -439,17 +439,17 @@ const DashboardView = () => {
             </div>
           </div>
 
-          <section className={`${CARD} flex-row items-center justify-between`}>
+          <section className={`${CARD} flex-row items-center justify-between bg-background-muted`}>
             <div className="flex flex-col gap-1">
               <h2 className="text-base font-semibold leading-6 text-text-primary">
                 AI 요약 리포트
               </h2>
               <p className="text-xs font-normal leading-4 text-text-tertiary">
-                이벤트를 종료하면 생성할 수 있어요
+                생성하시면 공개 리포트 링크가 열려요
               </p>
             </div>
             {/* 활성화 조건만 맞춰둡니다. `generateReport` 호출은 별도 후속 이슈입니다. */}
-            <Button variant="secondary" disabled={event.status !== 'ENDED'}>
+            <Button variant="primary" disabled={event.status !== 'ENDED'}>
               요약 생성
             </Button>
           </section>
