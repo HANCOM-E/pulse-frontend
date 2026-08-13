@@ -12,6 +12,7 @@ import {
   sessionViewSchema,
 } from '@/lib/schemas/api';
 import { db, nextAccountId, resetDb } from '@/mocks/data/store';
+import { createAuthHandlers } from '@/mocks/handlers/auth';
 import { API_BASE_URL } from '@/mocks/handlers/shared';
 import { server } from '@/mocks/server';
 
@@ -80,12 +81,29 @@ describe('auth', () => {
     expect(body).not.toHaveProperty('accessToken');
 
     const { accessToken, xsrfToken } = splitSetCookie(response);
-    // 실제 명세는 accessToken에 HttpOnly를 붙이지만, 목은 일부러 뺍니다. Service Worker가
-    // 가로챈 응답은 HttpOnly Set-Cookie를 브라우저 저장소에 반영하지 못해서(이슈 #128,
-    // mocks/handlers/auth.ts의 sessionCookies 주석 참고), 목에서 HttpOnly를 유지하면
-    // 로컬 브라우저 테스트에서 로그인 이후 화면을 전혀 열어볼 수 없습니다.
-    expect(accessToken).not.toContain('HttpOnly');
+    // 이 테스트는 mocks/server.ts(msw/node)를 쓰므로 Service Worker를 거치지 않습니다.
+    // 계약 테스트인 만큼 명세대로 accessToken에 HttpOnly가 붙어야 합니다. 브라우저에서만
+    // HttpOnly를 빼는 예외(이슈 #128)는 아래 별도 테스트가 검증합니다.
+    expect(accessToken).toContain('HttpOnly');
     // CSRF 토큰은 FE가 읽어서 헤더로 되돌려 보내야 해서 HttpOnly면 안 됩니다.
+    expect(xsrfToken).not.toContain('HttpOnly');
+  });
+
+  it('브라우저 목은 accessToken에 HttpOnly를 붙이지 않는다 (이슈 #128)', async () => {
+    // Service Worker가 가로챈 응답은 HttpOnly Set-Cookie를 브라우저 저장소에 반영하지
+    // 못해서(mocks/handlers/auth.ts의 sessionCookies 주석 참고), mocks/browser.ts는
+    // httpOnly: false로 이 핸들러를 띄웁니다. 여기서는 같은 옵션으로 만든 핸들러를
+    // 이 테스트에서만 잠깐 끼워 넣어(server.use) 그 동작을 직접 검증합니다.
+    server.use(...createAuthHandlers({ httpOnly: false }));
+
+    const response = await call('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'host@example.com', password: 'pulse1234' }),
+    });
+
+    const { accessToken, xsrfToken } = splitSetCookie(response);
+    expect(accessToken).not.toContain('HttpOnly');
     expect(xsrfToken).not.toContain('HttpOnly');
   });
 
