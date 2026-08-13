@@ -27,6 +27,19 @@ const initialSignupInputs: SignupInputs = {
   passwordConfirm: '',
 };
 
+const validateSignupInputs = (inputs: SignupInputs): SignupErrors => {
+  const emailValidation = signupRequestSchema.shape.email.safeParse(inputs.email);
+  const passwordValidation = passwordSchema.safeParse(inputs.password);
+  const passwordConfirmError =
+    inputs.password !== inputs.passwordConfirm ? '비밀번호가 일치하지 않습니다.' : '';
+
+  return {
+    email: emailValidation.error?.issues[0].message,
+    password: passwordValidation.error?.issues[0].message,
+    passwordConfirm: passwordConfirmError,
+  };
+};
+
 const SignupForm = () => {
   // API: POST /auth/signup. useAuth().signup으로 실제 요청을 보냅니다.
   const [signupInputs, setSignupInputs] = useState<SignupInputs>(initialSignupInputs);
@@ -50,19 +63,11 @@ const SignupForm = () => {
     if (isSubmitting) return;
     setFormError(null);
 
-    const emailValidation = signupRequestSchema.shape.email.safeParse(signupInputs.email);
-    const passwordValidation = passwordSchema.safeParse(signupInputs.password);
-    const passwordConfirmError =
-      signupInputs.password !== signupInputs.passwordConfirm ? '비밀번호가 일치하지 않습니다.' : '';
+    const validationErrors = validateSignupInputs(signupInputs);
+    setSignupErrors(validationErrors);
 
-    const nextErrors: SignupErrors = {
-      email: emailValidation.error?.issues[0].message,
-      password: passwordValidation.error?.issues[0].message,
-      passwordConfirm: passwordConfirmError,
-    };
-    setSignupErrors(nextErrors);
-
-    if (nextErrors.email || nextErrors.password || nextErrors.passwordConfirm) return;
+    if (validationErrors.email || validationErrors.password || validationErrors.passwordConfirm)
+      return;
 
     setIsSubmitting(true);
     try {
