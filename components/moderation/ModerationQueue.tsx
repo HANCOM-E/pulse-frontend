@@ -53,6 +53,12 @@ const ModerationQueue = ({ items, waitingCount, formatMeta, actions }: Moderatio
         {items.slice(0, PREVIEW_LIMIT).map((feedback) => {
           const isHidden = feedback.status === 'HIDDEN';
 
+          /*
+           * 두 버튼이 같은 판정을 씁니다. 조치별로 나누면 숨기기가 도는 동안 삭제가 열려 있어서
+           * 같은 소감의 상태 전이가 경쟁합니다.
+           */
+          const isPending = actions.isItemPending(feedback.id);
+
           return (
             <li key={feedback.id}>
               <FeedItem
@@ -65,7 +71,7 @@ const ModerationQueue = ({ items, waitingCount, formatMeta, actions }: Moderatio
                     <Button
                       variant="secondary"
                       size="sm"
-                      disabled={actions.isTogglePending(feedback.id)}
+                      disabled={isPending}
                       onClick={() => actions.toggleHidden(feedback)}
                     >
                       {isHidden ? '숨김 해제' : '숨기기'}
@@ -73,7 +79,7 @@ const ModerationQueue = ({ items, waitingCount, formatMeta, actions }: Moderatio
                     <Button
                       variant="danger"
                       size="sm"
-                      disabled={actions.isRemovePending(feedback.id)}
+                      disabled={isPending}
                       onClick={() => actions.remove(feedback.id)}
                     >
                       삭제

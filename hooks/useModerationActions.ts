@@ -20,9 +20,14 @@ interface ModerationActions {
   /** `HIDDEN`이면 숨김 해제, 아니면 숨김입니다. */
   toggleHidden: (feedback: Feedback) => void;
   remove: (feedbackId: number) => void;
-  /** 이 소감의 숨김 전환이 서버 응답을 기다리는 중인지 봅니다. */
-  isTogglePending: (feedbackId: number) => boolean;
-  isRemovePending: (feedbackId: number) => boolean;
+  /**
+   * 이 소감에 건 조치가 서버 응답을 기다리는 중인지 봅니다. 셋 중 무엇이든 걸립니다.
+   *
+   * 조치별로 나누지 않은 이유는 같은 소감의 상태 전이가 서로 경쟁하기 때문입니다.
+   * 숨기기가 도는 동안 삭제 버튼이 열려 있으면 두 요청이 같은 소감을 두고 겹치고,
+   * 진 쪽이 `FEEDBACK_ALREADY_DELETED`로 떨어져 쓸데없는 실패 배너를 띄웁니다.
+   */
+  isItemPending: (feedbackId: number) => boolean;
   /** 세 조치 중 하나라도 실패했는지 봅니다. 화면이 배너를 그릴 때 씁니다. */
   isError: boolean;
 }
@@ -68,7 +73,10 @@ const useModerationActions = (): ModerationActions => {
    * 공유해서, 한 건을 처리하는 동안 누르지 않은 항목의 버튼까지 잠깁니다. `variables`에는
    * `mutate`에 넘긴 id가 요청이 도는 동안 남아 있어서, 대상이 누구인지 여기서 가릅니다.
    *
-   * 이 비교를 화면마다 다시 쓰게 두면 한 곳만 빠뜨렸을 때 같은 버그가 되살아납니다.
+   * 반대로 같은 소감 안에서는 조치를 나누지 않고 셋을 함께 잠급니다. 나누면 숨기기가 도는
+   * 동안 삭제가 열려 있어서 같은 소감의 상태 전이가 경쟁합니다.
+   *
+   * 이 판정을 화면마다 다시 쓰게 두면 한 곳만 빠뜨렸을 때 같은 버그가 되살아납니다.
    */
   return {
     toggleHidden: (feedback) => {
@@ -82,11 +90,10 @@ const useModerationActions = (): ModerationActions => {
     remove: (feedbackId) => {
       deleteMutation.mutate(feedbackId);
     },
-    isTogglePending: (feedbackId) =>
+    isItemPending: (feedbackId) =>
       (hideMutation.isPending && hideMutation.variables === feedbackId) ||
-      (showMutation.isPending && showMutation.variables === feedbackId),
-    isRemovePending: (feedbackId) =>
-      deleteMutation.isPending && deleteMutation.variables === feedbackId,
+      (showMutation.isPending && showMutation.variables === feedbackId) ||
+      (deleteMutation.isPending && deleteMutation.variables === feedbackId),
     isError: hideMutation.isError || showMutation.isError || deleteMutation.isError,
   };
 };
