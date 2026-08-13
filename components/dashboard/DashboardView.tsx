@@ -241,25 +241,34 @@ const DashboardView = () => {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="secondary" size="sm" onClick={() => setIsQrOpen(true)}>
-            QR
-          </Button>
-          <Button variant="secondary" size="sm" onClick={handleCopyLink}>
-            링크 복사
-          </Button>
+          {event.status === 'LIVE' ? (
+            <>
+              <Button variant="secondary" size="sm" onClick={() => setIsQrOpen(true)}>
+                QR
+              </Button>
+              <Button variant="secondary" size="sm" onClick={handleCopyLink}>
+                링크 복사
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={event.status !== 'LIVE' || endEventMutation.isPending}
+                onClick={() => setIsEndConfirmOpen(true)}
+              >
+                이벤트 종료
+              </Button>
+            </>
+          ) : (
+            <Button variant="secondary" size="sm" onClick={handleCopyLink}>
+              링크 복사
+            </Button>
+          )}
+
           {/*
            * `LIVE`에서만 엽니다. 서버가 허용하는 전이는 `DRAFT → LIVE`와 `LIVE → ENDED` 둘뿐이라,
            * 아직 시작하지 않았거나 이미 끝난 이벤트에서 누르면 INVALID_EVENT_STATE_TRANSITION만
            * 받습니다. 눌러보고 실패하게 두는 대신 미리 잠급니다.
            */}
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={event.status !== 'LIVE' || endEventMutation.isPending}
-            onClick={() => setIsEndConfirmOpen(true)}
-          >
-            이벤트 종료
-          </Button>
         </div>
       </div>
 
