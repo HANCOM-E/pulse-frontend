@@ -28,6 +28,7 @@ import {
   fetchMyEvents,
   fetchSessionsByEventCode,
   hideFeedback,
+  showFeedback,
 } from '@/lib/api/endpoints';
 import { ApiError } from '@/lib/apiClient';
 import type { Feedback, Sentiment } from '@/lib/schemas/api';
@@ -205,6 +206,19 @@ const DashboardView = () => {
     },
   });
 
+  /*
+   * 숨김은 되돌릴 수 있는 상태입니다(요구사항 소감 상태 전이 4번). 종단 상태는 `DELETED`뿐이라,
+   * 숨긴 건은 큐에 남겨두고 같은 버튼으로 되돌립니다. 큐가 `includeHidden=true`로 받는 것도
+   * 이 되돌리기 때문입니다.
+   */
+  const showMutation = useMutation({
+    mutationFn: showFeedback,
+    onSuccess: () => {
+      invalidateFeed();
+      showToast('숨김을 해제했어요');
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: deleteFeedback,
     onSuccess: () => {
@@ -217,8 +231,13 @@ const DashboardView = () => {
     setSessionId(nextSessionId);
   };
 
-  const handleHide = (feedbackId: number) => {
-    hideMutation.mutate(feedbackId);
+  const handleToggleHidden = (feedback: Feedback) => {
+    if (feedback.status === 'HIDDEN') {
+      showMutation.mutate(feedback.id);
+      return;
+    }
+
+    hideMutation.mutate(feedback.id);
   };
 
   const handleDelete = (feedbackId: number) => {
@@ -335,7 +354,7 @@ const DashboardView = () => {
       </div>
 
       {isFeedError && <Banner type="negative">지금은 소감을 불러올 수 없어요</Banner>}
-      {(hideMutation.isError || deleteMutation.isError) && (
+      {(hideMutation.isError || showMutation.isError || deleteMutation.isError) && (
         <Banner type="negative">소감 처리에 실패했어요</Banner>
       )}
 
@@ -489,10 +508,10 @@ const DashboardView = () => {
                               <Button
                                 variant="secondary"
                                 size="sm"
-                                disabled={feedback.status === 'HIDDEN' || hideMutation.isPending}
-                                onClick={() => handleHide(feedback.id)}
+                                disabled={hideMutation.isPending || showMutation.isPending}
+                                onClick={() => handleToggleHidden(feedback)}
                               >
-                                숨기기
+                                {feedback.status === 'HIDDEN' ? '숨김 해제' : '숨기기'}
                               </Button>
                               <Button
                                 variant="danger"
