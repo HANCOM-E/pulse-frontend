@@ -465,7 +465,7 @@ const DashboardView = () => {
                 <div className="flex items-center justify-between gap-2">
                   <h2 className={CARD_TITLE}>모더레이션 큐</h2>
                   <div className="flex items-center gap-2">
-                    <Badge tone="toxic">{toxicItems.length}건 대기</Badge>
+                    <Badge tone="toxic">{toxicCount}건 대기</Badge>
                     {/* 전체보기 모달은 별도 이슈입니다. 지금은 자리만 잡습니다. */}
                     <span className="text-xs font-normal leading-4 text-text-tertiary">
                       전체보기
