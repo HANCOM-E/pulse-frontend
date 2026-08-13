@@ -77,7 +77,7 @@ const ReportPage = async ({ params }: ReportPageProps) => {
     );
   }
 
-  const { summaryText, sentimentBreakdown, topKeywords } = report;
+  const { summaryText, sentimentBreakdown, unclassifiedCount, topKeywords } = report;
   const counts = {
     positive: sentimentBreakdown.POS,
     neutral: sentimentBreakdown.NEU,
@@ -85,26 +85,32 @@ const ReportPage = async ({ params }: ReportPageProps) => {
   };
 
   /**
-   * 게스트 응답에는 미분류(UNKNOWN) 건수가 없어 감정 세 칸의 합이 곧 총 소감 수입니다.
-   * 태깅에 실패한 소감은 이 숫자에서 빠집니다.
+   * `sentimentBreakdown`은 UNKNOWN을 뺀 집계라 세 칸의 합이 총 소감 수보다 작습니다.
+   * 태깅에 실패한 건수를 더해야 "몇 건을 받았는지"가 나옵니다(publicReportSchema 주석).
    */
-  const feedbackCount = counts.positive + counts.neutral + counts.negative;
+  const submissionCount = counts.positive + counts.neutral + counts.negative + unclassifiedCount;
 
-  // Donut 범례와 같은 숫자가 나오도록 반올림을 toRates 한 곳에 맡깁니다.
+  /**
+   * 긍정 비율의 분모에는 미분류를 넣지 않습니다. UNKNOWN은 "중립"이 아니라 분석 실패라,
+   * 분모에 넣으면 태깅이 많이 실패할수록 긍정 비율이 저절로 내려갑니다(metrics.ts와 같은 규칙).
+   * Donut 범례와 같은 숫자가 나오도록 반올림은 toRates 한 곳에 맡깁니다.
+   */
   const positiveRate = toRates(counts).positive;
 
   return (
     <main className={PAGE}>
       <header className="flex flex-col gap-1">
-        <time dateTime={event.createdAt} className="text-xs leading-4 text-text-tertiary">
-          {formatDate(event.createdAt)} · 참가자 {feedbackCount}명
-        </time>
+        {/* 소감 수는 날짜가 아니므로 `time` 바깥에 둡니다. 문구는 LiveResult의 같은 줄과 맞췄습니다. */}
+        <p className="text-xs leading-4 text-text-tertiary">
+          <time dateTime={event.createdAt}>{formatDate(event.createdAt)}</time> · 소감{' '}
+          {submissionCount}개{unclassifiedCount > 0 && ` (미분류 ${unclassifiedCount}개)`}
+        </p>
 
         <h1 className="text-2xl font-semibold leading-8">{event.title}</h1>
       </header>
 
       <div className="grid grid-cols-3 gap-3">
-        <Stat label="총 소감" value={`${feedbackCount}`} />
+        <Stat label="총 소감" value={`${submissionCount}`} />
         <Stat label="긍정 비율" value={`${positiveRate}%`} tone="positive" />
         <Stat label="세션" value={`${sessions.length}`} />
       </div>
@@ -115,7 +121,13 @@ const ReportPage = async ({ params }: ReportPageProps) => {
       </section>
 
       <section className={`${CARD} items-center`}>
-        <h2 className="self-start text-xs leading-4 text-text-tertiary">감정 분포</h2>
+        {/*
+          분모가 헤더의 총 소감보다 작다는 걸 밝힙니다. 이 단서가 없으면 도넛 범례의 합(100%)과
+          총 소감 수가 어긋나 보입니다. 미분류가 0이면 뺄 것이 없어 붙이지 않습니다.
+        */}
+        <h2 className="self-start text-xs leading-4 text-text-tertiary">
+          감정 분포{unclassifiedCount > 0 && ' · 미분류 제외'}
+        </h2>
         {/* API는 POS/NEU/NEG, Donut은 positive/neutral/negative라 여기서 이름만 맞춰 넘깁니다. */}
         <Donut {...counts} className="py-2" />
       </section>
