@@ -6,7 +6,9 @@ import { useCallback, useEffect, useRef } from 'react';
 const TAG_TIMEOUT_MS = 3000;
 
 type Outgoing =
-  { type: 'ready' } | { type: 'result'; logits: number[] } | { type: 'error'; message: string };
+  | { type: 'ready' }
+  | { type: 'result'; id: number; logits: number[] }
+  | { type: 'error'; id: number; message: string };
 
 /**
  * 감정 태깅 워커를 다룹니다.
@@ -20,6 +22,7 @@ type Outgoing =
 const useTagger = () => {
   const workerRef = useRef<Worker | null>(null);
   const unsupportedRef = useRef(false);
+  const requestIdRef = useRef(0);
 
   useEffect(() => {
     return () => {
@@ -57,6 +60,9 @@ const useTagger = () => {
       const worker = getWorker();
       if (worker === null) return Promise.resolve(null);
 
+      // 타임아웃 뒤 늦게 온 이전 요청의 결과가 다음 요청에 붙는 걸 막습니다.
+      const id = (requestIdRef.current += 1);
+
       return new Promise((resolve) => {
         let settled = false;
 
@@ -69,8 +75,10 @@ const useTagger = () => {
         };
 
         const onMessage = ({ data }: MessageEvent<Outgoing>) => {
-          if (data.type === 'result') finish(data.logits);
-          if (data.type === 'error') finish(null);
+          if (data.type === 'ready') return;
+          if (data.id !== id) return;
+
+          finish(data.type === 'result' ? data.logits : null);
         };
 
         // 타임아웃이 지나도 워커는 계속 돕니다. 다음 제출 때 모델이 이미 올라와 있게
@@ -79,7 +87,7 @@ const useTagger = () => {
 
         try {
           worker.addEventListener('message', onMessage);
-          worker.postMessage({ type: 'tag', text });
+          worker.postMessage({ type: 'tag', id, text });
         } catch {
           finish(null);
         }

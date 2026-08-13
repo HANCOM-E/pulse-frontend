@@ -18,10 +18,12 @@ env.localModelPath = '/models/';
 
 const MODEL_ID = 'koelectra-small-v3-nsmc';
 
-type Incoming = { type: 'warmup' } | { type: 'tag'; text: string };
+type Incoming = { type: 'warmup' } | { type: 'tag'; id: number; text: string };
 
 type Outgoing =
-  { type: 'ready' } | { type: 'result'; logits: number[] } | { type: 'error'; message: string };
+  | { type: 'ready' }
+  | { type: 'result'; id: number; logits: number[] }
+  | { type: 'error'; id: number; message: string };
 
 const post = (message: Outgoing) => self.postMessage(message);
 
@@ -51,6 +53,10 @@ let bundle: ReturnType<typeof loadBundle> | null = null;
 const load = () => (bundle ??= loadBundle());
 
 self.onmessage = async ({ data }: MessageEvent<Incoming>) => {
+  // warmup은 응답을 기다리는 쪽이 없어서 id가 없습니다. 실패해도 조용히 넘어가고,
+  // 다음 tag가 같은 로딩을 다시 기다리다 id를 붙여 에러를 받습니다.
+  const id = data.type === 'tag' ? data.id : null;
+
   try {
     const { tokenizer, model } = await load();
 
@@ -64,8 +70,9 @@ self.onmessage = async ({ data }: MessageEvent<Incoming>) => {
 
     // 확률이 아니라 원본 로짓입니다. 이진 softmax는 포화돼서 0.9999와 0.999999가
     // 거의 같아 보이는데, 로짓 차이는 2배 넘게 납니다.
-    post({ type: 'result', logits: output.logits.tolist()[0] as number[] });
+    post({ type: 'result', id: data.id, logits: output.logits.tolist()[0] as number[] });
   } catch (error) {
-    post({ type: 'error', message: error instanceof Error ? error.message : String(error) });
+    if (id === null) return;
+    post({ type: 'error', id, message: error instanceof Error ? error.message : String(error) });
   }
 };
