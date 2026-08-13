@@ -256,6 +256,60 @@ describe('이벤트 조회', () => {
     await expect(response.json()).resolves.toMatchObject({ code: 'EVENT_NOT_FOUND' });
   });
 
+  /*
+   * 2026-08-12 명세로 들어온 필드입니다. 행사 당일(`eventDate`)과 이벤트를 만든 시각
+   * (`createdAt`)이 다른 값이라는 게 요점이라, 존재만 보지 않고 시드의 실제 값을 확인합니다.
+   */
+  it('공개 상세에 행사 날짜가 실리고 생성 시각과 구분된다', async () => {
+    const response = await call(`/events/${DRAFT_EVENT_CODE}`);
+    const event = eventViewSchema.parse(await response.json());
+
+    expect(event.eventDate).toBe('2026-09-01');
+    expect(event.createdAt.slice(0, 10)).toBe('2026-08-04');
+  });
+
+  it('행사 날짜 없이 이벤트를 만들면 VALIDATION_ERROR를 준다', async () => {
+    const response = await call('/events', {
+      method: 'POST',
+      headers: { ...AUTH_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: '날짜 빠진 이벤트' }),
+    });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({ code: 'VALIDATION_ERROR' });
+  });
+
+  it('시각이 붙은 문자열은 행사 날짜로 받지 않는다', async () => {
+    const response = await call('/events', {
+      method: 'POST',
+      headers: { ...AUTH_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: '형식 틀린 이벤트', eventDate: '2026-09-01T00:00:00.000Z' }),
+    });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({ code: 'VALIDATION_ERROR' });
+  });
+
+  it('행사 날짜만 보내면 그 값만 바뀐다', async () => {
+    const before = pulseEventSchema.parse(
+      (await (await call('/events', { headers: AUTH_HEADERS })).json()).items.find(
+        (item: { code: string }) => item.code === DRAFT_EVENT_CODE,
+      ),
+    );
+
+    const response = await call(`/events/${DRAFT_EVENT_CODE}`, {
+      method: 'PATCH',
+      headers: { ...AUTH_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ eventDate: '2026-09-15' }),
+    });
+
+    expect(response.status).toBe(200);
+    const after = pulseEventSchema.parse(await response.json());
+    expect(after.eventDate).toBe('2026-09-15');
+    expect(after.title).toBe(before.title);
+    expect(after.status).toBe(before.status);
+  });
+
   it('세션이 0개인 이벤트는 LIVE로 못 넘어간다', async () => {
     const response = await call(`/events/${DRAFT_EVENT_CODE}`, {
       method: 'PATCH',
@@ -432,6 +486,7 @@ describe('세션 수정', () => {
       code: 'other1',
       title: '다른 사람 이벤트',
       description: null,
+      eventDate: '2026-08-05',
       ownerId: 999,
       status: 'LIVE',
       createdAt: '2026-08-01T09:00:00.000Z',
