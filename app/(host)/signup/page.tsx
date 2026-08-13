@@ -35,6 +35,7 @@ const SignupPage = () => {
   const [signupErrors, setSignupErrors] = useState<SignupErrors>({});
   // 필드별 에러(signupErrors)로 표현할 수 없는 서버 에러(400 폴백)만 여기 담습니다.
   const [formError, setFormError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const router = useRouter();
   const { signup } = useAuth();
@@ -48,6 +49,7 @@ const SignupPage = () => {
 
   const handleSubmit = async (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (isSubmitting) return;
     setFormError(null);
 
     const emailValidation = signupRequestSchema.shape.email.safeParse(signupInputs.email);
@@ -64,6 +66,7 @@ const SignupPage = () => {
 
     if (nextErrors.email || nextErrors.password || nextErrors.passwordConfirm) return;
 
+    setIsSubmitting(true);
     try {
       await signup(signupInputs.email, signupInputs.password);
       router.push('/events');
@@ -73,6 +76,8 @@ const SignupPage = () => {
       } else {
         setFormError('회원가입에 실패했습니다. 잠시 후 다시 시도해주세요.');
       }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -118,8 +123,8 @@ const SignupPage = () => {
           >
             {formError}
           </p>
-          <Button type="submit" variant="primary" className="w-full">
-            회원가입
+          <Button type="submit" variant="primary" className="w-full" disabled={isSubmitting}>
+            {isSubmitting ? '가입 중...' : '회원가입'}
           </Button>
         </form>
         <p className="text-xs text-text-secondary">
