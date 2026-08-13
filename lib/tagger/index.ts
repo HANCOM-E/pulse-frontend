@@ -58,14 +58,24 @@ const safeKeywords = (raw: unknown): string[] => {
 };
 
 /**
+ * 로짓이 이진 분류 결과인지 확인합니다.
+ *
+ * `marginOf`는 `logits[a] - logits[b]`라 빈 배열이면 `NaN`이 나오고,
+ * `labelFromMargin`이 그걸 `NEG`로 떨어뜨립니다. 실패가 부정으로 둔갑합니다.
+ */
+const isBinaryLogits = (value: number[] | null): value is number[] =>
+  Array.isArray(value) && value.length === 2 && value.every(Number.isFinite);
+
+/**
  * 로짓을 받아 제출 payload를 만듭니다.
  *
- * `logits`가 `null`이면 태깅 실패로 봅니다 — 모델 로딩 실패, 타임아웃(3초), 미지원
- * 브라우저가 여기로 옵니다. 그때도 `taggerVersion`은 실제 값을 그대로 보냅니다.
- * 나중에 "어느 버전에서 실패했는지"를 서버가 알 수 있어야 합니다.
+ * `logits`가 `null`이거나 형식이 틀리면 태깅 실패로 봅니다 — 모델 로딩 실패,
+ * 타임아웃(3초), 미지원 브라우저, 그리고 길이가 2가 아니거나 유한하지 않은 값이
+ * 섞인 경우가 여기로 옵니다.
  */
 const toSubmitPayload = (text: string, logits: number[] | null): TagResult => {
-  const payload = buildPayload(text, logits);
+  // 형식이 틀리면 태깅 실패와 같게 취급합니다. buildPayload가 UNKNOWN으로 떨어뜨립니다.
+  const payload = buildPayload(text, isBinaryLogits(logits) ? logits : null);
 
   return {
     text: payload.text,

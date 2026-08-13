@@ -19,15 +19,7 @@ type Outgoing =
  */
 const useTagger = () => {
   const workerRef = useRef<Worker | null>(null);
-
-  const getWorker = useCallback(() => {
-    if (workerRef.current === null) {
-      workerRef.current = new Worker(new URL('@/lib/tagger/tagger.worker.ts', import.meta.url), {
-        type: 'module',
-      });
-    }
-    return workerRef.current;
-  }, []);
+  const unsupportedRef = useRef(false);
 
   useEffect(() => {
     return () => {
@@ -36,14 +28,34 @@ const useTagger = () => {
     };
   }, []);
 
+  const getWorker = useCallback((): Worker | null => {
+    if (unsupportedRef.current) return null;
+    if (workerRef.current !== null) return workerRef.current;
+
+    try {
+      workerRef.current = new Worker(new URL('@/lib/tagger/tagger.worker.ts', import.meta.url), {
+        type: 'module',
+      });
+    } catch {
+      unsupportedRef.current = true;
+    }
+
+    return workerRef.current;
+  }, []);
+
   /** 모델을 미리 받아둡니다. 여러 번 불러도 워커가 같은 로딩을 재사용합니다. */
   const warmup = useCallback(() => {
-    getWorker().postMessage({ type: 'warmup' });
+    try {
+      getWorker()?.postMessage({ type: 'warmup' });
+    } catch {
+      // textarea 포커스에서 부르는 자리라 던지면 입력이 막힙니다.
+    }
   }, [getWorker]);
 
   const tag = useCallback(
     (text: string): Promise<number[] | null> => {
       const worker = getWorker();
+      if (worker === null) return Promise.resolve(null);
 
       return new Promise((resolve) => {
         let settled = false;
@@ -65,8 +77,12 @@ const useTagger = () => {
         // 두는 편이 낫습니다 — 중간에 끊으면 매번 처음부터 받습니다.
         const timer = setTimeout(() => finish(null), TAG_TIMEOUT_MS);
 
-        worker.addEventListener('message', onMessage);
-        worker.postMessage({ type: 'tag', text });
+        try {
+          worker.addEventListener('message', onMessage);
+          worker.postMessage({ type: 'tag', text });
+        } catch {
+          finish(null);
+        }
       });
     },
     [getWorker],
