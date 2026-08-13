@@ -220,8 +220,8 @@ export const pulseEventSchema = z.object({
 export const eventViewSchema = pulseEventSchema.omit({ id: true, ownerId: true });
 
 export const eventCreateRequestSchema = z.object({
-  title: z.string().min(2).max(60),
-  description: z.string().max(500).optional(),
+  title: z.string().min(2, '제목은 2자 이상이어야 합니다.').max(60, '제목은 60자 이하여야 합니다.'),
+  description: z.string().max(500, '설명은 500자 이하여야 합니다.').optional(),
   /** 생성 시 필수입니다. 나머지 선택 필드와 달리 빠지면 VALIDATION_ERROR입니다. */
   eventDate: calendarDate,
 });
