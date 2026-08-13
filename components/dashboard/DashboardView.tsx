@@ -134,14 +134,15 @@ const countKeywords = (feedbacks: Feedback[]) => {
 };
 
 const DashboardSkeleton = () => (
-  <div className="flex flex-col gap-4" aria-hidden="true">
-    <div className="h-8 w-64 animate-pulse rounded-lg bg-background-muted" />
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+  <div className="flex flex-col gap-4" role="status" aria-live="polite">
+    <span className="sr-only">대시보드를 불러오고 있어요</span>
+    <div aria-hidden="true" className="h-8 w-64 animate-pulse rounded-lg bg-background-muted" />
+    <div aria-hidden="true" className="grid grid-cols-2 gap-3 md:grid-cols-4">
       {[0, 1, 2, 3].map((slot) => (
         <div key={slot} className="h-20 animate-pulse rounded-lg bg-background-muted" />
       ))}
     </div>
-    <div className="h-48 animate-pulse rounded-xl bg-background-muted" />
+    <div aria-hidden="true" className="h-48 animate-pulse rounded-xl bg-background-muted" />
   </div>
 );
 
