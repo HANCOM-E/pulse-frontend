@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'next/navigation';
 import { useState } from 'react';
 import {
@@ -21,6 +21,7 @@ import {
   toRelativeTime,
   TREND_BUCKET_MS,
 } from '@/components/dashboard/metrics';
+import { QrCodeDialog } from '@/components/dashboard/QrCodeDialog';
 import { Donut } from '@/components/feedback/Donut';
 import { FeedItem, type Sentiment as FeedItemSentiment } from '@/components/feedback/FeedItem';
 import { ModerationQueue } from '@/components/moderation/ModerationQueue';
@@ -28,11 +29,13 @@ import { Badge } from '@/components/ui/Badge';
 import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/Chip';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Stat } from '@/components/ui/Stat';
 import { useDashboardFeed } from '@/hooks/useDashboardFeed';
 import { useModerationActions } from '@/hooks/useModerationActions';
-import { fetchMyEvents, fetchSessionsByEventCode } from '@/lib/api/endpoints';
+import { showToast } from '@/hooks/useToast';
+import { fetchMyEvents, fetchSessionsByEventCode, updateEvent } from '@/lib/api/endpoints';
 import { ApiError } from '@/lib/apiClient';
 import type { Feedback, Sentiment } from '@/lib/schemas/api';
 
@@ -61,6 +64,10 @@ const DashboardView = () => {
 
   /** `null`이 "전체"입니다. 시안의 기본 선택값입니다. */
   const [sessionId, setSessionId] = useState<number | null>(null);
+
+  const [isQrOpen, setIsQrOpen] = useState(false);
+  const [isEndConfirmOpen, setIsEndConfirmOpen] = useState(false);
+  const [isCopyFailed, setIsCopyFailed] = useState(false);
 
   /*
    * 공개 조회(`GET /events/{eventCode}`)가 아니라 내 이벤트 목록을 받아 코드로 찾습니다.
@@ -103,6 +110,25 @@ const DashboardView = () => {
   } = useDashboardFeed({ eventCode, sessionId });
 
   const moderation = useModerationActions();
+
+  const queryClient = useQueryClient();
+
+  /*
+   * 이벤트 종료입니다. `useModerationActions`처럼 훅으로 빼지 않고 여기 둡니다. 그쪽은 대시보드와
+   * "전체보기" 모달 두 화면이 같은 조치를 써서 문구가 갈라질 수 있었는데, 종료 버튼은 이 화면
+   * 하나뿐입니다.
+   *
+   * 되돌릴 수 없는 전이(`LIVE → ENDED`)라 버튼을 바로 쏘지 않고 `ConfirmDialog`를 한 번 거칩니다.
+   */
+  const endEventMutation = useMutation({
+    mutationFn: () => updateEvent(eventCode, { status: 'ENDED' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['myEvents'] });
+      setIsEndConfirmOpen(false);
+      // 다이얼로그를 닫은 뒤에 띄웁니다. 열려 있으면 토스트가 그 뒤에 가립니다(ui/README.md).
+      showToast('이벤트를 종료했어요');
+    },
+  });
 
   const handleSelectSession = (nextSessionId: number | null) => {
     setSessionId(nextSessionId);
@@ -155,6 +181,31 @@ const DashboardView = () => {
 
   const openSessionCount = sessions.filter((session) => session.status === 'ACTIVE').length;
 
+  /*
+   * 참가자가 QR을 찍거나 링크를 눌러 들어오는 주소입니다. 배포 도메인을 환경 변수로 들고 있지
+   * 않아서 지금 출처를 알 방법은 브라우저가 열고 있는 주소뿐입니다.
+   *
+   * 여기서 `window`를 읽어도 되는 이유는, 서버 렌더에서는 이 줄까지 오지 않기 때문입니다.
+   * 쿼리를 미리 채워두는 곳이 없어서 서버에서는 `isEventPending`이 항상 참이고, 위 스켈레톤에서
+   * 끊깁니다. 컴포넌트 맨 위로 올리면 그 보호가 사라지므로 옮기지 마세요.
+   */
+  const publicUrl = `${window.location.origin}/e/${event.code}`;
+
+  /*
+   * 복사 실패는 조용히 넘기면 안 됩니다. `navigator.clipboard`는 보안 컨텍스트(HTTPS·localhost)
+   * 에서만 동작해서, 강연장에서 사내 IP로 열면 복사가 안 되는데 토스트만 뜹니다. 성공을 못 봤으면
+   * 성공했다고 말하지 않습니다.
+   */
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(publicUrl);
+      setIsCopyFailed(false);
+      showToast('링크가 복사되었어요');
+    } catch {
+      setIsCopyFailed(true);
+    }
+  };
+
   const items = feedbacks ?? [];
 
   /*
@@ -179,14 +230,38 @@ const DashboardView = () => {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* 제목과 상태는 붙어 있어야 해서 바깥 `gap-4`에서 빼고 따로 묶습니다. */}
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center gap-2">
-          <h1 className="text-xl font-semibold leading-7 text-text-primary">{event.title}</h1>
-          <Badge tone={event.status === 'LIVE' ? 'positive' : 'neutral'}>{event.status}</Badge>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        {/* 제목과 상태는 붙어 있어야 해서 바깥 `gap-4`에서 빼고 따로 묶습니다. */}
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-semibold leading-7 text-text-primary">{event.title}</h1>
+            <Badge tone={event.status === 'LIVE' ? 'positive' : 'neutral'}>{event.status}</Badge>
+          </div>
+          {/* 복사되는 값과 같은 것을 보여줍니다. 다르면 눈으로 옮겨 적는 사람이 틀립니다. */}
+          <p className="text-xs font-normal leading-4 break-all text-text-tertiary">{publicUrl}</p>
         </div>
-        {/* 전체 주소와 복사 버튼은 QR·링크 복사 이슈에서 붙습니다. */}
-        <p className="text-xs font-normal leading-4 text-text-tertiary">/e/{event.code}</p>
+
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" size="sm" onClick={() => setIsQrOpen(true)}>
+            QR
+          </Button>
+          <Button variant="secondary" size="sm" onClick={handleCopyLink}>
+            링크 복사
+          </Button>
+          {/*
+           * `LIVE`에서만 엽니다. 서버가 허용하는 전이는 `DRAFT → LIVE`와 `LIVE → ENDED` 둘뿐이라,
+           * 아직 시작하지 않았거나 이미 끝난 이벤트에서 누르면 INVALID_EVENT_STATE_TRANSITION만
+           * 받습니다. 눌러보고 실패하게 두는 대신 미리 잠급니다.
+           */}
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={event.status !== 'LIVE' || endEventMutation.isPending}
+            onClick={() => setIsEndConfirmOpen(true)}
+          >
+            이벤트 종료
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -209,6 +284,10 @@ const DashboardView = () => {
 
       {isFeedError && <Banner type="negative">지금은 소감을 불러올 수 없어요</Banner>}
       {moderation.isError && <Banner type="negative">소감 처리에 실패했어요</Banner>}
+      {endEventMutation.isError && <Banner type="negative">이벤트를 종료하지 못했어요</Banner>}
+      {isCopyFailed && (
+        <Banner type="negative">링크를 복사하지 못했어요. 위 주소를 직접 복사해주세요</Banner>
+      )}
 
       {isFeedPending ? (
         <DashboardSkeleton />
@@ -368,13 +447,37 @@ const DashboardView = () => {
                 이벤트를 종료하면 생성할 수 있어요
               </p>
             </div>
-            {/* 실제 생성 호출은 이벤트 종료 이슈에서 붙습니다. 여기서는 조건만 맞춥니다. */}
+            {/* 활성화 조건만 맞춰둡니다. `generateReport` 호출은 별도 후속 이슈입니다. */}
             <Button variant="secondary" disabled={event.status !== 'ENDED'}>
               요약 생성
             </Button>
           </section>
         </>
       )}
+
+      <QrCodeDialog open={isQrOpen} url={publicUrl} onClose={() => setIsQrOpen(false)} />
+
+      <ConfirmDialog
+        open={isEndConfirmOpen}
+        title="이벤트를 종료할까요?"
+        description="종료하면 참가자가 더 이상 소감을 남길 수 없고, 되돌릴 수 없어요"
+        onClose={() => setIsEndConfirmOpen(false)}
+        actions={
+          <>
+            {/* 취소가 먼저입니다. `showModal()`이 첫 포커스 가능 요소를 잡습니다. */}
+            <Button variant="secondary" onClick={() => setIsEndConfirmOpen(false)}>
+              취소
+            </Button>
+            <Button
+              variant="danger"
+              disabled={endEventMutation.isPending}
+              onClick={() => endEventMutation.mutate()}
+            >
+              종료
+            </Button>
+          </>
+        }
+      />
     </div>
   );
 };
