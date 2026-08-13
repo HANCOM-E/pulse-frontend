@@ -86,8 +86,16 @@ const LiveResult = () => {
    *
    * 플래그는 도착하자마자 주소에서 지웁니다. 남겨두면 새로고침할 때마다 다시 뜨는데,
    * 지운 뒤에도 안내는 화면에 머물러야 해서 값을 state로 옮깁니다(#111).
+   *
+   * 담는 값은 "띄웠다"가 아니라 "누구에게 띄웠는지"입니다. 소비 사실만 남기면, 이 화면을
+   * 유지한 채 `?sessionId=`만 바뀌었을 때 effect가 플래그 없이 빠져나가면서 이전 세션의
+   * 안내가 그대로 남습니다. 지금은 그렇게 옮겨 다니는 길이 없지만(나가는 문은 `/e/{code}`
+   * 하나뿐입니다), 이 화면에 세션 전환이 붙는 순간 조용히 어긋납니다.
    */
-  const [justSubmitted, setJustSubmitted] = useState(false);
+  const [bannerTarget, setBannerTarget] = useState<string | null>(null);
+
+  const currentTarget = `${code}:${requestedId}`;
+  const justSubmitted = bannerTarget === currentTarget;
 
   useEffect(() => {
     if (searchParams.get('submitted') !== '1') return;
@@ -97,7 +105,7 @@ const LiveResult = () => {
 
     // 이 화면이 플래그를 소비했다는 표시라 effect 말고 둘 곳이 없습니다.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setJustSubmitted(true);
+    setBannerTarget(currentTarget);
     /*
      * `router.replace`가 아니라 `window.history.replaceState`입니다. 둘 다 Next 라우터와
      * 동기화되지만(`next/dist/docs/01-app/02-guides/single-page-applications.md`),
@@ -108,7 +116,7 @@ const LiveResult = () => {
      * 바로 빠져나갑니다.
      */
     window.history.replaceState(null, '', `/e/${code}/live?${remaining.toString()}`);
-  }, [code, searchParams]);
+  }, [code, currentTarget, searchParams]);
 
   /*
    * 기록에 없는 세션은 집계를 아예 부르지 않습니다. 화면만 가리고 요청은 그대로 내보내면
