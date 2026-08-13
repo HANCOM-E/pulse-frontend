@@ -32,6 +32,7 @@ import { Chip } from '@/components/ui/Chip';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Stat } from '@/components/ui/Stat';
+import { useCopyLink } from '@/hooks/useCopyLink';
 import { useDashboardFeed } from '@/hooks/useDashboardFeed';
 import { useModerationActions } from '@/hooks/useModerationActions';
 import { showToast } from '@/hooks/useToast';
@@ -67,7 +68,8 @@ const DashboardView = () => {
 
   const [isQrOpen, setIsQrOpen] = useState(false);
   const [isEndConfirmOpen, setIsEndConfirmOpen] = useState(false);
-  const [isCopyFailed, setIsCopyFailed] = useState(false);
+
+  const { copy: copyLink, isFailed: isCopyFailed } = useCopyLink();
 
   /*
    * 공개 조회(`GET /events/{eventCode}`)가 아니라 내 이벤트 목록을 받아 코드로 찾습니다.
@@ -191,19 +193,9 @@ const DashboardView = () => {
    */
   const publicUrl = `${window.location.origin}/e/${event.code}`;
 
-  /*
-   * 복사 실패는 조용히 넘기면 안 됩니다. `navigator.clipboard`는 보안 컨텍스트(HTTPS·localhost)
-   * 에서만 동작해서, 강연장에서 사내 IP로 열면 복사가 안 되는데 토스트만 뜹니다. 성공을 못 봤으면
-   * 성공했다고 말하지 않습니다.
-   */
+  /* 성공을 확인했을 때만 알립니다. 실패는 아래 배너가 받습니다. */
   const handleCopyLink = async () => {
-    try {
-      await navigator.clipboard.writeText(publicUrl);
-      setIsCopyFailed(false);
-      showToast('링크가 복사되었어요');
-    } catch {
-      setIsCopyFailed(true);
-    }
+    if (await copyLink(publicUrl)) showToast('링크가 복사되었어요');
   };
 
   const items = feedbacks ?? [];
