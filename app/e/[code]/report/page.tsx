@@ -27,7 +27,9 @@ const fetchReportOrNull = (code: string) =>
     return toNotFound(error);
   });
 
-const PAGE = 'mx-auto flex w-full max-w-3xl flex-col gap-6 p-5 md:p-8';
+// 폭은 형제 페이지(`/e/[code]`·not-found)와 같은 열에 맞춥니다. 레이아웃의 로고도 `max-w-md`라
+// 여기만 넓히면 넓은 화면에서 로고와 본문의 왼쪽 끝이 어긋납니다.
+const PAGE = 'mx-auto flex w-full max-w-md flex-col gap-6 px-5 py-4';
 const CARD = 'flex flex-col gap-3 rounded-xl border border-border-subtle bg-background-default p-4';
 
 /**
