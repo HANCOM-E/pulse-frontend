@@ -1,4 +1,4 @@
-import { fetchMe, login, logout } from '@/lib/api/endpoints';
+import { fetchMe, login, logout, signup } from '@/lib/api/endpoints';
 import { ApiError } from '@/lib/apiClient';
 import { AuthUser } from '@/lib/schemas/api';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -11,6 +11,7 @@ export interface UseAuthReturn {
   /** UNAUTHORIZED(비로그인)는 여기 담기지 않습니다. 서버·네트워크 오류가 있을 때만 채워지며, 이 경우에도 user는 이전 값을 유지할 수 있으므로 로그인 여부는 error가 아니라 user로 판단해야 합니다. */
   error: Error | null;
   login: (email: string, password: string) => Promise<void>;
+  signup: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -45,6 +46,19 @@ export function useAuth(): UseAuthReturn {
     },
   });
 
+  const signupMutation = useMutation({
+    mutationFn: signup,
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['auth', 'me'] });
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(['auth', 'me'], data);
+    },
+    onSettled: () => {
+      return queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
+    },
+  });
+
   const logoutMutation = useMutation({
     mutationFn: logout,
     onMutate: async () => {
@@ -67,6 +81,9 @@ export function useAuth(): UseAuthReturn {
     error: meQuery.error,
     login: async (email, password) => {
       await loginMutation.mutateAsync({ email, password });
+    },
+    signup: async (email, password) => {
+      await signupMutation.mutateAsync({ email, password });
     },
     logout: async () => {
       await logoutMutation.mutateAsync();
