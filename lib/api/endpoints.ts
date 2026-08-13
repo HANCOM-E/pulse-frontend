@@ -3,6 +3,7 @@ import { getClientId } from '@/lib/clientId';
 import type {
   AuthUser,
   EventCreateRequest,
+  EventUpdateRequest,
   EventView,
   Feedback,
   FeedbackSnapshot,
@@ -13,6 +14,7 @@ import type {
   PulseEvent,
   Report,
   Session,
+  SessionCreateRequest,
   SessionUpdateRequest,
   SessionView,
   SignupRequest,
@@ -139,6 +141,22 @@ export const fetchEventByCode = async (eventCode: string): Promise<EventView> =>
   return parseResponse(eventViewSchema, data, 'GET /events/{eventCode}');
 };
 
+export const updateEvent = async (
+  eventCode: string,
+  body: EventUpdateRequest,
+): Promise<PulseEvent> => {
+  const data = await apiClient<unknown>(`/events/${eventCode}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
+  return parseResponse(pulseEventSchema, data, 'PATCH /events/{eventCode}');
+};
+
+/** 소프트 삭제. 응답 204라 반환값이 없습니다. */
+export const deleteEvent = async (eventCode: string): Promise<void> => {
+  await apiClient<null>(`/events/${eventCode}`, { method: 'DELETE' });
+};
+
 /** 세션 목록. 게스트 제출 대상 선택과 소유자 세션 탭이 같이 씁니다. `DELETED`는 빠집니다. */
 export const fetchSessionsByEventCode = async (eventCode: string): Promise<SessionView[]> => {
   const data = await apiClient<unknown>(`/events/${eventCode}/sessions`, { skipAuth: true });
@@ -147,6 +165,17 @@ export const fetchSessionsByEventCode = async (eventCode: string): Promise<Sessi
     data,
     'GET /events/{eventCode}/sessions',
   ).items;
+};
+
+export const createSession = async (
+  eventCode: string,
+  body: SessionCreateRequest,
+): Promise<Session> => {
+  const data = await apiClient<unknown>(`/events/${eventCode}/sessions`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+  return parseResponse(sessionSchema, data, 'POST /events/{eventCode}/sessions');
 };
 
 export const updateSession = async (
@@ -159,6 +188,11 @@ export const updateSession = async (
     body: JSON.stringify(body),
   });
   return parseResponse(sessionSchema, data, 'PATCH /events/{eventCode}/sessions/{sessionId}');
+};
+
+/** 소프트 삭제. 응답 204라 반환값이 없습니다. */
+export const deleteSession = async (eventCode: string, sessionId: number): Promise<void> => {
+  await apiClient<null>(`/events/${eventCode}/sessions/${sessionId}`, { method: 'DELETE' });
 };
 
 // ─────────────────────────────────────────────────────────────
