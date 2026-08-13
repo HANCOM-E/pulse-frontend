@@ -41,6 +41,7 @@ import {
   fetchOwnReport,
   fetchSessionsByEventCode,
   generateReport,
+  setReportPublic,
   updateEvent,
 } from '@/lib/api/endpoints';
 import { ApiError } from '@/lib/apiClient';
@@ -188,6 +189,18 @@ const DashboardView = () => {
     },
   });
 
+  /*
+   * 공개 여부만 뒤집습니다. 생성 직후 리포트는 비공개라(`isPublic: false`), 공개 페이지가 열리려면
+   * 주최자가 한 번 더 눌러야 합니다. 요약을 먼저 읽어보고 내보낼지 정하라는 순서입니다.
+   */
+  const setReportPublicMutation = useMutation({
+    mutationFn: (isPublic: boolean) => setReportPublic(eventCode, isPublic),
+    onSuccess: (report) => {
+      queryClient.setQueryData(reportQueryKey, report);
+      showToast(report.isPublic ? '리포트를 공개했어요' : '리포트를 비공개로 바꿨어요');
+    },
+  });
+
   const handleSelectSession = (nextSessionId: number | null) => {
     setSessionId(nextSessionId);
   };
@@ -291,6 +304,8 @@ const DashboardView = () => {
   /* 상태를 모르는 동안은 잠급니다. 이미 리포트가 있는 이벤트에서 눌리면 REPORT_ALREADY_EXISTS만 받습니다. */
   const isReportUnknown = event.status === 'ENDED' && reportQuery.isPending;
 
+  const isReportPublic = report?.isPublic ?? false;
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -323,6 +338,20 @@ const DashboardView = () => {
           <Button variant="secondary" size="sm" onClick={handleCopyLink}>
             링크 복사
           </Button>
+          {/*
+           * 다 만든 리포트에만 붙습니다. 만들기 전이나 만드는 중에는 뒤집을 공개 여부 자체가
+           * 없습니다(`GENERATED`가 아니면 공개해도 게스트는 404를 봅니다).
+           */}
+          {isReportGenerated && (
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={setReportPublicMutation.isPending}
+              onClick={() => setReportPublicMutation.mutate(!isReportPublic)}
+            >
+              {isReportPublic ? '비공개로 전환' : '공개로 전환'}
+            </Button>
+          )}
           {event.status === 'LIVE' && (
             <Button
               variant="secondary"
@@ -359,6 +388,9 @@ const DashboardView = () => {
       {endEventMutation.isError && <Banner type="negative">이벤트를 종료하지 못했어요</Banner>}
       {generateReportMutation.isError && (
         <Banner type="negative">요약 리포트를 만들지 못했어요</Banner>
+      )}
+      {setReportPublicMutation.isError && (
+        <Banner type="negative">리포트 공개 설정을 바꾸지 못했어요</Banner>
       )}
       {isCopyFailed && (
         <Banner type="negative">링크를 복사하지 못했어요. 위 주소를 직접 복사해주세요</Banner>
@@ -534,7 +566,7 @@ const DashboardView = () => {
                 <p className="text-xs font-normal leading-4 text-text-tertiary">
                   {isReportGenerating
                     ? '요약을 만들고 있어요. 끝나면 여기에 올라와요'
-                    : '생성하시면 공개 리포트 링크가 열려요'}
+                    : '생성하시면 읽어보고 공개할 수 있어요'}
                 </p>
               )}
             </div>
