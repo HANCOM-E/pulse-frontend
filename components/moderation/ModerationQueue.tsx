@@ -68,13 +68,18 @@ const ModerationQueue = ({ items, waitingCount, formatMeta, actions }: Moderatio
                 content={feedback.text}
                 actions={
                   <>
+                    {/*
+                     * 두 문구의 글자 수를 맞춰뒀습니다. 「숨김 해제」처럼 길이가 다르면 숨긴 줄만
+                     * 버튼이 넓어져서 옆의 `삭제`가 줄마다 다른 자리에 놓입니다. 눌러야 할 버튼이
+                     * 행마다 움직이면 연달아 처리할 때 잘못 누릅니다.
+                     */}
                     <Button
                       variant="secondary"
                       size="sm"
                       disabled={isPending}
                       onClick={() => actions.toggleHidden(feedback)}
                     >
-                      {isHidden ? '숨김 해제' : '숨기기'}
+                      {isHidden ? '보이기' : '숨기기'}
                     </Button>
                     <Button
                       variant="danger"
