@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { redirect, useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 import { Thermometer } from '@/components/feedback/Thermometer';
@@ -74,8 +74,10 @@ const LiveResult = () => {
    * 숫자가 아닌 값은 `Number()`가 `NaN`으로 만들어서 어떤 세션과도 매칭되지 않습니다.
    */
   const requestedId = Number(searchParams.get('sessionId'));
-  const selectedSession = sessions?.find((session) => session.id === requestedId) ?? null;
-
+  const allowedSession =
+    sessions?.find(
+      (session) => session.id === requestedId && submitted?.has(session.id) === true,
+    ) ?? null;
   /*
    * 방금 소감을 내고 넘어온 경우에만 등록 안내를 띄웁니다. 제출 화면이 붙여주는 플래그입니다.
    *
@@ -88,10 +90,6 @@ const LiveResult = () => {
    * 기록에 없는 세션은 집계를 아예 부르지 않습니다. 화면만 가리고 요청은 그대로 내보내면
    * 쿼리를 손으로 고쳐서 남의 세션 수치를 받아볼 수 있습니다.
    */
-  const allowedSession =
-    selectedSession !== null && submitted?.has(selectedSession.id) === true
-      ? selectedSession
-      : null;
 
   const {
     snapshot,
@@ -115,37 +113,7 @@ const LiveResult = () => {
   }
 
   // `allowedSession`으로 분기해야 아래에서 `allowedSession.title`이 좁혀집니다.
-  if (allowedSession === null) {
-    return (
-      <div className="flex flex-col gap-6">
-        {/* 이벤트명과 사유 배너는 제목에 붙어야 해서 바깥 `gap-6`에서 빼고 따로 묶습니다. */}
-        <div className="flex flex-col gap-1">
-          <p className="text-xs font-normal leading-4 text-text-tertiary">{event.title}</p>
-          {/* 실재하는 세션이면 어느 순서를 못 여는지 제목으로 알려줍니다. 없는 id로 들어왔으면
-              가리킬 세션이 없어서 화면 이름으로 대신합니다. */}
-          <h1 className="text-xl font-semibold leading-7 text-text-primary">
-            {selectedSession?.title ?? '실시간 반응'}
-          </h1>
-          {/* 못 여는 이유가 두 갈래라 문구를 나눕니다. 실재하는 세션이면 소감을 남기는 순간
-            열리지만, 없는 세션을 가리키는 id라면 남겨도 열리지 않아 같은 말을 하면 안 됩니다. */}
-          {selectedSession !== null ? (
-            <Banner type="info">소감을 남긴 순서의 반응만 볼 수 있어요</Banner>
-          ) : (
-            <Banner type="warning">찾을 수 없는 순서예요</Banner>
-          )}
-        </div>
-
-        <Button
-          variant="secondary"
-          size="lg"
-          className="w-full cursor-pointer"
-          onClick={handleWriteAnother}
-        >
-          소감 남기러 가기
-        </Button>
-      </div>
-    );
-  }
+  if (allowedSession === null) redirect(`/e/${code}`);
 
   // 백분율은 계산하지 않습니다. `Thermometer`가 개수를 받아 직접 나눕니다.
   const { POS, NEU, NEG } = snapshot?.sentimentBreakdown ?? { POS: 0, NEU: 0, NEG: 0 };
