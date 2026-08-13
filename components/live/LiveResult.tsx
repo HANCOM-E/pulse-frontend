@@ -83,8 +83,32 @@ const LiveResult = () => {
    *
    * 제출 기록(`submitted`)으로 판정하지 않는 이유는 그 값이 "언젠가 냈다"만 알려주기
    * 때문입니다. 며칠 뒤 같은 링크를 다시 열었을 때도 안내가 뜨면 방금 낸 것처럼 읽힙니다.
+   *
+   * 플래그는 도착하자마자 주소에서 지웁니다. 남겨두면 새로고침할 때마다 다시 뜨는데,
+   * 지운 뒤에도 안내는 화면에 머물러야 해서 값을 state로 옮깁니다(#111).
    */
-  const justSubmitted = searchParams.get('submitted') === '1';
+  const [justSubmitted, setJustSubmitted] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get('submitted') !== '1') return;
+
+    const remaining = new URLSearchParams(searchParams.toString());
+    remaining.delete('submitted');
+
+    // 이 화면이 플래그를 소비했다는 표시라 effect 말고 둘 곳이 없습니다.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setJustSubmitted(true);
+    /*
+     * `router.replace`가 아니라 `window.history.replaceState`입니다. 둘 다 Next 라우터와
+     * 동기화되지만(`next/dist/docs/01-app/02-guides/single-page-applications.md`),
+     * `router.replace`는 라우터를 거치면서 리렌더를 한 번 더 일으킵니다. 이 화면은 5초마다
+     * 폴링으로 다시 그려지는 중이라 주소창만 고치면 충분합니다.
+     *
+     * 지운 결과가 `searchParams`에 반영되면서 이 effect가 한 번 더 도는데, 그때는 위에서
+     * 바로 빠져나갑니다.
+     */
+    window.history.replaceState(null, '', `/e/${code}/live?${remaining.toString()}`);
+  }, [code, searchParams]);
 
   /*
    * 기록에 없는 세션은 집계를 아예 부르지 않습니다. 화면만 가리고 요청은 그대로 내보내면

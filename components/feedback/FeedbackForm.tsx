@@ -63,7 +63,9 @@ const FeedbackForm = ({ eventCode, sessions }: FeedbackFormProps) => {
       // 전부 차단으로 떨어집니다 — 소감을 내고 넘어가도 못 봅니다.
       markSubmitted(eventCode, sessionId);
 
-      router.push(`/e/${eventCode}/live?sessionId=${sessionId}`);
+      // `submitted=1`은 결과 화면이 "소감이 등록되었어요" 배너를 띄우는 신호입니다.
+      // 도착한 화면이 한 번 읽고 주소에서 지웁니다(#111).
+      router.push(`/e/${eventCode}/live?sessionId=${sessionId}&submitted=1`);
     },
   });
 
