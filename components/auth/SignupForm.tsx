@@ -40,6 +40,13 @@ const validateSignupInputs = (inputs: SignupInputs): SignupErrors => {
   };
 };
 
+const getSignupErrorFeedback = (error: unknown): { emailError?: string; formError?: string } => {
+  if (error instanceof ApiError && error.code === 'EMAIL_ALREADY_EXISTS') {
+    return { emailError: '이미 가입된 이메일입니다.' };
+  }
+  return { formError: '회원가입에 실패했습니다. 잠시 후 다시 시도해주세요.' };
+};
+
 const SignupForm = () => {
   // API: POST /auth/signup. useAuth().signup으로 실제 요청을 보냅니다.
   const [signupInputs, setSignupInputs] = useState<SignupInputs>(initialSignupInputs);
@@ -66,18 +73,18 @@ const SignupForm = () => {
     const validationErrors = validateSignupInputs(signupInputs);
     setSignupErrors(validationErrors);
 
-    if (validationErrors.email || validationErrors.password || validationErrors.passwordConfirm)
-      return;
+    if (Object.values(validationErrors).some(Boolean)) return;
 
     setIsSubmitting(true);
     try {
       await signup(signupInputs.email, signupInputs.password);
       router.push('/events');
     } catch (error) {
-      if (error instanceof ApiError && error.code === 'EMAIL_ALREADY_EXISTS') {
-        setSignupErrors((prev) => ({ ...prev, email: '이미 가입된 이메일입니다.' }));
+      const feedback = getSignupErrorFeedback(error);
+      if (feedback.emailError) {
+        setSignupErrors((prev) => ({ ...prev, email: feedback.emailError }));
       } else {
-        setFormError('회원가입에 실패했습니다. 잠시 후 다시 시도해주세요.');
+        setFormError(feedback.formError ?? null);
       }
     } finally {
       setIsSubmitting(false);
