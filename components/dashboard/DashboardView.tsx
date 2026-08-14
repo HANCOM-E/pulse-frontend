@@ -23,7 +23,7 @@ import {
 } from '@/components/dashboard/metrics';
 import { QrCodeDialog } from '@/components/dashboard/QrCodeDialog';
 import { Donut } from '@/components/feedback/Donut';
-import { FeedItem, type Sentiment as FeedItemSentiment } from '@/components/feedback/FeedItem';
+import { FEED_SENTIMENT, FeedItem } from '@/components/feedback/FeedItem';
 import { ModerationQueue } from '@/components/moderation/ModerationQueue';
 import { Badge } from '@/components/ui/Badge';
 import { Banner } from '@/components/ui/Banner';
@@ -46,7 +46,7 @@ import {
   updateSession,
 } from '@/lib/api/endpoints';
 import { ApiError } from '@/lib/apiClient';
-import type { Feedback, Sentiment } from '@/lib/schemas/api';
+import type { Feedback } from '@/lib/schemas/api';
 
 /**
  * 주최자 실시간 모니터링 대시보드입니다.
@@ -66,13 +66,6 @@ const CARD_TITLE = 'text-xs font-normal leading-4 text-text-tertiary';
  * 누른 사람이 결과를 기다리며 보고 있는 화면이라서입니다. 끝나는 즉시 타이머를 멈춥니다.
  */
 const REPORT_POLL_INTERVAL_MS = 1_500;
-
-const FEED_SENTIMENT: Record<Sentiment, FeedItemSentiment> = {
-  POS: 'positive',
-  NEU: 'neutral',
-  NEG: 'negative',
-  UNKNOWN: 'none',
-};
 
 const DashboardView = () => {
   const { eventCode } = useParams<{ eventCode: string }>();
@@ -317,8 +310,20 @@ const DashboardView = () => {
    * 이건 감정 집계가 아니라 모더레이션 지표라서, 숨겼어도 몇 건 들어왔는지는
    * 주최자에게 보여야 합니다. `visible` 기준으로 되돌리지 마세요.
    */
-  const toxicItems = items.filter((feedback) => feedback.toxic);
-  const toxicCount = toxicItems.length;
+  const toxicCount = items.filter((feedback) => feedback.toxic).length;
+
+  /*
+   * 모더레이션 큐가 받는 목록입니다. 자동 판정된 독성 소감에 더해, 주최자가 실시간 피드에서
+   * 직접 숨긴 소감도 넣습니다(#170).
+   *
+   * 숨김 조건을 빼면 안 됩니다. 자동 판정은 욕설만 잡아서 인신공격 같은 건 사람이 골라야
+   * 하는데, 숨긴 소감은 `visible`에서 빠지므로 큐에도 안 들어오면 화면 어디에도 남지
+   * 않습니다. 되돌릴 수도 삭제할 수도 없는 소감이 생깁니다.
+   *
+   * `DELETED`는 여기까지 오지 않습니다. `/admin/feedbacks`가 `includeHidden`과 무관하게
+   * 항상 빼고 내려줍니다.
+   */
+  const queueItems = items.filter((feedback) => feedback.toxic || feedback.status === 'HIDDEN');
 
   const trend = buildTrend(visible);
   const keywords = countKeywords(visible);
@@ -626,6 +631,24 @@ const DashboardView = () => {
                         sentiment={FEED_SENTIMENT[feedback.sentiment]}
                         meta={toMeta(feedback)}
                         content={feedback.text}
+                        /*
+                         * 자동 판정이 잡는 건 욕설뿐이라, 인신공격처럼 판정을 빠져나간 소감은
+                         * 주최자가 여기서 직접 내려야 합니다(#170).
+                         *
+                         * 삭제는 달지 않습니다. `DELETED`는 되돌릴 수 없는 종단 상태라 실시간으로
+                         * 흘러가는 목록에서 바로 누르게 둘 자리가 아닙니다. 숨기면 모더레이션
+                         * 큐로 넘어가서, 거기서 다시 보고 삭제하거나 되돌립니다.
+                         */
+                        actions={
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            disabled={moderation.isItemPending(feedback.id)}
+                            onClick={() => moderation.toggleHidden(feedback)}
+                          >
+                            숨기기
+                          </Button>
+                        }
                       />
                     </li>
                   ))}
@@ -635,8 +658,8 @@ const DashboardView = () => {
 
             <div className="flex flex-col gap-3">
               <ModerationQueue
-                items={toxicItems}
-                waitingCount={toxicCount}
+                items={queueItems}
+                waitingCount={queueItems.length}
                 formatMeta={toMeta}
                 actions={moderation}
               />

@@ -1,4 +1,4 @@
-import { FeedItem } from '@/components/feedback/FeedItem';
+import { FEED_SENTIMENT, FeedItem } from '@/components/feedback/FeedItem';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -6,8 +6,12 @@ import type { ModerationActions } from '@/hooks/useModerationActions';
 import type { Feedback } from '@/lib/schemas/api';
 
 /**
- * 대시보드의 모더레이션 큐 위젯입니다. 독성으로 표시된 소감을 몇 건만 미리 보여주고
+ * 대시보드의 모더레이션 큐 위젯입니다. 검토가 필요한 소감을 몇 건만 미리 보여주고
  * 항목마다 숨기기·삭제를 답니다.
+ *
+ * 들어오는 경로가 둘입니다. 자동 판정된 독성 소감과, 주최자가 실시간 피드에서 직접 숨긴
+ * 소감입니다(#170). 자동 판정이 잡는 건 욕설뿐이라 인신공격 같은 건 사람이 골라야 하는데,
+ * 숨기기만 하고 큐에 안 들이면 그 소감은 피드에서도 큐에서도 사라져 삭제할 길이 없어집니다.
  *
  * 조치 자체는 `useModerationActions`가 알고 이 컴포넌트는 그리기만 합니다. 그래서
  * "처리 실패" 배너를 화면 상단에 둘지 카드 안에 둘지도 이 파일이 정하지 않습니다.
@@ -23,7 +27,7 @@ const CARD = 'flex flex-col gap-3 rounded-xl border border-border-subtle p-4';
 const CARD_TITLE = 'text-xs font-normal leading-4 text-text-tertiary';
 
 interface ModerationQueueProps {
-  /** 독성으로 표시된 소감입니다. 이미 숨긴 건도 들어옵니다. */
+  /** 독성으로 표시됐거나 주최자가 숨긴 소감입니다. 이미 숨긴 건도 들어옵니다. */
   items: Feedback[];
   /** "N건 대기"에 쓰는 값입니다. 처리를 끝낸 건은 빠진 숫자여야 합니다. */
   waitingCount: number;
@@ -64,7 +68,12 @@ const ModerationQueue = ({ items, waitingCount, formatMeta, actions }: Moderatio
             <li key={feedback.id}>
               <FeedItem
                 state={isHidden ? 'hidden' : 'flagged'}
-                sentiment="toxic"
+                /*
+                 * 독성 배지는 독성 판정을 받은 건에만 답니다. 주최자가 손으로 숨긴 소감까지
+                 * "⚑ 독성 의심"으로 그리면 자동 판정 결과처럼 읽혀서, 왜 큐에 있는지가
+                 * 뒤바뀝니다. 그런 건은 원래 감정을 그대로 보여줍니다.
+                 */
+                sentiment={feedback.toxic ? 'toxic' : FEED_SENTIMENT[feedback.sentiment]}
                 meta={formatMeta(feedback)}
                 content={feedback.text}
                 actions={
