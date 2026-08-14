@@ -5,8 +5,10 @@
  * 두 값이 어긋나면 에러 없이 목이 그냥 통과돼서, 실제 서버로 요청이 새는 걸
  * 한참 뒤에나 알아차리게 됩니다. 그래서 양쪽 모두 이 상수 하나만 봅니다.
  *
- * 기본값을 둔 이유는 `.env.local`을 만들지 않은 팀원도 `npm run dev` 한 번으로
- * 목이 붙게 하기 위해서입니다. 실제 백엔드 주소가 다르면 `.env.local`로 덮어씁니다.
+ * 기본값이 절대 주소가 아니라 `/api/proxy`인 이유는, 브라우저가 백엔드에 직접 요청을 보내면
+ * 프론트·백엔드 도메인이 달라서 쿠키를 못 읽는 문제(이슈 #139·#140)가 있기 때문입니다.
+ * `/api/proxy`로 보낸 요청은 `next.config.ts`의 `rewrites`가 실제 백엔드(`BACKEND_API_URL`
+ * 환경변수)로 대신 전달합니다. 이 경로는 로컬(`npm run dev`)·Vercel 배포 양쪽에서 동일하게
+ * 동작합니다.
  */
-export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080/api/v1';
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? '/api/proxy';
