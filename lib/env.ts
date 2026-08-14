@@ -11,4 +11,8 @@
  * 환경변수)로 대신 전달합니다. 이 경로는 로컬(`npm run dev`)·Vercel 배포 양쪽에서 동일하게
  * 동작합니다.
  */
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? '/api/proxy';
+const SERVER_API_BASE_URL = process.env.BACKEND_API_URL ?? 'http://localhost:8080/api/v1';
+
+export const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL ??
+  (typeof window === 'undefined' ? SERVER_API_BASE_URL : '/api/proxy');
