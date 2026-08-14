@@ -380,7 +380,7 @@ const EventForm = ({ eventCode }: EventFormProps) => {
             </Button>
             <Button
               type="button"
-              variant="primary"
+              variant="danger"
               disabled={isDeleting}
               onClick={() => removeEvent()}
             >
@@ -402,7 +402,7 @@ const EventForm = ({ eventCode }: EventFormProps) => {
             </Button>
             <Button
               type="button"
-              variant="primary"
+              variant="danger"
               disabled={isRemovingSession}
               onClick={() => deletingSessionId !== null && removeSession(deletingSessionId)}
             >
