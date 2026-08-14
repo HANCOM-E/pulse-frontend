@@ -16,7 +16,7 @@ export const HOST_USER = {
   createdAt: '2026-07-15T00:00:00.000Z',
 } as const;
 
-export const TAGGER_VERSION = 'kobert-sent-v1';
+export const TAGGER_VERSION = 'koelectra-small-v3-nsmc-q8+tau';
 
 export const seedEvents: PulseEvent[] = [
   {

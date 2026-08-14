@@ -14,6 +14,9 @@ import { submitFeedback } from '@/lib/api/endpoints';
 import { ApiError } from '@/lib/apiClient';
 import { markSubmitted } from '@/lib/storage/submitted';
 
+import { toSubmitPayload } from '@/lib/tagger';
+import { useTagger } from '@/hooks/useTagger';
+
 /**
  * 제출 실패 사유별 문구입니다.
  *
@@ -43,20 +46,20 @@ const FeedbackForm = ({ eventCode, sessions }: FeedbackFormProps) => {
   const [text, setText] = useState('');
 
   const router = useRouter();
+  const { warmup, tag } = useTagger();
 
   const { mutate, isPending, error } = useMutation({
-    mutationFn: (sessionId: number) =>
-      submitFeedback(eventCode, {
-        sessionId,
-        text: text.trim(),
-        sentiment: 'UNKNOWN',
-        toxic: false,
-        keywords: [],
-        taggerVersion: 'none',
-      }),
+    // 제출 직전에 태깅합니다. 실패하거나 3초를 넘기면 tag가 null을 주고,
+    // toSubmitPayload가 sentiment=UNKNOWN으로 떨어뜨립니다. 제출은 그대로 진행됩니다.
+    mutationFn: async (sessionId: number) => {
+      const trimmed = text.trim();
+      const logits = await tag(trimmed);
+
+      return submitFeedback(eventCode, { sessionId, ...toSubmitPayload(trimmed, logits) });
+    },
+
     // 보낸 값을 그대로 돌려받습니다. 여기서 selectedId를 다시 읽으면
     // 응답을 기다리는 사이 선택이 바뀌었을 때 저장된 세션과 이동할 세션이 어긋납니다.
-
     onSuccess: (_data, sessionId) => {
       // 서버가 중복 제출을 막지 않아 프론트가 기록해야 합니다(#92).
       // 이 줄이 없으면 /live가 읽을 기록이 영영 안 생겨서 접근 제어가
@@ -102,6 +105,7 @@ const FeedbackForm = ({ eventCode, sessions }: FeedbackFormProps) => {
           maxLength={200}
           value={text}
           onChange={(event) => setText(event.target.value)}
+          onFocus={warmup}
         />
       </section>
       {error ? (
