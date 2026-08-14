@@ -383,6 +383,24 @@ const DashboardView = () => {
          */}
         <div className="flex flex-col items-end gap-2">
           <div className="flex items-center gap-2">
+            {event.status === 'ENDED' && (
+              <div className="flex shrink-0 items-center gap-2">
+                {isReportGenerating && <Badge tone="neutral">생성 중</Badge>}
+                {isReportGenerated && <Badge tone="positive">생성 완료</Badge>}
+
+                {/* 다 만든 리포트에는 다시 만들 길이 없습니다(재생성은 REPORT_ALREADY_EXISTS). */}
+                {!isReportGenerated && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={event.status !== 'ENDED' || isReportUnknown || isReportGenerating}
+                    onClick={() => generateReportMutation.mutate()}
+                  >
+                    요약 생성
+                  </Button>
+                )}
+              </div>
+            )}
             {event.status === 'LIVE' && (
               <>
                 <Button variant="secondary" size="sm" onClick={() => setIsQrOpen(true)}>
