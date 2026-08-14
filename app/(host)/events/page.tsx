@@ -19,7 +19,7 @@ const EventsListPage = () => {
   const [selectedTab, setSelectedTab] = useState<EventStatusFilter>('ALL');
 
   // API: GET/POST /events. "새 이벤트 만들기" 버튼은 /events/new로 이동합니다.
-  const { user, logout } = useAuth();
+  const { user, logout, isLoading: isAuthLoading } = useAuth();
 
   const myEvents = useQuery({
     queryKey: ['events', 'my'],
@@ -46,7 +46,7 @@ const EventsListPage = () => {
 
   return (
     <>
-      <Header email={user?.email ?? ''} onLogout={logout} />
+      <Header email={user?.email ?? ''} onLogout={logout} isEmailLoading={isAuthLoading} />
       <div className="flex flex-col gap-6 px-20 py-8">
         <div className="flex items-center justify-between gap-6">
           <p className="text-xl font-semibold text-text-primary">내 이벤트</p>
