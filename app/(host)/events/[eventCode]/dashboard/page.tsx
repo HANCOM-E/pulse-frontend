@@ -1,5 +1,4 @@
 import { DashboardView } from '@/components/dashboard/DashboardView';
-import ModerationQueueModal from '@/components/moderation/ModerationQueueModal';
 
 /**
  * 주최자 실시간 모니터링 대시보드입니다.
@@ -19,7 +18,6 @@ const DashboardPage = () => {
   return (
     <main className="flex flex-col gap-6 p-5 md:p-8">
       <DashboardView />
-      <ModerationQueueModal />
     </main>
   );
 };

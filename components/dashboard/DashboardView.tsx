@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'next/navigation';
 import { useState } from 'react';
 import {
@@ -21,6 +21,7 @@ import {
   toRelativeTime,
   TREND_BUCKET_MS,
 } from '@/components/dashboard/metrics';
+import { QrCodeDialog } from '@/components/dashboard/QrCodeDialog';
 import { Donut } from '@/components/feedback/Donut';
 import { FeedItem, type Sentiment as FeedItemSentiment } from '@/components/feedback/FeedItem';
 import { ModerationQueue } from '@/components/moderation/ModerationQueue';
@@ -28,11 +29,22 @@ import { Badge } from '@/components/ui/Badge';
 import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/Chip';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Stat } from '@/components/ui/Stat';
+import { useCopyLink } from '@/hooks/useCopyLink';
 import { useDashboardFeed } from '@/hooks/useDashboardFeed';
 import { useModerationActions } from '@/hooks/useModerationActions';
-import { fetchMyEvents, fetchSessionsByEventCode } from '@/lib/api/endpoints';
+import { showToast } from '@/hooks/useToast';
+import {
+  fetchMyEvents,
+  fetchOwnReport,
+  fetchSessionsByEventCode,
+  generateReport,
+  setReportPublic,
+  updateEvent,
+  updateSession,
+} from '@/lib/api/endpoints';
 import { ApiError } from '@/lib/apiClient';
 import type { Feedback, Sentiment } from '@/lib/schemas/api';
 
@@ -49,6 +61,12 @@ import type { Feedback, Sentiment } from '@/lib/schemas/api';
 const CARD = 'flex flex-col gap-3 rounded-xl border border-border-subtle p-4';
 const CARD_TITLE = 'text-xs font-normal leading-4 text-text-tertiary';
 
+/**
+ * 리포트가 만들어지는 동안만 쓰는 간격입니다. 소감 폴링(5초)보다 짧은 이유는, 이쪽은 버튼을
+ * 누른 사람이 결과를 기다리며 보고 있는 화면이라서입니다. 끝나는 즉시 타이머를 멈춥니다.
+ */
+const REPORT_POLL_INTERVAL_MS = 1_500;
+
 const FEED_SENTIMENT: Record<Sentiment, FeedItemSentiment> = {
   POS: 'positive',
   NEU: 'neutral',
@@ -61,6 +79,11 @@ const DashboardView = () => {
 
   /** `null`이 "전체"입니다. 시안의 기본 선택값입니다. */
   const [sessionId, setSessionId] = useState<number | null>(null);
+
+  const [isQrOpen, setIsQrOpen] = useState(false);
+  const [isEndConfirmOpen, setIsEndConfirmOpen] = useState(false);
+
+  const { copy: copyLink, isFailed: isCopyFailed } = useCopyLink();
 
   /*
    * 공개 조회(`GET /events/{eventCode}`)가 아니라 내 이벤트 목록을 받아 코드로 찾습니다.
@@ -103,6 +126,97 @@ const DashboardView = () => {
   } = useDashboardFeed({ eventCode, sessionId });
 
   const moderation = useModerationActions();
+
+  const queryClient = useQueryClient();
+
+  /*
+   * 이벤트 종료입니다. `useModerationActions`처럼 훅으로 빼지 않고 여기 둡니다. 그쪽은 대시보드와
+   * "전체보기" 모달 두 화면이 같은 조치를 써서 문구가 갈라질 수 있었는데, 종료 버튼은 이 화면
+   * 하나뿐입니다.
+   *
+   * 되돌릴 수 없는 전이(`LIVE → ENDED`)라 버튼을 바로 쏘지 않고 `ConfirmDialog`를 한 번 거칩니다.
+   */
+  const endEventMutation = useMutation({
+    mutationFn: () => updateEvent(eventCode, { status: 'ENDED' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['myEvents'] });
+      setIsEndConfirmOpen(false);
+      // 다이얼로그를 닫은 뒤에 띄웁니다. 열려 있으면 토스트가 그 뒤에 가립니다(ui/README.md).
+      showToast('이벤트를 종료했어요');
+    },
+    /*
+     * 실패해도 닫습니다. 열어두면 아래 실패 배너가 최상위 레이어와 딤 뒤로 밀리는 데다,
+     * showModal()이 바깥을 inert로 만들어서 role="alert"조차 읽히지 않습니다.
+     */
+    onError: () => {
+      setIsEndConfirmOpen(false);
+    },
+  });
+
+  /*
+   * 리포트입니다. 이벤트 상태를 아래 `event`가 아니라 목록에서 다시 꺼내는 이유는, `event`가
+   * early return 뒤에서 계산돼 훅 자리에서는 아직 없기 때문입니다.
+   */
+  const eventStatus = events?.find((item) => item.code === eventCode)?.status;
+
+  const reportQueryKey = ['report', eventCode];
+
+  /*
+   * 리포트 행이 없는 상태(개념상 NONE)는 404 REPORT_NOT_FOUND로 옵니다. 에러로 오지만 "아직
+   * 생성하지 않았다"는 정상 상태라, 화면은 이걸 실패가 아니라 생성 전으로 읽습니다.
+   * `QueryProvider`의 `retry`가 4xx를 이미 거르므로 없는 리포트를 두들기지도 않습니다.
+   *
+   * 생성이 비동기라 폴링이 필요합니다. `GENERATING` 동안에만 돌리고 나머지 상태에서는 멈춥니다.
+   * 완료된 리포트를 계속 다시 받아봐야 같은 답이고, 여기서 멈추지 않으면 이 화면을 열어둔 내내
+   * 1.5초마다 요청이 나갑니다.
+   */
+  const reportQuery = useQuery({
+    queryKey: reportQueryKey,
+    queryFn: () => fetchOwnReport(eventCode),
+    // 생성 자체가 `ENDED`에서만 가능해서, 그 전에는 물어볼 이유가 없습니다.
+    enabled: eventStatus === 'ENDED',
+    refetchInterval: ({ state }) =>
+      state.data?.status === 'GENERATING' ? REPORT_POLL_INTERVAL_MS : false,
+  });
+
+  const generateReportMutation = useMutation({
+    mutationFn: () => generateReport(eventCode),
+    /*
+     * 202 응답이 이미 `GENERATING` 상태의 리포트입니다. 캐시에 바로 꽂아야 위 폴링이 그 자리에서
+     * 시작합니다. `invalidateQueries`로도 되지만 방금 받은 답을 한 번 더 물어보게 됩니다.
+     */
+    onSuccess: (report) => {
+      queryClient.setQueryData(reportQueryKey, report);
+    },
+  });
+
+  /*
+   * 공개 여부만 뒤집습니다. 생성 직후 리포트는 비공개라(`isPublic: false`), 공개 페이지가 열리려면
+   * 주최자가 한 번 더 눌러야 합니다. 요약을 먼저 읽어보고 내보낼지 정하라는 순서입니다.
+   */
+  const setReportPublicMutation = useMutation({
+    mutationFn: (isPublic: boolean) => setReportPublic(eventCode, isPublic),
+    onSuccess: (report) => {
+      queryClient.setQueryData(reportQueryKey, report);
+      showToast(report.isPublic ? '리포트를 공개했어요' : '리포트를 비공개로 바꿨어요');
+    },
+  });
+
+  /*
+   * 선택한 세션의 소감 수신을 켜고 끕니다. 세션은 생성 시 `CLOSED`라, 발표가 시작될 때 주최자가
+   * 열어야 소감이 들어옵니다(2026-08-07 명세).
+   *
+   * 이벤트 종료와 달리 확인 다이얼로그를 두지 않습니다. `ACTIVE ↔ CLOSED`는 되돌릴 수 있어서
+   * 잘못 눌러도 다시 누르면 그만입니다.
+   */
+  const toggleSessionMutation = useMutation({
+    mutationFn: ({ id, status }: { id: number; status: 'ACTIVE' | 'CLOSED' }) =>
+      updateSession(eventCode, id, { status }),
+    onSuccess: (session) => {
+      queryClient.invalidateQueries({ queryKey: ['sessions', eventCode] });
+      showToast(session.status === 'ACTIVE' ? '이제 소감을 받아요' : '소감 받기를 멈췄어요');
+    },
+  });
 
   const handleSelectSession = (nextSessionId: number | null) => {
     setSessionId(nextSessionId);
@@ -155,6 +269,21 @@ const DashboardView = () => {
 
   const openSessionCount = sessions.filter((session) => session.status === 'ACTIVE').length;
 
+  /*
+   * 참가자가 QR을 찍거나 링크를 눌러 들어오는 주소입니다. 배포 도메인을 환경 변수로 들고 있지
+   * 않아서 지금 출처를 알 방법은 브라우저가 열고 있는 주소뿐입니다.
+   *
+   * 여기서 `window`를 읽어도 되는 이유는, 서버 렌더에서는 이 줄까지 오지 않기 때문입니다.
+   * 쿼리를 미리 채워두는 곳이 없어서 서버에서는 `isEventPending`이 항상 참이고, 위 스켈레톤에서
+   * 끊깁니다. 컴포넌트 맨 위로 올리면 그 보호가 사라지므로 옮기지 마세요.
+   */
+  const publicUrl = `${window.location.origin}/e/${event.code}`;
+
+  /* 성공을 확인했을 때만 알립니다. 실패는 아래 배너가 받습니다. */
+  const handleCopyLink = async () => {
+    if (await copyLink(publicUrl)) showToast('링크가 복사되었어요');
+  };
+
   const items = feedbacks ?? [];
 
   /*
@@ -177,16 +306,117 @@ const DashboardView = () => {
   const toMeta = (feedback: Feedback) =>
     `${toRelativeTime(feedback.createdAt)} · ${sessionTitle(feedback.sessionId)}`;
 
+  const report = reportQuery.data ?? null;
+
+  /*
+   * 요청을 보낸 순간부터 "생성 중"입니다. 202가 돌아오기를 기다리는 동안에도 버튼은 이미
+   * 눌렸으므로, 서버 응답이 오기 전 빈 구간을 mutation의 대기 상태가 메웁니다.
+   */
+  const isReportGenerating = generateReportMutation.isPending || report?.status === 'GENERATING';
+  const isReportGenerated = report?.status === 'GENERATED';
+
+  /* 본문은 `GENERATED`에서만 채워집니다(스키마상 그 전에는 전부 null입니다). */
+  const summaryText = report?.status === 'GENERATED' ? report.summaryText : null;
+
+  /* 상태를 모르는 동안은 잠급니다. 이미 리포트가 있는 이벤트에서 눌리면 REPORT_ALREADY_EXISTS만 받습니다. */
+  const isReportUnknown = event.status === 'ENDED' && reportQuery.isPending;
+
+  const isReportPublic = report?.isPublic ?? false;
+
+  /* 칩에서 고른 세션입니다. "전체"(`null`)에는 켜고 끌 대상이 없어 아래 토글을 감춥니다. */
+  const selectedSession =
+    sessionId === null ? null : (sessions.find((session) => session.id === sessionId) ?? null);
+
   return (
     <div className="flex flex-col gap-4">
-      {/* 제목과 상태는 붙어 있어야 해서 바깥 `gap-4`에서 빼고 따로 묶습니다. */}
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center gap-2">
-          <h1 className="text-xl font-semibold leading-7 text-text-primary">{event.title}</h1>
-          <Badge tone={event.status === 'LIVE' ? 'positive' : 'neutral'}>{event.status}</Badge>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        {/* 제목과 상태는 붙어 있어야 해서 바깥 `gap-4`에서 빼고 따로 묶습니다. */}
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-semibold leading-7 text-text-primary">{event.title}</h1>
+            <Badge tone={event.status === 'LIVE' ? 'positive' : 'neutral'}>{event.status}</Badge>
+          </div>
+          {/* 복사되는 값과 같은 것을 보여줍니다. 다르면 눈으로 옮겨 적는 사람이 틀립니다. */}
+          <p className="text-xs font-normal leading-4 break-all text-text-tertiary">{publicUrl}</p>
         </div>
-        {/* 전체 주소와 복사 버튼은 QR·링크 복사 이슈에서 붙습니다. */}
-        <p className="text-xs font-normal leading-4 text-text-tertiary">/e/{event.code}</p>
+
+        {/*
+         * QR·링크 복사·이벤트 종료는 `LIVE`에서만 내놓습니다.
+         *
+         * 종료는 서버가 허용하는 전이가 `DRAFT → LIVE`와 `LIVE → ENDED` 둘뿐이라, 그 밖에서
+         * 누르면 INVALID_EVENT_STATE_TRANSITION만 받습니다. QR과 참가자 링크는 소감을 받는
+         * 동안에만 쓸모가 있습니다 — 시작 전이거나 끝난 이벤트의 주소를 건네봐야 받는 쪽은
+         * 제출이 막힌 화면을 봅니다. 눌러보고 실패하게 두는 대신 아예 내놓지 않습니다.
+         *
+         * 리포트 공개 전환만 `ENDED` 쪽에 남습니다. 주소는 제목 아래에 늘 떠 있습니다.
+         */}
+        <div className="flex flex-col items-end gap-2">
+          <div className="flex items-center gap-2">
+            {event.status === 'LIVE' && (
+              <>
+                <Button variant="secondary" size="sm" onClick={() => setIsQrOpen(true)}>
+                  QR
+                </Button>
+                <Button variant="secondary" size="sm" onClick={handleCopyLink}>
+                  링크 복사
+                </Button>
+              </>
+            )}
+
+            {/*
+             * 다 만든 리포트에만 붙습니다. 만들기 전이나 만드는 중에는 뒤집을 공개 여부 자체가
+             * 없습니다(`GENERATED`가 아니면 공개해도 게스트는 404를 봅니다).
+             */}
+            {isReportGenerated && (
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={setReportPublicMutation.isPending}
+                onClick={() => setReportPublicMutation.mutate(!isReportPublic)}
+              >
+                {isReportPublic ? '비공개로 전환' : '공개로 전환'}
+              </Button>
+            )}
+            {event.status === 'LIVE' && (
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={endEventMutation.isPending}
+                onClick={() => setIsEndConfirmOpen(true)}
+              >
+                이벤트 종료
+              </Button>
+            )}
+          </div>
+
+          {/*
+           * 선택한 세션의 소감 수신 상태와 그걸 뒤집는 버튼입니다.
+           *
+           * `LIVE`에서만 내놓습니다. 제출은 이벤트가 `LIVE`이고 세션이 `ACTIVE`여야 통과하는데,
+           * 시작 전이나 끝난 뒤에 세션만 열어두면 여기서는 "소감 받는 중"이라고 하고 참가자는
+           * `EVENT_NOT_LIVE`로 막히는 거짓말이 됩니다.
+           */}
+          {event.status === 'LIVE' && selectedSession !== null && (
+            <div className="flex items-center gap-2">
+              <Badge tone={selectedSession.status === 'ACTIVE' ? 'positive' : 'neutral'}>
+                {selectedSession.status === 'ACTIVE' ? '소감 받는 중' : '소감 멈춤'}
+              </Badge>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={toggleSessionMutation.isPending}
+                onClick={() =>
+                  toggleSessionMutation.mutate({
+                    id: selectedSession.id,
+                    status: selectedSession.status === 'ACTIVE' ? 'CLOSED' : 'ACTIVE',
+                  })
+                }
+              >
+                {selectedSession.status === 'ACTIVE' ? '멈추기' : '다시 받기'}
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -209,6 +439,19 @@ const DashboardView = () => {
 
       {isFeedError && <Banner type="negative">지금은 소감을 불러올 수 없어요</Banner>}
       {moderation.isError && <Banner type="negative">소감 처리에 실패했어요</Banner>}
+      {endEventMutation.isError && <Banner type="negative">이벤트를 종료하지 못했어요</Banner>}
+      {generateReportMutation.isError && (
+        <Banner type="negative">요약 리포트를 만들지 못했어요</Banner>
+      )}
+      {setReportPublicMutation.isError && (
+        <Banner type="negative">리포트 공개 설정을 바꾸지 못했어요</Banner>
+      )}
+      {toggleSessionMutation.isError && (
+        <Banner type="negative">세션의 소감 수신 상태를 바꾸지 못했어요</Banner>
+      )}
+      {isCopyFailed && (
+        <Banner type="negative">링크를 복사하지 못했어요. 위 주소를 직접 복사해주세요</Banner>
+      )}
 
       {isFeedPending ? (
         <DashboardSkeleton />
@@ -310,13 +553,15 @@ const DashboardView = () => {
             <section className={CARD}>
               <h2 className={CARD_TITLE}>실시간 소감 피드</h2>
 
+              {/* 모더레이션 큐와 같은 이유로 높이를 고정합니다(`ModerationQueue.tsx`). */}
               {visible.length === 0 ? (
                 <EmptyState
+                  className="h-80 justify-center"
                   title="아직 들어온 소감이 없어요"
                   description="참가자가 소감을 남기면 여기에 바로 올라와요"
                 />
               ) : (
-                <ul className="flex max-h-80 flex-col gap-2 overflow-y-auto">
+                <ul className="flex h-80 flex-col gap-2 overflow-y-auto">
                   {visible.map((feedback) => (
                     <li key={feedback.id}>
                       <FeedItem
@@ -359,22 +604,76 @@ const DashboardView = () => {
             </div>
           </div>
 
-          <section className={`${CARD} flex-row items-center justify-between`}>
+          {/*
+           * 카드 아래 한 줄이 상태에 따라 다른 일을 합니다. 생성 전에는 왜 눌러야 하는지 알리는
+           * 안내문이고, 끝나면 요약 본문이 그 자리에 들어옵니다. 자리를 나누지 않는 이유는
+           * 안내문이 요약이 없을 때만 필요한 문장이라서입니다.
+           */}
+          <section
+            className={`${CARD} flex-row items-start justify-between gap-4 bg-background-muted`}
+          >
             <div className="flex flex-col gap-1">
               <h2 className="text-base font-semibold leading-6 text-text-primary">
                 AI 요약 리포트
               </h2>
-              <p className="text-xs font-normal leading-4 text-text-tertiary">
-                이벤트를 종료하면 생성할 수 있어요
-              </p>
+
+              {summaryText !== null ? (
+                <p className="text-sm font-normal leading-5 text-text-secondary">{summaryText}</p>
+              ) : (
+                <p className="text-xs font-normal leading-4 text-text-tertiary">
+                  {isReportGenerating
+                    ? '요약을 만들고 있어요. 끝나면 여기에 올라와요'
+                    : '생성하시면 읽어보고 공개할 수 있어요'}
+                </p>
+              )}
             </div>
-            {/* 실제 생성 호출은 이벤트 종료 이슈에서 붙습니다. 여기서는 조건만 맞춥니다. */}
-            <Button variant="secondary" disabled={event.status !== 'ENDED'}>
-              요약 생성
-            </Button>
+
+            {/*
+             * 오른쪽은 이 카드의 상태와 조치가 함께 서는 자리입니다. 상태 배지를 제목이 아니라
+             * 여기 두는 이유는, 다 만들고 나면 버튼이 빠져서 이 자리가 비기 때문입니다.
+             */}
+            <div className="flex shrink-0 items-center gap-2">
+              {isReportGenerating && <Badge tone="neutral">생성 중</Badge>}
+              {isReportGenerated && <Badge tone="positive">생성 완료</Badge>}
+
+              {/* 다 만든 리포트에는 다시 만들 길이 없습니다(재생성은 REPORT_ALREADY_EXISTS). */}
+              {!isReportGenerated && (
+                <Button
+                  variant="primary"
+                  disabled={event.status !== 'ENDED' || isReportUnknown || isReportGenerating}
+                  onClick={() => generateReportMutation.mutate()}
+                >
+                  요약 생성
+                </Button>
+              )}
+            </div>
           </section>
         </>
       )}
+
+      <QrCodeDialog open={isQrOpen} url={publicUrl} onClose={() => setIsQrOpen(false)} />
+
+      <ConfirmDialog
+        open={isEndConfirmOpen}
+        title="이벤트를 종료할까요?"
+        description="종료하면 참가자가 더 이상 소감을 남길 수 없고, 되돌릴 수 없어요"
+        onClose={() => setIsEndConfirmOpen(false)}
+        actions={
+          <>
+            {/* 취소가 먼저입니다. `showModal()`이 첫 포커스 가능 요소를 잡습니다. */}
+            <Button variant="secondary" onClick={() => setIsEndConfirmOpen(false)}>
+              취소
+            </Button>
+            <Button
+              variant="danger"
+              disabled={endEventMutation.isPending}
+              onClick={() => endEventMutation.mutate()}
+            >
+              종료
+            </Button>
+          </>
+        }
+      />
     </div>
   );
 };
