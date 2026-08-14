@@ -30,6 +30,17 @@ const nextConfig: NextConfig = {
    * 서버 전용 변수라 브라우저 번들에는 노출되지 않습니다.
    */
   async rewrites() {
+    // Vercel 위에서 도는 빌드(프로덕션·프리뷰 둘 다)는 VERCEL=1이 자동으로 설정됩니다. 로컬에는
+    // 없는 값이라, 이 검사는 Vercel 빌드에서만 걸리고 로컬 npm run build는 그대로 통과합니다.
+    // BACKEND_API_URL을 안 넣고 배포하면 에러 없이 localhost로 조용히 고정되어, 배포된 서버가
+    // 자기 자신에게 연결을 시도하다 실패합니다. 로그인·API 요청이 전부 깨지는데 원인을 바로 알기
+    // 어려워서, 배포 시점에 즉시 실패하게 만듭니다.
+    if (process.env.VERCEL === '1' && !process.env.BACKEND_API_URL) {
+      throw new Error(
+        'BACKEND_API_URL 환경변수가 없습니다. Vercel 프로젝트 환경변수에 실제 배포 백엔드 주소를 설정해야 합니다.',
+      );
+    }
+
     const backendUrl = process.env.BACKEND_API_URL ?? 'http://localhost:8080/api/v1';
 
     return [
