@@ -288,10 +288,18 @@ const EventForm = ({ eventCode }: EventFormProps) => {
                   <>
                     <span className="text-sm text-text-primary">{session.title}</span>
                     <div className="flex gap-2 text-xs text-text-secondary">
-                      <button type="button" onClick={() => handleEditSessionStart(session)}>
+                      <button
+                        type="button"
+                        className="cursor-pointer"
+                        onClick={() => handleEditSessionStart(session)}
+                      >
                         수정
                       </button>
-                      <button type="button" onClick={() => setDeletingSessionId(session.id)}>
+                      <button
+                        type="button"
+                        className="cursor-pointer"
+                        onClick={() => setDeletingSessionId(session.id)}
+                      >
                         삭제
                       </button>
                     </div>
