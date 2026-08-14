@@ -36,7 +36,7 @@ const Header = ({ email, onLogout, isEmailLoading = false }: HeaderProps) => {
         <button
           type="button"
           onClick={onLogout}
-          className="py-3 text-sm font-normal leading-5 text-text-secondary underline transition-colors hover:text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-darker"
+          className="cursor-pointer py-3 text-sm font-normal leading-5 text-text-secondary underline transition-colors hover:text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-darker"
         >
           로그아웃
         </button>
