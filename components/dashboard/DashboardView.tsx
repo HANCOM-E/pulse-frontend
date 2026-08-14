@@ -305,13 +305,20 @@ const DashboardView = () => {
   /*
    * 숨긴 건은 집계와 피드에서 뺍니다. 목록을 `includeHidden=true`로 받는 건 모더레이션
    * 큐가 이미 숨긴 건도 보여줘야 해서지, 숫자에 넣으려는 게 아닙니다.
+   * 독성 건수만 예외입니다(아래 참고).
    */
   const visible = items.filter((feedback) => feedback.status === 'VISIBLE');
 
   const { positive, neutral, negative, unclassified, positiveRate } = summarizeSentiments(visible);
 
+  /*
+   * 독성 건수만 `visible`이 아니라 전체를 셉니다. 독성 소감은 제출 시점에
+   * 이미 HIDDEN으로 저장되므로 `visible`에는 한 건도 남지 않습니다.
+   * 이건 감정 집계가 아니라 모더레이션 지표라서, 숨겼어도 몇 건 들어왔는지는
+   * 주최자에게 보여야 합니다. `visible` 기준으로 되돌리지 마세요.
+   */
   const toxicItems = items.filter((feedback) => feedback.toxic);
-  const toxicCount = visible.filter((feedback) => feedback.toxic).length;
+  const toxicCount = toxicItems.length;
 
   const trend = buildTrend(visible);
   const keywords = countKeywords(visible);
