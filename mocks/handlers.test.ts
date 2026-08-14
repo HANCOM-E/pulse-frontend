@@ -744,6 +744,46 @@ describe('소감 제출', () => {
     expect(body).not.toHaveProperty('toxic');
   });
 
+  /*
+   * 독성 건수만 `visible`이 아니라 전체를 셉니다. 독성 소감은 제출 시점에
+   * 이미 HIDDEN으로 저장되므로 `visible`에는 한 건도 남지 않습니다.
+   * 이건 감정 집계가 아니라 모더레이션 지표라서, 숨겼어도 몇 건 들어왔는지는
+   * 주최자에게 보여야 합니다. `visible` 기준으로 되돌리지 마세요.
+   */
+  it('독성으로 태깅된 소감은 HIDDEN으로 저장되어 공개 스냅샷에 안 나온다', async () => {
+    const response = await call(`/events/${LIVE_EVENT_CODE}/feedbacks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Client-Id': 'client-toxic' },
+      body: JSON.stringify({
+        sessionId: 101,
+        text: '시발 뭐라는 건지 하나도 모르겠네',
+        sentiment: 'NEG',
+        toxic: true,
+        keywords: [],
+        taggerVersion: 'koelectra-small-v3-nsmc-q8+tau-1.2',
+      }),
+    });
+
+    expect(response.status).toBe(201);
+    const { id } = (await response.json()) as { id: number };
+
+    // 저장 상태는 관리자 큐로만 확인합니다. 공개 응답에는 status가 없습니다.
+    const queue = (await (
+      await call(`/admin/feedbacks?eventCode=${LIVE_EVENT_CODE}&includeHidden=true`, {
+        headers: AUTH_HEADERS,
+      })
+    ).json()) as { items: { id: number; status: string }[] };
+
+    expect(queue.items.find((item) => item.id === id)?.status).toBe('HIDDEN');
+
+    // 집계와 최근 피드에서 빠져야 실시간 지표에 욕설이 안 뜹니다.
+    const snapshot = (await (
+      await call(`/events/${LIVE_EVENT_CODE}/feedbacks?sessionId=101`)
+    ).json()) as { recentFeedbacks: { id: number }[] };
+
+    expect(snapshot.recentFeedbacks.some((item) => item.id === id)).toBe(false);
+  });
+
   it('같은 클라이언트가 분당 4번째로 제출하면 RATE_LIMIT_EXCEEDED를 준다', async () => {
     for (let attempt = 0; attempt < 3; attempt += 1) {
       expect((await submit('client-b')).status).toBe(201);

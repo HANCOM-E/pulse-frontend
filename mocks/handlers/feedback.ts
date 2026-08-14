@@ -50,7 +50,7 @@ export const feedbackHandlers = [
       toxic: body.data.toxic,
       keywords: body.data.keywords,
       taggerVersion: body.data.taggerVersion,
-      status: 'VISIBLE',
+      status: body.data.toxic ? 'HIDDEN' : 'VISIBLE',
       createdAt: new Date().toISOString(),
     };
     db.feedbacks.push(feedback);
