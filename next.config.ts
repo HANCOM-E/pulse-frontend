@@ -20,8 +20,8 @@ const nextConfig: NextConfig = {
    * 브라우저가 백엔드로 직접 요청을 보내는 대신 이 Next.js 서버를 거치게 하는 리버스 프록시입니다.
    *
    * 백엔드(Render)와 프론트(Vercel)가 서로 다른 도메인이라, 브라우저가 백엔드에 직접 요청을 보내면
-   * accessToken·XSRF-TOKEN 쿠키가 백엔드 도메인에 묶여서 프론트 서버(`app/(host)/events/layout.tsx`
-   * 등)나 `document.cookie`(CSRF 토큰을 헤더에 실을 때 씀)로 읽을 수 없습니다(이슈 #139·#140).
+   * accessToken·XSRF-TOKEN 쿠키가 백엔드 도메인에 묶여서 프론트 서버(`proxy.ts` 등)나
+   * `document.cookie`(CSRF 토큰을 헤더에 실을 때 씀)로 읽을 수 없습니다(이슈 #139·#140).
    * 이 프록시를 거치면 브라우저는 항상 프론트 자신에게만 요청을 보내고, 백엔드가 내려주는 쿠키도
    * 프론트 자신의 도메인 것으로 저장됩니다.
    *
