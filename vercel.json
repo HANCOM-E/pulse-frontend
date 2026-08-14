@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/proxy/:path*",
+      "destination": "https://pulse-backend-y5vd.onrender.com/api/v1/:path*"
+    }
+  ]
+}
