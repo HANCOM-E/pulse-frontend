@@ -14,7 +14,7 @@ NSMC로 학습된 원본 모델은 **긍정/부정 2진 분류기**입니다. �
 
 그래서 두 로짓의 차이를 마진으로 쓰고, 마진이 작으면 판단을 유보합니다.
 
-```
+```text
 margin = logit_pos - logit_neg
 |margin| < τ  →  NEU
 margin > 0    →  POS
