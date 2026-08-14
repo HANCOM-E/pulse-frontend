@@ -47,7 +47,7 @@ Figma에는 `Header/Desktop`과 `Header/mobile` 두 개가 있지만 코드는 �
 
 ### 세션은 밖에서 넘깁니다
 
-`email`과 `onLogout`을 props로 받습니다. `hooks/useAuth.ts`를 직접 부르지 않습니다.
+`email`·`onLogout`·`isEmailLoading`을 props로 받습니다. `hooks/useAuth.ts`를 직접 부르지 않습니다.
 
 Header가 세션을 알면 이 컴포넌트만 따로 보기 어려워지고, 로그인하지 않은 상태를 그려볼 수도 없습니다.
 
@@ -57,20 +57,40 @@ Header가 세션을 알면 이 컴포넌트만 따로 보기 어려워지고, �
 
 **호출부도 클라이언트여야 합니다.** 서버 컴포넌트는 함수를 props로 넘길 수 없습니다. `app/(host)/layout.tsx`는 서버 컴포넌트이므로 사이에 얇은 래퍼를 하나 두세요.
 
+실제 래퍼는 `components/layout/HostHeader.tsx`입니다. `app/(host)/layout.tsx`가 이 컴포넌트를 렌더링합니다.
+
 ```tsx
 'use client';
 
+import { usePathname } from 'next/navigation';
+
 import { Header } from '@/components/layout/Header';
-import { useAuth } from '@/hooks/useAuth';
+import useAuth from '@/hooks/useAuth';
 
-export const HostHeader = () => {
-  const { user, logout } = useAuth();
+const HEADER_HIDDEN_PATHS = ['/login', '/signup'];
 
-  if (!user) return null;
+const HostHeader = () => {
+  const pathname = usePathname();
 
-  return <Header email={user.email} onLogout={logout} />;
+  if (HEADER_HIDDEN_PATHS.includes(pathname)) {
+    return null;
+  }
+
+  return <SessionHeader />;
 };
+
+const SessionHeader = () => {
+  const { user, logout, isLoading: isEmailLoading } = useAuth();
+
+  return <Header email={user?.email ?? ''} onLogout={logout} isEmailLoading={isEmailLoading} />;
+};
+
+export { HostHeader };
 ```
+
+`/login`·`/signup`도 `app/(host)` 밑에 있어서, 이 pathname 확인이 없으면 로그인하지 않은 사용자에게도 Header가 노출됩니다. 이 확인은 `Header`가 아니라 `HostHeader`가 맡습니다 — `Header`가 라우팅까지 알게 되면 세션과 마찬가지로 이 컴포넌트만 따로 보기 어려워지기 때문입니다.
+
+`useAuth()`는 `HostHeader`가 아니라 `SessionHeader` 안에서 부릅니다. 훅은 조건 없이 항상 실행되므로, `HostHeader`에서 직접 불렀다면 `/login`에서도 세션 확인 요청이 나가버립니다. `SessionHeader`를 따로 둬서, `/login`·`/signup`에서는 이 컴포넌트 자체가 마운트되지 않게 만들었습니다.
 
 `'use client'`만 붙이고 서버 레이아웃에서 바로 `<Header onLogout={...} />`를 쓰면 안 됩니다. 지시문은 Header가 클라이언트에서 실행된다는 뜻일 뿐, 서버가 함수를 건네줄 수 있게 해주지는 않습니다.
 
@@ -96,3 +116,4 @@ import { Header } from '@/components/layout/Header';
 - 2026.08.06 — Header를 클라이언트 컴포넌트로 둠. 토큰이 `localStorage`에 있어 로그아웃이 브라우저 동작이라, 쿠키를 전제하는 Server Action을 지금 도입할 수 없음. 저장 위치가 확정되면 `<form action>`으로 바꾸고 래퍼를 없앨 수 있음
 - 2026.08.10 (#69) — 저장 위치가 HttpOnly 쿠키로 확정됐지만 Header는 클라이언트로 유지. 쿠키가 API 도메인 소유라 Next 서버가 읽지도 만료시키지도 못해서, `<form action>` 전환은 여전히 불가능함
 - 2026.08.06 — 로그아웃을 밑줄로 표시. 색을 바꾸는 대신 밑줄을 쓰면 강조가 늘어나지 않고, 색을 못 보는 사용자에게도 전달됨. 대시보드의 `전체보기` 링크와 같은 규칙
+- 2026.08.14 (#158) — `HostHeader`를 실제 코드로 구현하고 `app/(host)/layout.tsx`에 연결. 기존에는 `EventsListPage` 하나에서만 `Header`를 직접 렌더링해서, `app/(host)` 밑에 화면이 늘어날 때마다 각자 세션을 다시 연결해야 했음. `HostHeader`에 pathname 확인도 같이 넣어 `/login`·`/signup`에서는 `Header`를 숨김
