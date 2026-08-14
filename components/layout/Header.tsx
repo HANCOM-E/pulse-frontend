@@ -7,9 +7,11 @@ import { Logo } from '@/components/brand/Logo';
 interface HeaderProps {
   email: string;
   onLogout: () => void;
+  /** `/auth/me` 응답을 아직 못 받아 email이 비어있는 상태입니다. 자리에 스켈레톤을 대신 보여줍니다. */
+  isEmailLoading?: boolean;
 }
 
-const Header = ({ email, onLogout }: HeaderProps) => {
+const Header = ({ email, onLogout, isEmailLoading = false }: HeaderProps) => {
   return (
     <header className="flex h-14 items-center justify-between border-b border-border-subtle bg-background-default px-5 md:h-16 md:px-20">
       <Link
@@ -21,9 +23,16 @@ const Header = ({ email, onLogout }: HeaderProps) => {
       </Link>
 
       <div className="flex items-center gap-4">
-        <span className="hidden max-w-48 truncate text-sm font-normal leading-5 text-text-secondary md:inline">
-          {email}
-        </span>
+        {isEmailLoading ? (
+          <div
+            className="hidden h-5 w-32 animate-pulse rounded bg-neutral-subtle md:block"
+            aria-hidden
+          />
+        ) : (
+          <span className="hidden max-w-48 truncate text-sm font-normal leading-5 text-text-secondary md:inline">
+            {email}
+          </span>
+        )}
         <button
           type="button"
           onClick={onLogout}
