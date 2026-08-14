@@ -38,4 +38,16 @@ describe('isToxic', () => {
     expect(isToxic('이딴 걸 토론이라고 앉아서 듣고 있는 내가 한심하다')).toBe(false);
     expect(isToxic('준비를 하나도 안 한 게 티가 나네 시간 아깝다')).toBe(false);
   });
+
+  it('개-합성명사(번개·무지개·안개)는 통과시킨다', () => {
+    expect(isToxic('번개같이 빠른 진행이었어요')).toBe(false);
+    expect(isToxic('무지개같이 다채로웠어요')).toBe(false);
+    expect(isToxic('안개같이 몽환적이었다')).toBe(false);
+    expect(isToxic('번개 같이 빠른 진행이었어요')).toBe(false); // 띄어쓰기
+  });
+
+  it('개같- 계열은 계속 잡는다', () => {
+    expect(isToxic('개같이 어려웠지만 배운 건 있습니다')).toBe(true);
+    expect(isToxic('개같은 진행이었다')).toBe(true);
+  });
 });
