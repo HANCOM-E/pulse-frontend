@@ -83,6 +83,15 @@ const DashboardView = () => {
   const [isQrOpen, setIsQrOpen] = useState(false);
   const [isEndConfirmOpen, setIsEndConfirmOpen] = useState(false);
 
+  /*
+   * 이 화면에서 멈춘 세션입니다. 세션은 생성 시 `CLOSED`라(2026-08-07 명세) 상태만으로는 "아직
+   * 열지 않았다"와 "열었다가 멈췄다"를 가를 수 없는데, 버튼이 권하는 다음 행동은 그 둘이 다릅니다.
+   *
+   * `SessionView`에는 열린 적이 있는지 알려주는 필드가 없어서 화면이 직접 기억합니다. 새로고침하면
+   * 잊고 다른 기기에서 멈춘 것도 모릅니다 — 정확히 하려면 서버에 흔적이 필요합니다(#143).
+   */
+  const [pausedSessionIds, setPausedSessionIds] = useState<ReadonlySet<number>>(new Set());
+
   const { copy: copyLink, isFailed: isCopyFailed } = useCopyLink();
 
   /*
@@ -214,6 +223,13 @@ const DashboardView = () => {
       updateSession(eventCode, id, { status }),
     onSuccess: (session) => {
       queryClient.invalidateQueries({ queryKey: ['sessions', eventCode] });
+      /* 다시 열면 지웁니다. 남겨두면 멈췄다 연 세션을 또 멈출 때가 아니라 처음 열 때부터 "다시"가 됩니다. */
+      setPausedSessionIds((previous) => {
+        const next = new Set(previous);
+        if (session.status === 'ACTIVE') next.delete(session.id);
+        else next.add(session.id);
+        return next;
+      });
       showToast(session.status === 'ACTIVE' ? '이제 소감을 받아요' : '소감 받기를 멈췄어요');
     },
   });
@@ -327,6 +343,10 @@ const DashboardView = () => {
   const selectedSession =
     sessionId === null ? null : (sessions.find((session) => session.id === sessionId) ?? null);
 
+  /* 같은 `CLOSED`라도 이 화면에서 멈춘 세션은 "다시", 아직 안 연 세션은 "처음"입니다. */
+  const isSelectedSessionPaused =
+    selectedSession !== null && pausedSessionIds.has(selectedSession.id);
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -399,7 +419,11 @@ const DashboardView = () => {
           {event.status === 'LIVE' && selectedSession !== null && (
             <div className="flex items-center gap-2">
               <Badge tone={selectedSession.status === 'ACTIVE' ? 'positive' : 'neutral'}>
-                {selectedSession.status === 'ACTIVE' ? '소감 받는 중' : '소감 멈춤'}
+                {selectedSession.status === 'ACTIVE'
+                  ? '소감 받는 중'
+                  : isSelectedSessionPaused
+                    ? '소감 멈춤'
+                    : '시작 전'}
               </Badge>
               <Button
                 variant="secondary"
@@ -412,7 +436,11 @@ const DashboardView = () => {
                   })
                 }
               >
-                {selectedSession.status === 'ACTIVE' ? '멈추기' : '다시 받기'}
+                {selectedSession.status === 'ACTIVE'
+                  ? '멈추기'
+                  : isSelectedSessionPaused
+                    ? '다시 받기'
+                    : '소감 받기'}
               </Button>
             </div>
           )}
