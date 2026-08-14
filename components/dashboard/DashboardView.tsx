@@ -315,7 +315,11 @@ const DashboardView = () => {
   const isReportGenerating = generateReportMutation.isPending || report?.status === 'GENERATING';
   const isReportGenerated = report?.status === 'GENERATED';
 
-  /* 본문은 `GENERATED`에서만 채워집니다(스키마상 그 전에는 전부 null입니다). */
+  /*
+   * 본문은 `GENERATED`에서만 채워집니다. 다만 `reportSchema`가 `status`와 `summaryText`를 묶지
+   * 않아서 `GENERATED`인데 본문이 비어 오는 응답도 검증을 통과합니다. 그 경우까지 아래 안내문이
+   * 갈라 받습니다.
+   */
   const summaryText = report?.status === 'GENERATED' ? report.summaryText : null;
 
   /* 상태를 모르는 동안은 잠급니다. 이미 리포트가 있는 이벤트에서 눌리면 REPORT_ALREADY_EXISTS만 받습니다. */
@@ -608,6 +612,11 @@ const DashboardView = () => {
            * 카드 아래 한 줄이 상태에 따라 다른 일을 합니다. 생성 전에는 왜 눌러야 하는지 알리는
            * 안내문이고, 끝나면 요약 본문이 그 자리에 들어옵니다. 자리를 나누지 않는 이유는
            * 안내문이 요약이 없을 때만 필요한 문장이라서입니다.
+           *
+           * 생성이 끝났는데 본문이 비어 있는 경우를 따로 받습니다. 여기서 "생성하시면…"으로
+           * 되돌리면 오른쪽 버튼은 이미 빠진 뒤라(`isReportGenerated`) 시키는 대로 할 수단이
+           * 없습니다. `GENERATING` 문구로 묶지 않는 것도 같은 이유입니다 — 폴링이 `GENERATED`에서
+           * 멈춰서(위 `refetchInterval`) 기다려도 아무것도 다시 오지 않습니다.
            */}
           <section
             className={`${CARD} flex-row items-start justify-between gap-4 bg-background-muted`}
@@ -623,7 +632,9 @@ const DashboardView = () => {
                 <p className="text-xs font-normal leading-4 text-text-tertiary">
                   {isReportGenerating
                     ? '요약을 만들고 있어요. 끝나면 여기에 올라와요'
-                    : '생성하시면 읽어보고 공개할 수 있어요'}
+                    : isReportGenerated
+                      ? '요약 본문을 받지 못했어요. 잠시 후 다시 열어봐 주세요'
+                      : '생성하시면 읽어보고 공개할 수 있어요'}
                 </p>
               )}
             </div>
