@@ -1,6 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 
 import { fetchMyEvents } from '@/lib/api/endpoints';
 import EventCard from '@/components/events/EventCard';
@@ -17,9 +18,15 @@ import { buttonStyle } from '@/components/ui/Button';
 
 const EventsListPage = () => {
   const [selectedTab, setSelectedTab] = useState<EventStatusFilter>('ALL');
+  const router = useRouter();
 
   // API: GET/POST /events. "새 이벤트 만들기" 버튼은 /events/new로 이동합니다.
   const { user, logout, isLoading: isAuthLoading } = useAuth();
+
+  const handleLogout = async () => {
+    await logout();
+    router.push('/login');
+  };
 
   const myEvents = useQuery({
     queryKey: ['events', 'my'],
@@ -46,7 +53,7 @@ const EventsListPage = () => {
 
   return (
     <>
-      <Header email={user?.email ?? ''} onLogout={logout} isEmailLoading={isAuthLoading} />
+      <Header email={user?.email ?? ''} onLogout={handleLogout} isEmailLoading={isAuthLoading} />
       <div className="flex flex-col gap-6 px-20 py-8">
         <div className="flex items-center justify-between gap-6">
           <p className="text-xl font-semibold text-text-primary">내 이벤트</p>
