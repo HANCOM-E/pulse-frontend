@@ -1,6 +1,6 @@
 'use client';
 
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 
 import { Header } from '@/components/layout/Header';
 import useAuth from '@/hooks/useAuth';
@@ -26,9 +26,17 @@ const HostHeader = () => {
 };
 
 const SessionHeader = () => {
+  const router = useRouter();
   const { user, logout, isLoading: isEmailLoading } = useAuth();
 
-  return <Header email={user?.email ?? ''} onLogout={logout} isEmailLoading={isEmailLoading} />;
+  const handleLogout = async () => {
+    await logout();
+    router.push('/login');
+  };
+
+  return (
+    <Header email={user?.email ?? ''} onLogout={handleLogout} isEmailLoading={isEmailLoading} />
+  );
 };
 
 export { HostHeader };
