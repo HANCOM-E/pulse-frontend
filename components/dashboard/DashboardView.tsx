@@ -398,7 +398,7 @@ const DashboardView = () => {
                 disabled={setReportPublicMutation.isPending}
                 onClick={() => setReportPublicMutation.mutate(!isReportPublic)}
               >
-                {isReportPublic ? '비공개로 전환' : '공개로 전환'}
+                {isReportPublic ? '리포트 비공개' : '리포트 공개'}
               </Button>
             )}
             {event.status === 'LIVE' && (
