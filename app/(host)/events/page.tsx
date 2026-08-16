@@ -11,6 +11,7 @@ import EventStatusFilterTabs, {
 import Link from 'next/link';
 import { Banner } from '@/components/ui/Banner';
 import EventListEmptyState from '@/components/events/EventListEmptyState';
+import { EventListSkeleton } from '@/components/events/EventListSkeleton';
 import { buttonStyle } from '@/components/ui/Button';
 
 const EventsListPage = () => {
@@ -48,7 +49,7 @@ const EventsListPage = () => {
           + 새 이벤트
         </Link>
       </div>
-      {myEvents.isPending && <p>불러오는 중...</p>}
+      {myEvents.isPending && <EventListSkeleton />}
       {myEvents.isError && <Banner type="negative">이벤트 목록을 불러오지 못했습니다.</Banner>}
       {isEventsEmpty && (
         <EventListEmptyState
