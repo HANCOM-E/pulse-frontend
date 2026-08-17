@@ -36,6 +36,8 @@ const LoginForm = () => {
       ...prev,
       [event.target.name]: event.target.value,
     }));
+    setLoginFailed(false);
+    setLoginFailedMessage(null);
   };
 
   const handleSubmit = async (event: SubmitEvent<HTMLFormElement>) => {
