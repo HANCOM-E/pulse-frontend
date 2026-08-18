@@ -15,6 +15,7 @@ import {
 import { QrCodeDialog } from '@/components/dashboard/QrCodeDialog';
 import { ReportSection } from '@/components/dashboard/ReportSection';
 import { SentimentTrendCard } from '@/components/dashboard/SentimentTrendCard';
+import { SessionFilterBar } from '@/components/dashboard/SessionFilterBar';
 import { SessionToggle } from '@/components/dashboard/SessionToggle';
 import { Donut } from '@/components/feedback/Donut';
 import { FEED_SENTIMENT, FeedItem } from '@/components/feedback/FeedItem';
@@ -24,7 +25,6 @@ import { ModerationQueue } from '@/components/moderation/ModerationQueue';
 import { Badge } from '@/components/ui/Badge';
 import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
-import { Chip } from '@/components/ui/Chip';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Stat } from '@/components/ui/Stat';
@@ -231,8 +231,6 @@ const DashboardView = () => {
     return <DashboardSkeleton />;
   }
 
-  const openSessionCount = sessions.filter((session) => session.status === 'ACTIVE').length;
-
   /*
    * 참가자가 QR을 찍거나 링크를 눌러 들어오는 주소입니다. 배포 도메인을 환경 변수로 들고 있지
    * 않아서 지금 출처를 알 방법은 브라우저가 열고 있는 주소뿐입니다.
@@ -330,24 +328,12 @@ const DashboardView = () => {
         isEndEventPending={endEventMutation.isPending}
       />
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Chip selected={sessionId === null} onClick={() => handleSelectSession(null)}>
-          전체
-        </Chip>
-        {sessions.map((session) => (
-          <Chip
-            key={session.id}
-            selected={sessionId === session.id}
-            onClick={() => handleSelectSession(session.id)}
-          >
-            {session.title}
-          </Chip>
-        ))}
-        <span className="ml-auto text-xs font-normal leading-4 text-text-tertiary">
-          총 {sessions.length}개 중 {openSessionCount}개 열림
-        </span>
-        {renderSessionToggle('flex w-full justify-between md:hidden')}
-      </div>
+      <SessionFilterBar
+        sessions={sessions}
+        selectedSessionId={sessionId}
+        onSelectSession={handleSelectSession}
+        sessionToggle={renderSessionToggle('flex w-full justify-between md:hidden')}
+      />
 
       {isFeedError && <Banner type="negative">지금은 소감을 불러올 수 없어요</Banner>}
       {moderation.isError && <Banner type="negative">소감 처리에 실패했어요</Banner>}
