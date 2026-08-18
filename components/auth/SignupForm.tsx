@@ -59,9 +59,16 @@ const SignupForm = () => {
   const { signup } = useAuth();
 
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setSignupInputs((prev) => ({
+    const { name, value } = event.target;
+
+    setSignupInputs((prev) => ({ ...prev, [name]: value }));
+
+    // 비밀번호 확인 에러는 password·passwordConfirm 두 값을 비교해서 나므로,
+    // 둘 중 어느 쪽이 바뀌어도 더 이상 유효하지 않은 판정이라 함께 지웁니다.
+    setSignupErrors((prev) => ({
       ...prev,
-      [event.target.name]: event.target.value,
+      [name]: undefined,
+      ...(name === 'password' ? { passwordConfirm: undefined } : {}),
     }));
   };
 
