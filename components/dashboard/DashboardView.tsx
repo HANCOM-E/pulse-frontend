@@ -3,16 +3,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'next/navigation';
 import { useState } from 'react';
-import {
-  CartesianGrid,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
-
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { DashboardSkeleton } from '@/components/dashboard/DashboardSkeleton';
 import {
@@ -20,9 +10,9 @@ import {
   countKeywords,
   summarizeSentiments,
   toRelativeTime,
-  TREND_BUCKET_MS,
 } from '@/components/dashboard/metrics';
 import { QrCodeDialog } from '@/components/dashboard/QrCodeDialog';
+import { SentimentTrendCard } from '@/components/dashboard/SentimentTrendCard';
 import { SessionToggle } from '@/components/dashboard/SessionToggle';
 import { Donut } from '@/components/feedback/Donut';
 import { FEED_SENTIMENT, FeedItem } from '@/components/feedback/FeedItem';
@@ -410,83 +400,13 @@ const DashboardView = () => {
               />
             </section>
 
-            <section className={CARD}>
-              <div className="flex items-center justify-between gap-2">
-                <h2 className={CARD_TITLE}>시간대별 감정 추이</h2>
-                {refreshIntervalMs !== null && (
-                  <span className="text-xs font-normal leading-4 text-text-tertiary">
-                    {refreshIntervalMs / 1000}초마다 갱신
-                  </span>
-                )}
-              </div>
-
-              {trend.length === 0 ? (
-                <p className="flex h-40 items-center justify-center text-sm text-text-tertiary">
-                  아직 그릴 소감이 없어요
-                </p>
-              ) : (
-                /* 색만으로는 세 선이 구분되지 않아 스크린리더용 설명을 따로 답니다. */
-                <div
-                  className="h-40"
-                  role="img"
-                  aria-label={`${TREND_BUCKET_MS / 60_000}분 단위 감정별 소감 건수 추이. 긍정 ${positive}건, 중립 ${neutral}건, 부정 ${negative}건.`}
-                >
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={trend} margin={{ top: 8, right: 8, bottom: 0, left: -24 }}>
-                      <CartesianGrid
-                        strokeDasharray="3 3"
-                        stroke="var(--color-border-subtle)"
-                        vertical={false}
-                      />
-                      <XAxis
-                        dataKey="label"
-                        tickLine={false}
-                        axisLine={false}
-                        tick={{ fontSize: 11, fill: 'var(--color-text-tertiary)' }}
-                      />
-                      <YAxis
-                        allowDecimals={false}
-                        tickLine={false}
-                        axisLine={false}
-                        width={40}
-                        tick={{ fontSize: 11, fill: 'var(--color-text-tertiary)' }}
-                      />
-                      <Tooltip
-                        contentStyle={{
-                          borderRadius: '0.5rem',
-                          border: '1px solid var(--color-border-subtle)',
-                          fontSize: '0.75rem',
-                        }}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="POS"
-                        name="긍정"
-                        stroke="var(--color-positive-default)"
-                        strokeWidth={2}
-                        dot={false}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="NEU"
-                        name="중립"
-                        stroke="var(--color-neutral-default)"
-                        strokeWidth={2}
-                        dot={false}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="NEG"
-                        name="부정"
-                        stroke="var(--color-negative-default)"
-                        strokeWidth={2}
-                        dot={false}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
-            </section>
+            <SentimentTrendCard
+              trend={trend}
+              positive={positive}
+              neutral={neutral}
+              negative={negative}
+              refreshIntervalMs={refreshIntervalMs}
+            />
           </div>
 
           <div className="grid gap-3 md:grid-cols-2">
