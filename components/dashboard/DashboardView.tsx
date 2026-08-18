@@ -348,15 +348,23 @@ const DashboardView = () => {
             />
           </div>
 
-          <div className="grid gap-3 md:grid-cols-2">
+          {/*
+           * 목록 카드 둘만 나란히 둡니다. 상위 키워드를 오른쪽 열에 같이 넣으면 그 열 높이가
+           * `h-80` + 키워드 카드가 되는데, 키워드 카드는 배지가 늘거나 카운트가 한 자리
+           * 넓어질 때마다 줄 수가 바뀝니다. 그러면 왼쪽 피드의 스크롤 높이가 읽는 도중에
+           * 흔들립니다. 아래 한 줄로 빼면 자기 줄에서 늘어나도 아무것도 밀지 않습니다(#216).
+           *
+           * 모바일에서는 둘을 뒤집어 모더레이션 큐를 위에 둡니다. 1열로 쌓이면 먼저 눈에
+           * 닿는 자리가 위인데, 손이 가야 하는 건 큐 쪽입니다. `md`부터는 `display`가
+           * grid로 바뀌면서 `flex-direction`이 무시돼 DOM 순서대로 피드가 왼쪽에 섭니다.
+           */}
+          <div className="flex flex-col-reverse gap-3 md:grid md:grid-cols-2">
             <LiveFeedCard items={visible} formatMeta={toMeta} actions={moderation} />
 
-            <div className="flex flex-col gap-3">
-              <ModerationQueue items={queueItems} formatMeta={toMeta} actions={moderation} />
-
-              <KeywordCard keywords={keywords} />
-            </div>
+            <ModerationQueue items={queueItems} formatMeta={toMeta} actions={moderation} />
           </div>
+
+          <KeywordCard keywords={keywords} />
 
           <ReportSection report={report} />
         </>

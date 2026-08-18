@@ -25,7 +25,11 @@ interface LiveFeedCardProps {
 
 const LiveFeedCard = ({ items, formatMeta, actions }: LiveFeedCardProps) => (
   <section className={CARD}>
-    <h2 className={CARD_TITLE}>실시간 소감 피드</h2>
+    {/*
+     * 옆에 서는 모더레이션 큐는 헤더에 `Badge`(`h-6`)가 있어 그 줄이 1.5rem입니다. 제목만
+     * 있는 이쪽은 1rem이라, 맞추지 않으면 목록이 같은 `h-80`이어도 카드가 0.5rem 어긋납니다.
+     */}
+    <h2 className={`${CARD_TITLE} flex h-6 items-center`}>실시간 소감 피드</h2>
 
     {/* 모더레이션 큐와 같은 이유로 높이를 고정합니다(`ModerationQueue.tsx`). */}
     {items.length === 0 ? (
