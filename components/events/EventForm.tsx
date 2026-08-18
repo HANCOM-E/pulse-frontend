@@ -202,6 +202,15 @@ const EventForm = ({ eventCode }: EventFormProps) => {
     editSession({ sessionId, title: editingSessionTitle });
   };
 
+  const handleEditSessionCancel = () => {
+    setEditingSessionId(null);
+  };
+
+  const handleAddSessionCancel = () => {
+    setIsAddingSession(false);
+    setNewSessionTitle('');
+  };
+
   if (isEditMode && eventQuery.isPending) {
     return <p>불러오는 중...</p>;
   }
@@ -280,6 +289,9 @@ const EventForm = ({ eventCode }: EventFormProps) => {
                       value={editingSessionTitle}
                       onChange={(event) => setEditingSessionTitle(event.target.value)}
                     />
+                    <Button type="button" variant="secondary" onClick={handleEditSessionCancel}>
+                      취소
+                    </Button>
                     <Button
                       type="button"
                       variant="secondary"
@@ -323,6 +335,9 @@ const EventForm = ({ eventCode }: EventFormProps) => {
                   onChange={(event) => setNewSessionTitle(event.target.value)}
                   autoFocus
                 />
+                <Button type="button" variant="secondary" onClick={handleAddSessionCancel}>
+                  취소
+                </Button>
                 <Button
                   type="button"
                   variant="secondary"
