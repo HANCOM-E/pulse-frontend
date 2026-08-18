@@ -10,11 +10,11 @@ export interface EventCardProps {
 
 const TONE_BY_STATUS: Record<
   'LIVE' | 'DRAFT' | 'ENDED',
-  { tone: 'positive' | 'neutral' | 'outline'; label: string }
+  { tone: 'positive' | 'neutral' | 'info'; label: string }
 > = {
-  LIVE: { tone: 'positive', label: 'LIVE' },
-  DRAFT: { tone: 'neutral', label: 'DRAFT' },
-  ENDED: { tone: 'outline', label: 'ENDED' },
+  LIVE: { tone: 'positive', label: '● 진행 중' },
+  DRAFT: { tone: 'neutral', label: '준비 중' },
+  ENDED: { tone: 'info', label: '종료' },
 };
 
 const RIGHT_CONTENT_BY_STATUS = {
