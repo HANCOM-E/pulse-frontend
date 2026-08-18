@@ -29,22 +29,23 @@ const CARD_TITLE = 'text-xs font-normal leading-4 text-text-tertiary';
 interface ModerationQueueProps {
   /** 독성으로 표시됐거나 주최자가 숨긴 소감입니다. 이미 숨긴 건도 들어옵니다. */
   items: Feedback[];
-  /** "N건 대기"에 쓰는 값입니다. 처리를 끝낸 건은 빠진 숫자여야 합니다. */
-  waitingCount: number;
   /** 소감 하나의 메타 문구를 만듭니다. 세션 제목을 아는 건 화면 쪽이라 밖에서 받습니다. */
   formatMeta: (feedback: Feedback) => string;
   actions: ModerationActions;
 }
 
-const ModerationQueue = ({ items, waitingCount, formatMeta, actions }: ModerationQueueProps) => (
+const ModerationQueue = ({ items, formatMeta, actions }: ModerationQueueProps) => (
   <section className={CARD}>
     <div className="flex items-center justify-between gap-2">
       <h2 className={CARD_TITLE}>모더레이션 큐</h2>
-      <div className="flex items-center gap-2">
-        <Badge tone="toxic">{waitingCount}건 대기</Badge>
-        {/* 전체보기 모달은 별도 이슈입니다. 지금은 자리만 잡습니다. */}
-        <span className="text-xs font-normal leading-4 text-text-tertiary">전체보기</span>
-      </div>
+      {/*
+       * "N건 대기"라고 쓰지 않습니다. 독성 소감은 제출 시점에 이미 숨겨져서 들어오므로
+       * 조치가 끝난 상태이고, 주최자가 큐를 열어 "이건 숨긴 게 맞네" 하고 닫아도 숫자가
+       * 그대로입니다. 줄지 않는 대기 카운터는 며칠이면 안 보게 됩니다.
+       *
+       * 건수는 목록 길이 그대로입니다. 밖에서 따로 받으면 목록과 숫자가 어긋날 수 있습니다.
+       */}
+      <Badge tone="toxic">{items.length}건</Badge>
     </div>
 
     {/*

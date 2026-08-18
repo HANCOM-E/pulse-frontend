@@ -657,12 +657,7 @@ const DashboardView = () => {
             </section>
 
             <div className="flex flex-col gap-3">
-              <ModerationQueue
-                items={queueItems}
-                waitingCount={queueItems.length}
-                formatMeta={toMeta}
-                actions={moderation}
-              />
+              <ModerationQueue items={queueItems} formatMeta={toMeta} actions={moderation} />
 
               <section className={CARD}>
                 <h2 className={CARD_TITLE}>상위 키워드</h2>
