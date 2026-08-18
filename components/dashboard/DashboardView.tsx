@@ -25,6 +25,7 @@ import { QrCodeDialog } from '@/components/dashboard/QrCodeDialog';
 import { Donut } from '@/components/feedback/Donut';
 import { FEED_SENTIMENT, FeedItem } from '@/components/feedback/FeedItem';
 import { Thermometer } from '@/components/feedback/Thermometer';
+import { EVENT_STATUS_BADGE, isVisibleEvent } from '@/components/events/eventStatusBadge';
 import { ModerationQueue } from '@/components/moderation/ModerationQueue';
 import { Badge } from '@/components/ui/Badge';
 import { Banner } from '@/components/ui/Banner';
@@ -258,7 +259,14 @@ const DashboardView = () => {
    * 같아서 문구를 나누지 않습니다. 나누면 코드를 하나씩 넣어보며 남의 이벤트가 실재하는지
    * 알아낼 수 있습니다.
    */
-  const event = events.find((item) => item.code === eventCode) ?? null;
+  const found = events.find((item) => item.code === eventCode) ?? null;
+
+  /*
+   * `DELETED`도 "볼 수 없다"로 접습니다. 목록 응답에서 이미 빠지는 상태라 실제로는 오지
+   * 않지만, 여기서 좁혀야 아래 상태 배지 표(`EVENT_STATUS_BADGE`)가 DELETED 없는 키로
+   * 안전하게 인덱싱됩니다.
+   */
+  const event = found !== null && isVisibleEvent(found) ? found : null;
 
   if (event === null) {
     return <Banner type="negative">이 이벤트를 볼 수 없어요</Banner>;
@@ -382,7 +390,10 @@ const DashboardView = () => {
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-semibold leading-7 text-text-primary">{event.title}</h1>
-            <Badge tone={event.status === 'LIVE' ? 'positive' : 'neutral'}>{event.status}</Badge>
+            {/* 이벤트 목록과 같은 표를 씁니다. 따로 쓰면 #192처럼 한쪽만 한글화되는 일이 반복됩니다. */}
+            <Badge tone={EVENT_STATUS_BADGE[event.status].tone}>
+              {EVENT_STATUS_BADGE[event.status].label}
+            </Badge>
           </div>
           {/* 복사되는 값과 같은 것을 보여줍니다. 다르면 눈으로 옮겨 적는 사람이 틀립니다. */}
           <p className="text-xs font-normal leading-4 break-all text-primary-darker">{publicUrl}</p>
