@@ -6,6 +6,7 @@ import { useState } from 'react';
 
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { DashboardSkeleton } from '@/components/dashboard/DashboardSkeleton';
+import { KeywordCard } from '@/components/dashboard/KeywordCard';
 import { LiveFeedCard } from '@/components/dashboard/LiveFeedCard';
 import {
   buildTrend,
@@ -22,7 +23,6 @@ import { Donut } from '@/components/feedback/Donut';
 import { Thermometer } from '@/components/feedback/Thermometer';
 import { isVisibleEvent } from '@/components/events/eventStatusBadge';
 import { ModerationQueue } from '@/components/moderation/ModerationQueue';
-import { Badge } from '@/components/ui/Badge';
 import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -354,23 +354,7 @@ const DashboardView = () => {
             <div className="flex flex-col gap-3">
               <ModerationQueue items={queueItems} formatMeta={toMeta} actions={moderation} />
 
-              <section className={CARD}>
-                <h2 className={CARD_TITLE}>상위 키워드</h2>
-
-                {keywords.length === 0 ? (
-                  <p className="text-sm text-text-tertiary">아직 모인 키워드가 없어요</p>
-                ) : (
-                  <ul className="flex flex-wrap gap-2">
-                    {keywords.map(([keyword, count]) => (
-                      <li key={keyword}>
-                        <Badge tone="outline">
-                          {keyword} {count}
-                        </Badge>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </section>
+              <KeywordCard keywords={keywords} />
             </div>
           </div>
 

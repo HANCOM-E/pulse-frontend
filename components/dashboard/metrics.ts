@@ -48,6 +48,9 @@ interface SentimentSummary {
   positiveRate: number;
 }
 
+/** 키워드 하나와 그 횟수입니다. `Map` 엔트리 모양 그대로라 라벨로 자리를 표시합니다. */
+type KeywordCount = [keyword: string, count: number];
+
 /**
  * 소감을 5분 칸으로 묶어 감정별 건수를 셉니다.
  *
@@ -81,7 +84,7 @@ const buildTrend = (feedbacks: Feedback[]) => {
 };
 
 /** 빈도순 상위 키워드입니다. 같은 횟수면 가나다순으로 고정해서 폴링마다 순서가 바뀌지 않게 합니다. */
-const countKeywords = (feedbacks: Feedback[]) => {
+const countKeywords = (feedbacks: Feedback[]): KeywordCount[] => {
   const counts = new Map<string, number>();
 
   feedbacks.forEach((feedback) => {
@@ -129,5 +132,6 @@ export {
   countKeywords,
   summarizeSentiments,
   toRelativeTime,
+  type KeywordCount,
   type TrendPoint,
 };
