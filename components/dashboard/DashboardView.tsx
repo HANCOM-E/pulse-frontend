@@ -36,14 +36,12 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { Stat } from '@/components/ui/Stat';
 import { useCopyLink } from '@/hooks/useCopyLink';
 import { useDashboardFeed } from '@/hooks/useDashboardFeed';
+import { useEventReport } from '@/hooks/useEventReport';
 import { useModerationActions } from '@/hooks/useModerationActions';
 import { showToast } from '@/hooks/useToast';
 import {
   fetchMyEvents,
-  fetchOwnReport,
   fetchSessionsByEventCode,
-  generateReport,
-  setReportPublic,
   updateEvent,
   updateSession,
 } from '@/lib/api/endpoints';
@@ -62,12 +60,6 @@ import type { Feedback } from '@/lib/schemas/api';
 
 const CARD = 'flex flex-col gap-3 rounded-xl border border-border-subtle p-4';
 const CARD_TITLE = 'text-xs font-normal leading-4 text-text-tertiary';
-
-/**
- * 리포트가 만들어지는 동안만 쓰는 간격입니다. 소감 폴링(5초)보다 짧은 이유는, 이쪽은 버튼을
- * 누른 사람이 결과를 기다리며 보고 있는 화면이라서입니다. 끝나는 즉시 타이머를 멈춥니다.
- */
-const REPORT_POLL_INTERVAL_MS = 1_500;
 
 const DashboardView = () => {
   const { eventCode } = useParams<{ eventCode: string }>();
@@ -163,48 +155,8 @@ const DashboardView = () => {
    */
   const eventStatus = events?.find((item) => item.code === eventCode)?.status;
 
-  const reportQueryKey = ['report', eventCode];
-
-  /*
-   * 리포트 행이 없는 상태(개념상 NONE)는 404 REPORT_NOT_FOUND로 옵니다. 에러로 오지만 "아직
-   * 생성하지 않았다"는 정상 상태라, 화면은 이걸 실패가 아니라 생성 전으로 읽습니다.
-   * `QueryProvider`의 `retry`가 4xx를 이미 거르므로 없는 리포트를 두들기지도 않습니다.
-   *
-   * 생성이 비동기라 폴링이 필요합니다. `GENERATING` 동안에만 돌리고 나머지 상태에서는 멈춥니다.
-   * 완료된 리포트를 계속 다시 받아봐야 같은 답이고, 여기서 멈추지 않으면 이 화면을 열어둔 내내
-   * 1.5초마다 요청이 나갑니다.
-   */
-  const reportQuery = useQuery({
-    queryKey: reportQueryKey,
-    queryFn: () => fetchOwnReport(eventCode),
-    // 생성 자체가 `ENDED`에서만 가능해서, 그 전에는 물어볼 이유가 없습니다.
-    enabled: eventStatus === 'ENDED',
-    refetchInterval: ({ state }) =>
-      state.data?.status === 'GENERATING' ? REPORT_POLL_INTERVAL_MS : false,
-  });
-
-  const generateReportMutation = useMutation({
-    mutationFn: () => generateReport(eventCode),
-    /*
-     * 202 응답이 이미 `GENERATING` 상태의 리포트입니다. 캐시에 바로 꽂아야 위 폴링이 그 자리에서
-     * 시작합니다. `invalidateQueries`로도 되지만 방금 받은 답을 한 번 더 물어보게 됩니다.
-     */
-    onSuccess: (report) => {
-      queryClient.setQueryData(reportQueryKey, report);
-    },
-  });
-
-  /*
-   * 공개 여부만 뒤집습니다. 생성 직후 리포트는 비공개라(`isPublic: false`), 공개 페이지가 열리려면
-   * 주최자가 한 번 더 눌러야 합니다. 요약을 먼저 읽어보고 내보낼지 정하라는 순서입니다.
-   */
-  const setReportPublicMutation = useMutation({
-    mutationFn: (isPublic: boolean) => setReportPublic(eventCode, isPublic),
-    onSuccess: (report) => {
-      queryClient.setQueryData(reportQueryKey, report);
-      showToast(report.isPublic ? '리포트를 공개했어요' : '리포트를 비공개로 바꿨어요');
-    },
-  });
+  /* 조회·생성·공개 전환이 같은 캐시 칸을 두고 움직여서 한 훅으로 묶여 있습니다. */
+  const report = useEventReport(eventCode, eventStatus);
 
   /*
    * 선택한 세션의 소감 수신을 켜고 끕니다. 세션은 생성 시 `CLOSED`라, 발표가 시작될 때 주최자가
@@ -343,35 +295,14 @@ const DashboardView = () => {
   const toMeta = (feedback: Feedback) =>
     `${toRelativeTime(feedback.createdAt)} · ${sessionTitle(feedback.sessionId)}`;
 
-  const report = reportQuery.data ?? null;
-
-  /*
-   * 요청을 보낸 순간부터 "생성 중"입니다. 202가 돌아오기를 기다리는 동안에도 버튼은 이미
-   * 눌렸으므로, 서버 응답이 오기 전 빈 구간을 mutation의 대기 상태가 메웁니다.
-   */
-  const isReportGenerating = generateReportMutation.isPending || report?.status === 'GENERATING';
-  const isReportGenerated = report?.status === 'GENERATED';
-
-  /*
-   * 본문은 `GENERATED`에서만 채워집니다. 다만 `reportSchema`가 `status`와 `summaryText`를 묶지
-   * 않아서 `GENERATED`인데 본문이 비어 오는 응답도 검증을 통과합니다. 그 경우까지 아래 안내문이
-   * 갈라 받습니다.
-   */
-  const summaryText = report?.status === 'GENERATED' ? report.summaryText : null;
-
-  /* 상태를 모르는 동안은 잠급니다. 이미 리포트가 있는 이벤트에서 눌리면 REPORT_ALREADY_EXISTS만 받습니다. */
-  const isReportUnknown = event.status === 'ENDED' && reportQuery.isPending;
-
-  const isReportPublic = report?.isPublic ?? false;
-
   /*
    * 리포트 카드의 상태 배지입니다. 모바일에선 제목 옆, 데스크톱에선 오른쪽 조치 자리에
    * 서는데 부모가 달라 CSS로는 옮길 수 없습니다. 두 자리에 같은 것을 두고 감싸는 span으로
    * 하나씩 감추므로, 본문은 여기서 한 번만 만듭니다.
    */
-  const reportBadge = isReportGenerating ? (
+  const reportBadge = report.isGenerating ? (
     <Badge tone="neutral">생성 중</Badge>
-  ) : isReportGenerated ? (
+  ) : report.isGenerated ? (
     <Badge tone="positive">생성 완료</Badge>
   ) : null;
 
@@ -419,17 +350,17 @@ const DashboardView = () => {
                * 배치로 돌아가고, 그때는 밀어낼 여백이 없어 `ml-auto`도 함께 죽습니다.
                */
               <div className="flex flex-1 items-center gap-2 md:flex-none">
-                {isReportGenerating && <Badge tone="neutral">생성 중</Badge>}
-                {isReportGenerated && <Badge tone="positive">생성 완료</Badge>}
+                {report.isGenerating && <Badge tone="neutral">생성 중</Badge>}
+                {report.isGenerated && <Badge tone="positive">생성 완료</Badge>}
 
                 {/* 다 만든 리포트에는 다시 만들 길이 없습니다(재생성은 REPORT_ALREADY_EXISTS). */}
-                {!isReportGenerated && (
+                {!report.isGenerated && (
                   <Button
                     variant="secondary"
                     size="sm"
                     className="ml-auto"
-                    disabled={event.status !== 'ENDED' || isReportUnknown || isReportGenerating}
-                    onClick={() => generateReportMutation.mutate()}
+                    disabled={event.status !== 'ENDED' || report.isUnknown || report.isGenerating}
+                    onClick={report.generate}
                   >
                     요약 생성
                   </Button>
@@ -461,14 +392,14 @@ const DashboardView = () => {
              * 다 만든 리포트에만 붙습니다. 만들기 전이나 만드는 중에는 뒤집을 공개 여부 자체가
              * 없습니다(`GENERATED`가 아니면 공개해도 게스트는 404를 봅니다).
              */}
-            {isReportGenerated && (
+            {report.isGenerated && (
               <Button
                 variant="secondary"
                 size="sm"
-                disabled={setReportPublicMutation.isPending}
-                onClick={() => setReportPublicMutation.mutate(!isReportPublic)}
+                disabled={report.isTogglePublicPending}
+                onClick={report.togglePublic}
               >
-                {isReportPublic ? '리포트 비공개' : '리포트 공개'}
+                {report.isPublic ? '리포트 비공개' : '리포트 공개'}
               </Button>
             )}
             {event.status === 'LIVE' && (
@@ -573,10 +504,8 @@ const DashboardView = () => {
       {isFeedError && <Banner type="negative">지금은 소감을 불러올 수 없어요</Banner>}
       {moderation.isError && <Banner type="negative">소감 처리에 실패했어요</Banner>}
       {endEventMutation.isError && <Banner type="negative">이벤트를 종료하지 못했어요</Banner>}
-      {generateReportMutation.isError && (
-        <Banner type="negative">요약 리포트를 만들지 못했어요</Banner>
-      )}
-      {setReportPublicMutation.isError && (
+      {report.isGenerateError && <Banner type="negative">요약 리포트를 만들지 못했어요</Banner>}
+      {report.isTogglePublicError && (
         <Banner type="negative">리포트 공개 설정을 바꾸지 못했어요</Banner>
       )}
       {toggleSessionMutation.isError && (
@@ -767,7 +696,7 @@ const DashboardView = () => {
            * 안내문이 요약이 없을 때만 필요한 문장이라서입니다.
            *
            * 생성이 끝났는데 본문이 비어 있는 경우를 따로 받습니다. 여기서 "생성하시면…"으로
-           * 되돌리면 오른쪽 버튼은 이미 빠진 뒤라(`isReportGenerated`) 시키는 대로 할 수단이
+           * 되돌리면 오른쪽 버튼은 이미 빠진 뒤라(`report.isGenerated`) 시키는 대로 할 수단이
            * 없습니다. `GENERATING` 문구로 묶지 않는 것도 같은 이유입니다 — 폴링이 `GENERATED`에서
            * 멈춰서(위 `refetchInterval`) 기다려도 아무것도 다시 오지 않습니다.
            */}
@@ -783,13 +712,15 @@ const DashboardView = () => {
                 {reportBadge && <span className="md:hidden">{reportBadge}</span>}
               </div>
 
-              {summaryText !== null ? (
-                <p className="text-sm font-normal leading-5 text-text-secondary">{summaryText}</p>
+              {report.summaryText !== null ? (
+                <p className="text-sm font-normal leading-5 text-text-secondary">
+                  {report.summaryText}
+                </p>
               ) : (
                 <p className="text-xs font-normal leading-4 text-text-tertiary">
-                  {isReportGenerating
+                  {report.isGenerating
                     ? '요약을 만들고 있어요. 끝나면 여기에 올라와요'
-                    : isReportGenerated
+                    : report.isGenerated
                       ? '요약 본문을 받지 못했어요. 잠시 후 다시 열어봐 주세요'
                       : '생성하시면 읽어보고 공개할 수 있어요'}
                 </p>
@@ -806,18 +737,18 @@ const DashboardView = () => {
              */}
             <div
               className={`flex w-full shrink-0 items-center gap-2 md:w-auto ${
-                isReportGenerated ? 'hidden md:flex' : ''
+                report.isGenerated ? 'hidden md:flex' : ''
               }`}
             >
               {reportBadge && <span className="hidden md:contents">{reportBadge}</span>}
 
               {/* 다 만든 리포트에는 다시 만들 길이 없습니다(재생성은 REPORT_ALREADY_EXISTS). */}
-              {!isReportGenerated && (
+              {!report.isGenerated && (
                 <Button
                   className="flex-1 md:flex-none"
                   variant="primary"
-                  disabled={event.status !== 'ENDED' || isReportUnknown || isReportGenerating}
-                  onClick={() => generateReportMutation.mutate()}
+                  disabled={event.status !== 'ENDED' || report.isUnknown || report.isGenerating}
+                  onClick={report.generate}
                 >
                   요약 생성
                 </Button>
