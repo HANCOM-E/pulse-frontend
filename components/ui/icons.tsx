@@ -47,5 +47,17 @@ const ChevronRightIcon = (props: IconProps) => (
   </svg>
 );
 
-export { AlertIcon, CheckIcon, InfoIcon, XIcon, ChevronRightIcon };
+const ChevronLeftIcon = (props: IconProps) => (
+  <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true" {...props}>
+    <path
+      d="M11.25 4.5L6.75 9L11.25 13.5"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+export { AlertIcon, CheckIcon, InfoIcon, XIcon, ChevronRightIcon, ChevronLeftIcon };
 export type { IconProps };
