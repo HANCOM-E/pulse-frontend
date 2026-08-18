@@ -46,7 +46,7 @@ const LivePage = async ({ params, searchParams }: PageProps<'/e/[code]/live'>) =
    */
   return (
     <main className="mx-auto flex w-full max-w-md flex-col gap-6 px-5 py-4">
-      <Suspense fallback={<LiveSkeleton />}>
+      <Suspense fallback={<LiveSkeleton withHeading />}>
         <LiveResult />
       </Suspense>
     </main>
