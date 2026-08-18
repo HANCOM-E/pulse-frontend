@@ -115,6 +115,7 @@ const EventForm = ({ eventCode }: EventFormProps) => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['event', eventCode] });
       showToast('이벤트를 시작했어요');
+      router.push(`/events/${eventCode}/dashboard`);
     },
     onError: (error) => {
       if (error instanceof ApiError && error.code === 'INVALID_EVENT_STATE_TRANSITION') {
