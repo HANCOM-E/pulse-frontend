@@ -75,7 +75,7 @@ const FeedItem = ({
 
       <p className={`text-base font-normal leading-6 ${CONTENT[state]}`}>{content}</p>
 
-      {actions ? <div className="flex gap-1.5">{actions}</div> : null}
+      {actions ? <div className="flex justify-end gap-1.5">{actions}</div> : null}
     </article>
   );
 };
