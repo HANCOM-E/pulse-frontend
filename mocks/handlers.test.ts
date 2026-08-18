@@ -589,12 +589,16 @@ describe('모더레이션 큐', () => {
   });
 
   it('eventCode 필터를 주면 해당 이벤트 소감만 나온다', async () => {
-    const scoped = await call(`/admin/feedbacks?eventCode=${LIVE_EVENT_CODE}&toxic=true`, {
-      headers: AUTH_HEADERS,
-    });
+    const scoped = await call(
+      `/admin/feedbacks?eventCode=${LIVE_EVENT_CODE}&toxic=true&includeHidden=true`,
+      { headers: AUTH_HEADERS },
+    );
     const scopedBody = feedbackListResponseSchema.parse(await scoped.json());
 
-    const all = await call('/admin/feedbacks?toxic=true', { headers: AUTH_HEADERS });
+    const all = await call('/admin/feedbacks?toxic=true&includeHidden=true', {
+      headers: AUTH_HEADERS,
+    });
+
     const allBody = feedbackListResponseSchema.parse(await all.json());
 
     expect(scopedBody.items.length).toBeGreaterThan(0);
@@ -610,7 +614,7 @@ describe('모더레이션 큐', () => {
 
     const queue = feedbackListResponseSchema.parse(
       await (
-        await call(`/admin/feedbacks?eventCode=${LIVE_EVENT_CODE}&sessionId=101&toxic=true`, {
+        await call(`/admin/feedbacks?eventCode=${LIVE_EVENT_CODE}&sessionId=101`, {
           headers: AUTH_HEADERS,
         })
       ).json(),
@@ -744,12 +748,6 @@ describe('소감 제출', () => {
     expect(body).not.toHaveProperty('toxic');
   });
 
-  /*
-   * 독성 건수만 `visible`이 아니라 전체를 셉니다. 독성 소감은 제출 시점에
-   * 이미 HIDDEN으로 저장되므로 `visible`에는 한 건도 남지 않습니다.
-   * 이건 감정 집계가 아니라 모더레이션 지표라서, 숨겼어도 몇 건 들어왔는지는
-   * 주최자에게 보여야 합니다. `visible` 기준으로 되돌리지 마세요.
-   */
   it('독성으로 태깅된 소감은 HIDDEN으로 저장되어 공개 스냅샷에 안 나온다', async () => {
     const response = await call(`/events/${LIVE_EVENT_CODE}/feedbacks`, {
       method: 'POST',
