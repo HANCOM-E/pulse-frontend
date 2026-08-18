@@ -38,6 +38,20 @@
 
 이 표가 여기 있는 이유는 `ui/Badge`가 Pulse를 몰라야 하기 때문입니다. 감정을 문구로 바꾸는 일은 도메인 컴포넌트가 합니다.
 
+### 서버 코드 → `sentiment`는 `FEED_SENTIMENT`가 바꿉니다
+
+API의 `Sentiment`(`POS`·`NEU`·`NEG`·`UNKNOWN`)를 위 prop 값으로 옮기는 표를 같은 파일에서 내보냅니다.
+
+```tsx
+import { FEED_SENTIMENT, FeedItem } from '@/components/feedback/FeedItem';
+
+<FeedItem sentiment={FEED_SENTIMENT[feedback.sentiment]} ... />;
+```
+
+유니온과 같은 파일에 둬서 감정을 하나 더 늘릴 때 짝을 빠뜨릴 수 없게 했습니다. 실시간 피드와 모더레이션 큐가 같이 씁니다.
+
+**`toxic`은 이 표에 없습니다.** 독성은 감정 분류가 아니라 따로 붙는 플래그라, 감정 대신 독성 배지를 보여줄지는 쓰는 화면이 정합니다. 모더레이션 큐는 `feedback.toxic ? 'toxic' : FEED_SENTIMENT[feedback.sentiment]`로 가릅니다 — 주최자가 손으로 숨긴 소감까지 `⚑ 독성 의심`으로 그리면 자동 판정 결과처럼 읽힙니다.
+
 ### `· 숨김`은 자동으로 붙습니다
 
 `state="hidden"`이면 메타 문구 끝에 `· 숨김`이 붙습니다.
@@ -252,6 +266,7 @@ import { Donut } from '@/components/feedback/Donut';
 
 ## 결정 기록
 
+- 2026.08.14 (#170) — 서버 감정 코드 → `sentiment` 매핑(`FEED_SENTIMENT`)을 `DashboardView`에서 `FeedItem.tsx`로 옮겨 내보냄. 실시간 피드에 숨기기 버튼이 붙으면서 모더레이션 큐도 같은 매핑이 필요해졌는데, 화면마다 두면 한쪽만 고쳐짐. 독성은 감정 분류가 아니라 별도 플래그라 표에 넣지 않음
 - 2026.08.07 (#63) — 범례를 `SentimentLegend`로 분리하고 계산을 `sentiment.ts`로 뺌. 두 차트의 범례가 글자 하나까지 같아서, 각자 두면 감정 → 색·문구 매핑이 두 파일에 생기고 한쪽만 고쳐짐
 - 2026.08.07 (#63) — Donut 링 두께를 16으로 정함. 시안이 원 세 개를 겹쳐놓은 상태라 두께도 각도도 없었음. Thermometer 막대 높이(`h-4`)와 맞춤
 - 2026.08.07 (#63) — Donut에 카드를 넣지 않음. 시안의 240 × 178은 옆 카드와 높이를 맞춘 값이고 내용에서 계산하면 172임. Thermometer와 같은 판단
