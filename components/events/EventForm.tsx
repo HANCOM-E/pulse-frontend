@@ -267,7 +267,7 @@ const EventForm = ({ eventCode }: EventFormProps) => {
         {isEditMode ? (
           <section className="flex flex-col gap-2">
             <p className="text-xs font-normal leading-4 text-text-secondary">세션 목록</p>
-            {sessions.map((session) => (
+            {sessions.map((session, index) => (
               <div
                 key={session.id}
                 className="flex items-center justify-between gap-2 rounded-lg border border-border-default px-4 py-3"
@@ -276,6 +276,7 @@ const EventForm = ({ eventCode }: EventFormProps) => {
                   <>
                     <input
                       className="flex-1 rounded border border-border-default px-2 py-1 text-sm"
+                      placeholder="세션 이름 입력"
                       value={editingSessionTitle}
                       onChange={(event) => setEditingSessionTitle(event.target.value)}
                     />
@@ -290,7 +291,9 @@ const EventForm = ({ eventCode }: EventFormProps) => {
                   </>
                 ) : (
                   <>
-                    <span className="text-sm text-text-primary">{session.title}</span>
+                    <span className="text-sm text-text-primary">
+                      {index + 1}. {session.title}
+                    </span>
                     <div className="flex gap-2 text-xs text-text-secondary">
                       <button
                         type="button"
@@ -315,7 +318,7 @@ const EventForm = ({ eventCode }: EventFormProps) => {
               <div className="flex items-center gap-2 rounded-lg border border-border-default px-4 py-3">
                 <input
                   className="flex-1 rounded border border-border-default px-2 py-1 text-sm"
-                  placeholder="세션 제목을 입력하세요."
+                  placeholder="세션 이름 입력"
                   value={newSessionTitle}
                   onChange={(event) => setNewSessionTitle(event.target.value)}
                   autoFocus
