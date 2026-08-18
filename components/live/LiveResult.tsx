@@ -196,11 +196,11 @@ const LiveResult = () => {
           <section className="flex flex-col gap-2">
             <h3 className="text-xs text-text-tertiary">많이 나온 말</h3>
             {keywords.length === 0 ? (
-              <p className="flex min-h-32 items-center justify-center rounded-xl border border-border-subtle px-5 py-8 text-sm text-text-tertiary">
+              <p className="flex min-h-32 items-center justify-center rounded-xl border border-border-subtle p-4 text-sm text-text-tertiary">
                 아직 모인 키워드가 없어요
               </p>
             ) : (
-              <ul className="flex min-h-32 flex-wrap items-center justify-center gap-x-6 gap-y-4 rounded-xl border border-border-subtle px-5 py-8">
+              <ul className="flex min-h-32 flex-wrap items-center justify-center gap-x-6 gap-y-4 rounded-xl border border-border-subtle p-4">
                 {keywords.map(({ keyword, count }) => (
                   <li key={keyword}>
                     {keyword}
