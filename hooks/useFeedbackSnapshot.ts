@@ -16,7 +16,7 @@ import type { FeedbackSnapshot } from '@/lib/schemas/api';
  * 전제한 코드를 갖게 되면 격리한 의미가 없어집니다.
  */
 
-const REFRESH_INTERVAL_MS = 5_000;
+const REFRESH_INTERVAL_MS = 3_000;
 
 interface UseFeedbackSnapshotParams {
   eventCode: string;
