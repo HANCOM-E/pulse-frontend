@@ -3,50 +3,37 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'next/navigation';
 import { useState } from 'react';
-import {
-  CartesianGrid,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
 
+import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { DashboardSkeleton } from '@/components/dashboard/DashboardSkeleton';
+import { KeywordCard } from '@/components/dashboard/KeywordCard';
+import { LiveFeedCard } from '@/components/dashboard/LiveFeedCard';
 import {
   buildTrend,
   countKeywords,
   summarizeSentiments,
   toRelativeTime,
-  TREND_BUCKET_MS,
 } from '@/components/dashboard/metrics';
 import { QrCodeDialog } from '@/components/dashboard/QrCodeDialog';
+import { ReportSection } from '@/components/dashboard/ReportSection';
+import { SentimentTrendCard } from '@/components/dashboard/SentimentTrendCard';
+import { SessionFilterBar } from '@/components/dashboard/SessionFilterBar';
+import { SessionToggle } from '@/components/dashboard/SessionToggle';
 import { Donut } from '@/components/feedback/Donut';
-import { FEED_SENTIMENT, FeedItem } from '@/components/feedback/FeedItem';
 import { Thermometer } from '@/components/feedback/Thermometer';
-import { EVENT_STATUS_BADGE, isVisibleEvent } from '@/components/events/eventStatusBadge';
+import { isVisibleEvent } from '@/components/events/eventStatusBadge';
 import { ModerationQueue } from '@/components/moderation/ModerationQueue';
-import { Badge } from '@/components/ui/Badge';
 import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
-import { Chip } from '@/components/ui/Chip';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { EmptyState } from '@/components/ui/EmptyState';
 import { Stat } from '@/components/ui/Stat';
 import { useCopyLink } from '@/hooks/useCopyLink';
 import { useDashboardFeed } from '@/hooks/useDashboardFeed';
+import { useEventReport } from '@/hooks/useEventReport';
 import { useModerationActions } from '@/hooks/useModerationActions';
+import { useSessionControls } from '@/hooks/useSessionControls';
 import { showToast } from '@/hooks/useToast';
-import {
-  fetchMyEvents,
-  fetchOwnReport,
-  fetchSessionsByEventCode,
-  generateReport,
-  setReportPublic,
-  updateEvent,
-  updateSession,
-} from '@/lib/api/endpoints';
+import { fetchMyEvents, fetchSessionsByEventCode, updateEvent } from '@/lib/api/endpoints';
 import { ApiError } from '@/lib/apiClient';
 import type { Feedback } from '@/lib/schemas/api';
 
@@ -63,12 +50,6 @@ import type { Feedback } from '@/lib/schemas/api';
 const CARD = 'flex flex-col gap-3 rounded-xl border border-border-subtle p-4';
 const CARD_TITLE = 'text-xs font-normal leading-4 text-text-tertiary';
 
-/**
- * 리포트가 만들어지는 동안만 쓰는 간격입니다. 소감 폴링(5초)보다 짧은 이유는, 이쪽은 버튼을
- * 누른 사람이 결과를 기다리며 보고 있는 화면이라서입니다. 끝나는 즉시 타이머를 멈춥니다.
- */
-const REPORT_POLL_INTERVAL_MS = 1_500;
-
 const DashboardView = () => {
   const { eventCode } = useParams<{ eventCode: string }>();
 
@@ -77,15 +58,6 @@ const DashboardView = () => {
 
   const [isQrOpen, setIsQrOpen] = useState(false);
   const [isEndConfirmOpen, setIsEndConfirmOpen] = useState(false);
-
-  /*
-   * 이 화면에서 멈춘 세션입니다. 세션은 생성 시 `CLOSED`라(2026-08-07 명세) 상태만으로는 "아직
-   * 열지 않았다"와 "열었다가 멈췄다"를 가를 수 없는데, 버튼이 권하는 다음 행동은 그 둘이 다릅니다.
-   *
-   * `SessionView`에는 열린 적이 있는지 알려주는 필드가 없어서 화면이 직접 기억합니다. 새로고침하면
-   * 잊고 다른 기기에서 멈춘 것도 모릅니다 — 정확히 하려면 서버에 흔적이 필요합니다(#143).
-   */
-  const [pausedSessionIds, setPausedSessionIds] = useState<ReadonlySet<number>>(new Set());
 
   const { copy: copyLink, isFailed: isCopyFailed } = useCopyLink();
 
@@ -163,71 +135,11 @@ const DashboardView = () => {
    */
   const eventStatus = events?.find((item) => item.code === eventCode)?.status;
 
-  const reportQueryKey = ['report', eventCode];
+  /* 조회·생성·공개 전환이 같은 캐시 칸을 두고 움직여서 한 훅으로 묶여 있습니다. */
+  const report = useEventReport(eventCode, eventStatus);
 
-  /*
-   * 리포트 행이 없는 상태(개념상 NONE)는 404 REPORT_NOT_FOUND로 옵니다. 에러로 오지만 "아직
-   * 생성하지 않았다"는 정상 상태라, 화면은 이걸 실패가 아니라 생성 전으로 읽습니다.
-   * `QueryProvider`의 `retry`가 4xx를 이미 거르므로 없는 리포트를 두들기지도 않습니다.
-   *
-   * 생성이 비동기라 폴링이 필요합니다. `GENERATING` 동안에만 돌리고 나머지 상태에서는 멈춥니다.
-   * 완료된 리포트를 계속 다시 받아봐야 같은 답이고, 여기서 멈추지 않으면 이 화면을 열어둔 내내
-   * 1.5초마다 요청이 나갑니다.
-   */
-  const reportQuery = useQuery({
-    queryKey: reportQueryKey,
-    queryFn: () => fetchOwnReport(eventCode),
-    // 생성 자체가 `ENDED`에서만 가능해서, 그 전에는 물어볼 이유가 없습니다.
-    enabled: eventStatus === 'ENDED',
-    refetchInterval: ({ state }) =>
-      state.data?.status === 'GENERATING' ? REPORT_POLL_INTERVAL_MS : false,
-  });
-
-  const generateReportMutation = useMutation({
-    mutationFn: () => generateReport(eventCode),
-    /*
-     * 202 응답이 이미 `GENERATING` 상태의 리포트입니다. 캐시에 바로 꽂아야 위 폴링이 그 자리에서
-     * 시작합니다. `invalidateQueries`로도 되지만 방금 받은 답을 한 번 더 물어보게 됩니다.
-     */
-    onSuccess: (report) => {
-      queryClient.setQueryData(reportQueryKey, report);
-    },
-  });
-
-  /*
-   * 공개 여부만 뒤집습니다. 생성 직후 리포트는 비공개라(`isPublic: false`), 공개 페이지가 열리려면
-   * 주최자가 한 번 더 눌러야 합니다. 요약을 먼저 읽어보고 내보낼지 정하라는 순서입니다.
-   */
-  const setReportPublicMutation = useMutation({
-    mutationFn: (isPublic: boolean) => setReportPublic(eventCode, isPublic),
-    onSuccess: (report) => {
-      queryClient.setQueryData(reportQueryKey, report);
-      showToast(report.isPublic ? '리포트를 공개했어요' : '리포트를 비공개로 바꿨어요');
-    },
-  });
-
-  /*
-   * 선택한 세션의 소감 수신을 켜고 끕니다. 세션은 생성 시 `CLOSED`라, 발표가 시작될 때 주최자가
-   * 열어야 소감이 들어옵니다(2026-08-07 명세).
-   *
-   * 이벤트 종료와 달리 확인 다이얼로그를 두지 않습니다. `ACTIVE ↔ CLOSED`는 되돌릴 수 있어서
-   * 잘못 눌러도 다시 누르면 그만입니다.
-   */
-  const toggleSessionMutation = useMutation({
-    mutationFn: ({ id, status }: { id: number; status: 'ACTIVE' | 'CLOSED' }) =>
-      updateSession(eventCode, id, { status }),
-    onSuccess: (session) => {
-      queryClient.invalidateQueries({ queryKey: ['sessions', eventCode] });
-      /* 다시 열면 지웁니다. 남겨두면 멈췄다 연 세션을 또 멈출 때가 아니라 처음 열 때부터 "다시"가 됩니다. */
-      setPausedSessionIds((previous) => {
-        const next = new Set(previous);
-        if (session.status === 'ACTIVE') next.delete(session.id);
-        else next.add(session.id);
-        return next;
-      });
-      showToast(session.status === 'ACTIVE' ? '이제 소감을 받아요' : '소감 받기를 멈췄어요');
-    },
-  });
+  /* 뒤집기와 「이 화면에서 멈춘 세션인가」 판정이 한 덩어리라 훅으로 묶여 있습니다. */
+  const sessionControls = useSessionControls(eventCode);
 
   const handleSelectSession = (nextSessionId: number | null) => {
     setSessionId(nextSessionId);
@@ -285,8 +197,6 @@ const DashboardView = () => {
     return <DashboardSkeleton />;
   }
 
-  const openSessionCount = sessions.filter((session) => session.status === 'ACTIVE').length;
-
   /*
    * 참가자가 QR을 찍거나 링크를 눌러 들어오는 주소입니다. 배포 도메인을 환경 변수로 들고 있지
    * 않아서 지금 출처를 알 방법은 브라우저가 열고 있는 주소뿐입니다.
@@ -343,243 +253,58 @@ const DashboardView = () => {
   const toMeta = (feedback: Feedback) =>
     `${toRelativeTime(feedback.createdAt)} · ${sessionTitle(feedback.sessionId)}`;
 
-  const report = reportQuery.data ?? null;
-
-  /*
-   * 요청을 보낸 순간부터 "생성 중"입니다. 202가 돌아오기를 기다리는 동안에도 버튼은 이미
-   * 눌렸으므로, 서버 응답이 오기 전 빈 구간을 mutation의 대기 상태가 메웁니다.
-   */
-  const isReportGenerating = generateReportMutation.isPending || report?.status === 'GENERATING';
-  const isReportGenerated = report?.status === 'GENERATED';
-
-  /*
-   * 본문은 `GENERATED`에서만 채워집니다. 다만 `reportSchema`가 `status`와 `summaryText`를 묶지
-   * 않아서 `GENERATED`인데 본문이 비어 오는 응답도 검증을 통과합니다. 그 경우까지 아래 안내문이
-   * 갈라 받습니다.
-   */
-  const summaryText = report?.status === 'GENERATED' ? report.summaryText : null;
-
-  /* 상태를 모르는 동안은 잠급니다. 이미 리포트가 있는 이벤트에서 눌리면 REPORT_ALREADY_EXISTS만 받습니다. */
-  const isReportUnknown = event.status === 'ENDED' && reportQuery.isPending;
-
-  const isReportPublic = report?.isPublic ?? false;
-
-  /*
-   * 리포트 카드의 상태 배지입니다. 모바일에선 제목 옆, 데스크톱에선 오른쪽 조치 자리에
-   * 서는데 부모가 달라 CSS로는 옮길 수 없습니다. 두 자리에 같은 것을 두고 감싸는 span으로
-   * 하나씩 감추므로, 본문은 여기서 한 번만 만듭니다.
-   */
-  const reportBadge = isReportGenerating ? (
-    <Badge tone="neutral">생성 중</Badge>
-  ) : isReportGenerated ? (
-    <Badge tone="positive">생성 완료</Badge>
-  ) : null;
-
   /* 칩에서 고른 세션입니다. "전체"(`null`)에는 켜고 끌 대상이 없어 아래 토글을 감춥니다. */
   const selectedSession =
     sessionId === null ? null : (sessions.find((session) => session.id === sessionId) ?? null);
 
-  /* 같은 `CLOSED`라도 이 화면에서 멈춘 세션은 "다시", 아직 안 연 세션은 "처음"입니다. */
-  const isSelectedSessionPaused =
-    selectedSession !== null && pausedSessionIds.has(selectedSession.id);
+  /*
+   * 세션 토글은 데스크톱에선 헤더 안, 모바일에선 칩 줄 아래에 섭니다. 부모가 달라 CSS로는 옮길
+   * 수 없어서 자리마다 하나씩 두고 `className`으로 감춥니다. 조건과 넘기는 값이 같으므로
+   * 여기서 한 번만 만듭니다.
+   *
+   * `LIVE`에서만 내놓습니다. 제출은 이벤트가 `LIVE`이고 세션이 `ACTIVE`여야 통과하는데,
+   * 시작 전이나 끝난 뒤에 세션만 열어두면 화면은 "소감 받는 중"이라고 하고 참가자는
+   * `EVENT_NOT_LIVE`로 막히는 거짓말이 됩니다.
+   */
+  const renderSessionToggle = (className: string) =>
+    event.status === 'LIVE' && selectedSession !== null ? (
+      <SessionToggle
+        session={selectedSession}
+        isPaused={sessionControls.isPaused(selectedSession.id)}
+        isPending={sessionControls.isPending}
+        onToggle={(status) => sessionControls.toggle(selectedSession.id, status)}
+        className={className}
+      />
+    ) : null;
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        {/* 제목과 상태는 붙어 있어야 해서 바깥 `gap-4`에서 빼고 따로 묶습니다. */}
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-semibold leading-7 text-text-primary">{event.title}</h1>
-            {/* 이벤트 목록과 같은 표를 씁니다. 따로 쓰면 #192처럼 한쪽만 한글화되는 일이 반복됩니다. */}
-            <Badge tone={EVENT_STATUS_BADGE[event.status].tone}>
-              {EVENT_STATUS_BADGE[event.status].label}
-            </Badge>
-          </div>
-          {/* 복사되는 값과 같은 것을 보여줍니다. 다르면 눈으로 옮겨 적는 사람이 틀립니다. */}
-          <p className="text-xs font-normal leading-4 break-all text-primary-darker">{publicUrl}</p>
-        </div>
+      <DashboardHeader
+        event={event}
+        publicUrl={publicUrl}
+        report={report}
+        sessionToggle={renderSessionToggle('hidden md:flex')}
+        onOpenQr={() => setIsQrOpen(true)}
+        onCopyLink={handleCopyLink}
+        onEndEvent={() => setIsEndConfirmOpen(true)}
+        isEndEventPending={endEventMutation.isPending}
+      />
 
-        {/*
-         * QR·링크 복사·이벤트 종료는 `LIVE`에서만 내놓습니다.
-         *
-         * 종료는 서버가 허용하는 전이가 `DRAFT → LIVE`와 `LIVE → ENDED` 둘뿐이라, 그 밖에서
-         * 누르면 INVALID_EVENT_STATE_TRANSITION만 받습니다. QR과 참가자 링크는 소감을 받는
-         * 동안에만 쓸모가 있습니다 — 시작 전이거나 끝난 이벤트의 주소를 건네봐야 받는 쪽은
-         * 제출이 막힌 화면을 봅니다. 눌러보고 실패하게 두는 대신 아예 내놓지 않습니다.
-         *
-         * 리포트 공개 전환만 `ENDED` 쪽에 남습니다. 주소는 제목 아래에 늘 떠 있습니다.
-         */}
-        <div className="flex w-full flex-col gap-2 md:w-auto md:items-end">
-          <div className="flex items-center justify-between gap-2 md:justify-end">
-            {event.status === 'ENDED' && (
-              /*
-               * 모바일에서는 이 묶음이 줄을 다 차지하고(`flex-1`) 버튼만 오른쪽 끝으로
-               * 밀립니다(`ml-auto`). 배지가 함께 서는 생성 중·완료 상태에서는 배지가 왼쪽에
-               * 남아 양끝 정렬이 됩니다. 데스크톱은 `md:flex-none`으로 내용 폭인 원래
-               * 배치로 돌아가고, 그때는 밀어낼 여백이 없어 `ml-auto`도 함께 죽습니다.
-               */
-              <div className="flex flex-1 items-center gap-2 md:flex-none">
-                {isReportGenerating && <Badge tone="neutral">생성 중</Badge>}
-                {isReportGenerated && <Badge tone="positive">생성 완료</Badge>}
-
-                {/* 다 만든 리포트에는 다시 만들 길이 없습니다(재생성은 REPORT_ALREADY_EXISTS). */}
-                {!isReportGenerated && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="ml-auto"
-                    disabled={event.status !== 'ENDED' || isReportUnknown || isReportGenerating}
-                    onClick={() => generateReportMutation.mutate()}
-                  >
-                    요약 생성
-                  </Button>
-                )}
-              </div>
-            )}
-            {event.status === 'LIVE' && (
-              <>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="flex-1 md:flex-none"
-                  onClick={() => setIsQrOpen(true)}
-                >
-                  QR
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="flex-1 md:flex-none"
-                  onClick={handleCopyLink}
-                >
-                  링크 복사
-                </Button>
-              </>
-            )}
-
-            {/*
-             * 다 만든 리포트에만 붙습니다. 만들기 전이나 만드는 중에는 뒤집을 공개 여부 자체가
-             * 없습니다(`GENERATED`가 아니면 공개해도 게스트는 404를 봅니다).
-             */}
-            {isReportGenerated && (
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={setReportPublicMutation.isPending}
-                onClick={() => setReportPublicMutation.mutate(!isReportPublic)}
-              >
-                {isReportPublic ? '리포트 비공개' : '리포트 공개'}
-              </Button>
-            )}
-            {event.status === 'LIVE' && (
-              <Button
-                variant="secondary"
-                size="sm"
-                className="flex-1 md:flex-none"
-                aria-label="이벤트 종료"
-                disabled={endEventMutation.isPending}
-                onClick={() => setIsEndConfirmOpen(true)}
-              >
-                <span className="md:hidden">종료</span>
-                <span className="hidden md:inline">이벤트 종료</span>
-              </Button>
-            )}
-          </div>
-
-          {/*
-           * 선택한 세션의 소감 수신 상태와 그걸 뒤집는 버튼입니다.
-           *
-           * `LIVE`에서만 내놓습니다. 제출은 이벤트가 `LIVE`이고 세션이 `ACTIVE`여야 통과하는데,
-           * 시작 전이나 끝난 뒤에 세션만 열어두면 여기서는 "소감 받는 중"이라고 하고 참가자는
-           * `EVENT_NOT_LIVE`로 막히는 거짓말이 됩니다.
-           */}
-          {event.status === 'LIVE' && selectedSession !== null && (
-            <div className="hidden items-center gap-2 md:flex">
-              <Badge tone={selectedSession.status === 'ACTIVE' ? 'positive' : 'neutral'}>
-                {selectedSession.status === 'ACTIVE'
-                  ? '소감 받는 중'
-                  : isSelectedSessionPaused
-                    ? '소감 멈춤'
-                    : '시작 전'}
-              </Badge>
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={toggleSessionMutation.isPending}
-                onClick={() =>
-                  toggleSessionMutation.mutate({
-                    id: selectedSession.id,
-                    status: selectedSession.status === 'ACTIVE' ? 'CLOSED' : 'ACTIVE',
-                  })
-                }
-              >
-                {selectedSession.status === 'ACTIVE'
-                  ? '멈추기'
-                  : isSelectedSessionPaused
-                    ? '다시 받기'
-                    : '소감 받기'}
-              </Button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
-        <Chip selected={sessionId === null} onClick={() => handleSelectSession(null)}>
-          전체
-        </Chip>
-        {sessions.map((session) => (
-          <Chip
-            key={session.id}
-            selected={sessionId === session.id}
-            onClick={() => handleSelectSession(session.id)}
-          >
-            {session.title}
-          </Chip>
-        ))}
-        <span className="ml-auto text-xs font-normal leading-4 text-text-tertiary">
-          총 {sessions.length}개 중 {openSessionCount}개 열림
-        </span>
-        {event.status === 'LIVE' && selectedSession !== null && (
-          <div className="flex w-full items-center justify-between gap-2 md:hidden">
-            <Badge tone={selectedSession.status === 'ACTIVE' ? 'positive' : 'neutral'}>
-              {selectedSession.status === 'ACTIVE'
-                ? '소감 받는 중'
-                : isSelectedSessionPaused
-                  ? '소감 멈춤'
-                  : '시작 전'}
-            </Badge>
-            <Button
-              variant="secondary"
-              size="sm"
-              disabled={toggleSessionMutation.isPending}
-              onClick={() =>
-                toggleSessionMutation.mutate({
-                  id: selectedSession.id,
-                  status: selectedSession.status === 'ACTIVE' ? 'CLOSED' : 'ACTIVE',
-                })
-              }
-            >
-              {selectedSession.status === 'ACTIVE'
-                ? '멈추기'
-                : isSelectedSessionPaused
-                  ? '다시 받기'
-                  : '소감 받기'}
-            </Button>
-          </div>
-        )}
-      </div>
+      <SessionFilterBar
+        sessions={sessions}
+        selectedSessionId={sessionId}
+        onSelectSession={handleSelectSession}
+        sessionToggle={renderSessionToggle('flex w-full justify-between md:hidden')}
+      />
 
       {isFeedError && <Banner type="negative">지금은 소감을 불러올 수 없어요</Banner>}
       {moderation.isError && <Banner type="negative">소감 처리에 실패했어요</Banner>}
       {endEventMutation.isError && <Banner type="negative">이벤트를 종료하지 못했어요</Banner>}
-      {generateReportMutation.isError && (
-        <Banner type="negative">요약 리포트를 만들지 못했어요</Banner>
-      )}
-      {setReportPublicMutation.isError && (
+      {report.isGenerateError && <Banner type="negative">요약 리포트를 만들지 못했어요</Banner>}
+      {report.isTogglePublicError && (
         <Banner type="negative">리포트 공개 설정을 바꾸지 못했어요</Banner>
       )}
-      {toggleSessionMutation.isError && (
+      {sessionControls.isError && (
         <Banner type="negative">세션의 소감 수신 상태를 바꾸지 못했어요</Banner>
       )}
       {isCopyFailed && (
@@ -614,216 +339,26 @@ const DashboardView = () => {
               />
             </section>
 
-            <section className={CARD}>
-              <div className="flex items-center justify-between gap-2">
-                <h2 className={CARD_TITLE}>시간대별 감정 추이</h2>
-                {refreshIntervalMs !== null && (
-                  <span className="text-xs font-normal leading-4 text-text-tertiary">
-                    {refreshIntervalMs / 1000}초마다 갱신
-                  </span>
-                )}
-              </div>
-
-              {trend.length === 0 ? (
-                <p className="flex h-40 items-center justify-center text-sm text-text-tertiary">
-                  아직 그릴 소감이 없어요
-                </p>
-              ) : (
-                /* 색만으로는 세 선이 구분되지 않아 스크린리더용 설명을 따로 답니다. */
-                <div
-                  className="h-40"
-                  role="img"
-                  aria-label={`${TREND_BUCKET_MS / 60_000}분 단위 감정별 소감 건수 추이. 긍정 ${positive}건, 중립 ${neutral}건, 부정 ${negative}건.`}
-                >
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={trend} margin={{ top: 8, right: 8, bottom: 0, left: -24 }}>
-                      <CartesianGrid
-                        strokeDasharray="3 3"
-                        stroke="var(--color-border-subtle)"
-                        vertical={false}
-                      />
-                      <XAxis
-                        dataKey="label"
-                        tickLine={false}
-                        axisLine={false}
-                        tick={{ fontSize: 11, fill: 'var(--color-text-tertiary)' }}
-                      />
-                      <YAxis
-                        allowDecimals={false}
-                        tickLine={false}
-                        axisLine={false}
-                        width={40}
-                        tick={{ fontSize: 11, fill: 'var(--color-text-tertiary)' }}
-                      />
-                      <Tooltip
-                        contentStyle={{
-                          borderRadius: '0.5rem',
-                          border: '1px solid var(--color-border-subtle)',
-                          fontSize: '0.75rem',
-                        }}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="POS"
-                        name="긍정"
-                        stroke="var(--color-positive-default)"
-                        strokeWidth={2}
-                        dot={false}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="NEU"
-                        name="중립"
-                        stroke="var(--color-neutral-default)"
-                        strokeWidth={2}
-                        dot={false}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="NEG"
-                        name="부정"
-                        stroke="var(--color-negative-default)"
-                        strokeWidth={2}
-                        dot={false}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
-            </section>
+            <SentimentTrendCard
+              trend={trend}
+              positive={positive}
+              neutral={neutral}
+              negative={negative}
+              refreshIntervalMs={refreshIntervalMs}
+            />
           </div>
 
           <div className="grid gap-3 md:grid-cols-2">
-            <section className={CARD}>
-              <h2 className={CARD_TITLE}>실시간 소감 피드</h2>
-
-              {/* 모더레이션 큐와 같은 이유로 높이를 고정합니다(`ModerationQueue.tsx`). */}
-              {visible.length === 0 ? (
-                <EmptyState
-                  className="h-80 justify-center"
-                  title="아직 들어온 소감이 없어요"
-                  description="참가자가 소감을 남기면 여기에 바로 올라와요"
-                />
-              ) : (
-                <ul className="flex h-80 flex-col gap-2 overflow-y-auto">
-                  {visible.map((feedback) => (
-                    <li key={feedback.id}>
-                      <FeedItem
-                        state="normal"
-                        sentiment={FEED_SENTIMENT[feedback.sentiment]}
-                        meta={toMeta(feedback)}
-                        content={feedback.text}
-                        /*
-                         * 자동 판정이 잡는 건 욕설뿐이라, 인신공격처럼 판정을 빠져나간 소감은
-                         * 주최자가 여기서 직접 내려야 합니다(#170).
-                         *
-                         * 삭제는 달지 않습니다. `DELETED`는 되돌릴 수 없는 종단 상태라 실시간으로
-                         * 흘러가는 목록에서 바로 누르게 둘 자리가 아닙니다. 숨기면 모더레이션
-                         * 큐로 넘어가서, 거기서 다시 보고 삭제하거나 되돌립니다.
-                         */
-                        actions={
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            disabled={moderation.isItemPending(feedback.id)}
-                            onClick={() => moderation.toggleHidden(feedback)}
-                          >
-                            숨기기
-                          </Button>
-                        }
-                      />
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
+            <LiveFeedCard items={visible} formatMeta={toMeta} actions={moderation} />
 
             <div className="flex flex-col gap-3">
               <ModerationQueue items={queueItems} formatMeta={toMeta} actions={moderation} />
 
-              <section className={CARD}>
-                <h2 className={CARD_TITLE}>상위 키워드</h2>
-
-                {keywords.length === 0 ? (
-                  <p className="text-sm text-text-tertiary">아직 모인 키워드가 없어요</p>
-                ) : (
-                  <ul className="flex flex-wrap gap-2">
-                    {keywords.map(([keyword, count]) => (
-                      <li key={keyword}>
-                        <Badge tone="outline">
-                          {keyword} {count}
-                        </Badge>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </section>
+              <KeywordCard keywords={keywords} />
             </div>
           </div>
 
-          {/*
-           * 카드 아래 한 줄이 상태에 따라 다른 일을 합니다. 생성 전에는 왜 눌러야 하는지 알리는
-           * 안내문이고, 끝나면 요약 본문이 그 자리에 들어옵니다. 자리를 나누지 않는 이유는
-           * 안내문이 요약이 없을 때만 필요한 문장이라서입니다.
-           *
-           * 생성이 끝났는데 본문이 비어 있는 경우를 따로 받습니다. 여기서 "생성하시면…"으로
-           * 되돌리면 오른쪽 버튼은 이미 빠진 뒤라(`isReportGenerated`) 시키는 대로 할 수단이
-           * 없습니다. `GENERATING` 문구로 묶지 않는 것도 같은 이유입니다 — 폴링이 `GENERATED`에서
-           * 멈춰서(위 `refetchInterval`) 기다려도 아무것도 다시 오지 않습니다.
-           */}
-          <section
-            className={`${CARD} flex-col items-start justify-between gap-4 bg-background-muted md:flex-row`}
-          >
-            <div className="flex w-full flex-col gap-1 md:w-auto">
-              {/* 배지를 오른쪽 끝에 붙이려면 이 열이 폭을 다 써야 합니다(`w-full`). */}
-              <div className="flex items-center justify-between gap-2">
-                <h2 className="text-base font-semibold leading-6 text-text-primary">
-                  AI 요약 리포트
-                </h2>
-                {reportBadge && <span className="md:hidden">{reportBadge}</span>}
-              </div>
-
-              {summaryText !== null ? (
-                <p className="text-sm font-normal leading-5 text-text-secondary">{summaryText}</p>
-              ) : (
-                <p className="text-xs font-normal leading-4 text-text-tertiary">
-                  {isReportGenerating
-                    ? '요약을 만들고 있어요. 끝나면 여기에 올라와요'
-                    : isReportGenerated
-                      ? '요약 본문을 받지 못했어요. 잠시 후 다시 열어봐 주세요'
-                      : '생성하시면 읽어보고 공개할 수 있어요'}
-                </p>
-              )}
-            </div>
-
-            {/*
-             * 오른쪽은 이 카드의 상태와 조치가 함께 서는 자리입니다. 상태 배지를 제목이 아니라
-             * 여기 두는 이유는, 다 만들고 나면 버튼이 빠져서 이 자리가 비기 때문입니다.
-             *
-             * 모바일에서는 카드가 세로로 서면서 이 자리가 제목에서 멀어지므로, 배지만 제목 옆으로
-             * 올립니다(`reportBadge`). 그러면 생성 완료 상태의 모바일에서는 배지도 버튼도 없어
-             * 이 자리가 통째로 비므로 아예 감춥니다 — 안 그러면 section의 `gap-4`만 남습니다.
-             */}
-            <div
-              className={`flex w-full shrink-0 items-center gap-2 md:w-auto ${
-                isReportGenerated ? 'hidden md:flex' : ''
-              }`}
-            >
-              {reportBadge && <span className="hidden md:contents">{reportBadge}</span>}
-
-              {/* 다 만든 리포트에는 다시 만들 길이 없습니다(재생성은 REPORT_ALREADY_EXISTS). */}
-              {!isReportGenerated && (
-                <Button
-                  className="flex-1 md:flex-none"
-                  variant="primary"
-                  disabled={event.status !== 'ENDED' || isReportUnknown || isReportGenerating}
-                  onClick={() => generateReportMutation.mutate()}
-                >
-                  요약 생성
-                </Button>
-              )}
-            </div>
-          </section>
+          <ReportSection report={report} />
         </>
       )}
 
