@@ -90,6 +90,11 @@ const buildFeedbacks = (inputs: SeedFeedbackInput[]): Feedback[] =>
     createdAt: new Date(EVENT_START_MS + input.minute * 60_000).toISOString(),
   }));
 
+/*
+ * ⚠️ id 는 배열 순번으로 정해집니다(900 + index). 중간에 끼워 넣으면 뒤 항목의 id 가
+ * 전부 밀리고, mocks/handlers.test.ts 의 HIDDEN_FEEDBACK_ID·DELETED_FEEDBACK_ID 가
+ * 엉뚱한 소감을 가리킵니다. 새 소감은 배열 끝에 추가하세요. 화면 정렬은 minute 이 합니다.
+ */
 export const seedFeedbacks: Feedback[] = buildFeedbacks([
   // ── 이벤트 42 / 1부: 키노트 ────────────────────────────────
   {
@@ -132,7 +137,7 @@ export const seedFeedbacks: Feedback[] = buildFeedbacks([
     text: '준비를 하나도 안 한 게 티가 나네 시간 아깝다',
     sentiment: 'NEG',
     keywords: ['준비'],
-    toxic: true,
+    toxic: false,
     minute: 12,
   },
   {
@@ -184,7 +189,7 @@ export const seedFeedbacks: Feedback[] = buildFeedbacks([
     text: '이딴 걸 토론이라고 앉아서 듣고 있는 내가 한심하다',
     sentiment: 'NEG',
     keywords: ['토론'],
-    toxic: true,
+    toxic: false,
     minute: 40,
   },
   {
@@ -206,7 +211,7 @@ export const seedFeedbacks: Feedback[] = buildFeedbacks([
     text: '앞에 나온 사람 얼굴부터가 마음에 안 드는데',
     sentiment: 'NEG',
     keywords: ['외모'],
-    toxic: true,
+    toxic: false,
     status: 'HIDDEN',
     minute: 45,
   },
@@ -245,7 +250,7 @@ export const seedFeedbacks: Feedback[] = buildFeedbacks([
     text: '개나 소나 발표하는구나 진짜',
     sentiment: 'NEG',
     keywords: [],
-    toxic: true,
+    toxic: false,
     minute: 67,
   },
   {
@@ -314,6 +319,25 @@ export const seedFeedbacks: Feedback[] = buildFeedbacks([
     sentiment: 'UNKNOWN',
     keywords: [],
     minute: 47,
+  },
+
+  /*
+   * 배열 끝에 둡니다. 시간 순서로는 1부(minute 33) 자리지만, 중간에 끼우면 뒤 항목의
+   * id가 전부 밀려서 handlers.test.ts 의 HIDDEN_FEEDBACK_ID·DELETED_FEEDBACK_ID가
+   * 엉뚱한 소감을 가리킵니다. 정렬은 minute 이 하고, 배열 위치는 id 만 정합니다.
+   *
+   * toxic 은 욕설 사전 매칭입니다(#160). 이 목록에서 유일하게 실제 욕설이 든 소감이라,
+   * `?toxic=true` 필터와 대시보드의 독성 지표를 확인할 수 있는 자료입니다.
+   * status 가 HIDDEN 인 것은 #150 규칙(독성은 제출 시점부터 비공개)을 따른 결과입니다.
+   */
+  {
+    sessionId: 101,
+    text: '시발 뭔 소린지 하나도 모르겠네',
+    sentiment: 'NEG',
+    keywords: [],
+    toxic: true,
+    status: 'HIDDEN',
+    minute: 33,
   },
 ]);
 
