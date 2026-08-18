@@ -231,10 +231,13 @@ const EventForm = ({ eventCode }: EventFormProps) => {
           error={eventFormErrors.eventDate}
         />
         {isEditMode && eventQuery.data ? (
+          // window 접근은 이 블록이 eventQuery.data가 있을 때만 렌더링되기 때문에 안전합니다.
+          // 서버 렌더링에서는 eventQuery.data가 항상 비어있어 이 줄까지 오지 않습니다
+          // (DashboardView.tsx의 publicUrl과 같은 이유입니다).
           <Field
             label="참가자 링크"
             name="code"
-            value={`pulse.app/e/${eventQuery.data.code}`}
+            value={`${window.location.origin}/e/${eventQuery.data.code}`}
             readOnly
           />
         ) : null}
