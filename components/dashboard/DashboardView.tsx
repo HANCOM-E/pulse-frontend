@@ -401,7 +401,13 @@ const DashboardView = () => {
         <div className="flex w-full flex-col gap-2 md:w-auto md:items-end">
           <div className="flex items-center justify-between gap-2 md:justify-end">
             {event.status === 'ENDED' && (
-              <div className="flex shrink-0 items-center gap-2">
+              /*
+               * 모바일에서는 이 묶음이 줄을 다 차지하고(`flex-1`) 버튼만 오른쪽 끝으로
+               * 밀립니다(`ml-auto`). 배지가 함께 서는 생성 중·완료 상태에서는 배지가 왼쪽에
+               * 남아 양끝 정렬이 됩니다. 데스크톱은 `md:flex-none`으로 내용 폭인 원래
+               * 배치로 돌아가고, 그때는 밀어낼 여백이 없어 `ml-auto`도 함께 죽습니다.
+               */
+              <div className="flex flex-1 items-center gap-2 md:flex-none">
                 {isReportGenerating && <Badge tone="neutral">생성 중</Badge>}
                 {isReportGenerated && <Badge tone="positive">생성 완료</Badge>}
 
@@ -410,6 +416,7 @@ const DashboardView = () => {
                   <Button
                     variant="secondary"
                     size="sm"
+                    className="ml-auto"
                     disabled={event.status !== 'ENDED' || isReportUnknown || isReportGenerating}
                     onClick={() => generateReportMutation.mutate()}
                   >
