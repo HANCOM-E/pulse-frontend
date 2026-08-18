@@ -6,6 +6,7 @@ import { useState } from 'react';
 
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { DashboardSkeleton } from '@/components/dashboard/DashboardSkeleton';
+import { LiveFeedCard } from '@/components/dashboard/LiveFeedCard';
 import {
   buildTrend,
   countKeywords,
@@ -18,7 +19,6 @@ import { SentimentTrendCard } from '@/components/dashboard/SentimentTrendCard';
 import { SessionFilterBar } from '@/components/dashboard/SessionFilterBar';
 import { SessionToggle } from '@/components/dashboard/SessionToggle';
 import { Donut } from '@/components/feedback/Donut';
-import { FEED_SENTIMENT, FeedItem } from '@/components/feedback/FeedItem';
 import { Thermometer } from '@/components/feedback/Thermometer';
 import { isVisibleEvent } from '@/components/events/eventStatusBadge';
 import { ModerationQueue } from '@/components/moderation/ModerationQueue';
@@ -26,7 +26,6 @@ import { Badge } from '@/components/ui/Badge';
 import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { EmptyState } from '@/components/ui/EmptyState';
 import { Stat } from '@/components/ui/Stat';
 import { useCopyLink } from '@/hooks/useCopyLink';
 import { useDashboardFeed } from '@/hooks/useDashboardFeed';
@@ -387,49 +386,7 @@ const DashboardView = () => {
           </div>
 
           <div className="grid gap-3 md:grid-cols-2">
-            <section className={CARD}>
-              <h2 className={CARD_TITLE}>실시간 소감 피드</h2>
-
-              {/* 모더레이션 큐와 같은 이유로 높이를 고정합니다(`ModerationQueue.tsx`). */}
-              {visible.length === 0 ? (
-                <EmptyState
-                  className="h-80 justify-center"
-                  title="아직 들어온 소감이 없어요"
-                  description="참가자가 소감을 남기면 여기에 바로 올라와요"
-                />
-              ) : (
-                <ul className="flex h-80 flex-col gap-2 overflow-y-auto">
-                  {visible.map((feedback) => (
-                    <li key={feedback.id}>
-                      <FeedItem
-                        state="normal"
-                        sentiment={FEED_SENTIMENT[feedback.sentiment]}
-                        meta={toMeta(feedback)}
-                        content={feedback.text}
-                        /*
-                         * 자동 판정이 잡는 건 욕설뿐이라, 인신공격처럼 판정을 빠져나간 소감은
-                         * 주최자가 여기서 직접 내려야 합니다(#170).
-                         *
-                         * 삭제는 달지 않습니다. `DELETED`는 되돌릴 수 없는 종단 상태라 실시간으로
-                         * 흘러가는 목록에서 바로 누르게 둘 자리가 아닙니다. 숨기면 모더레이션
-                         * 큐로 넘어가서, 거기서 다시 보고 삭제하거나 되돌립니다.
-                         */
-                        actions={
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            disabled={moderation.isItemPending(feedback.id)}
-                            onClick={() => moderation.toggleHidden(feedback)}
-                          >
-                            숨기기
-                          </Button>
-                        }
-                      />
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
+            <LiveFeedCard items={visible} formatMeta={toMeta} actions={moderation} />
 
             <div className="flex flex-col gap-3">
               <ModerationQueue items={queueItems} formatMeta={toMeta} actions={moderation} />
