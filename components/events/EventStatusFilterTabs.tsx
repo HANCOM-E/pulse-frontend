@@ -10,9 +10,9 @@ export interface EventStatusFilterTabsProps {
 
 const TABS: { label: string; value: EventStatusFilter }[] = [
   { label: '전체', value: 'ALL' },
-  { label: 'DRAFT', value: 'DRAFT' },
-  { label: 'LIVE', value: 'LIVE' },
-  { label: 'ENDED', value: 'ENDED' },
+  { label: '준비 중', value: 'DRAFT' },
+  { label: '진행 중', value: 'LIVE' },
+  { label: '종료', value: 'ENDED' },
 ];
 
 const EventStatusFilterTabs = ({ selectedStatus, onChange }: EventStatusFilterTabsProps) => {
@@ -25,7 +25,7 @@ const EventStatusFilterTabs = ({ selectedStatus, onChange }: EventStatusFilterTa
     <div className="flex gap-2">
       {TABS.map((tab) => (
         <Chip
-          key={tab.label}
+          key={tab.value}
           selected={tab.value === selectedStatus}
           onClick={() => onChange(tab.value)}
         >
