@@ -31,13 +31,9 @@ import { useCopyLink } from '@/hooks/useCopyLink';
 import { useDashboardFeed } from '@/hooks/useDashboardFeed';
 import { useEventReport } from '@/hooks/useEventReport';
 import { useModerationActions } from '@/hooks/useModerationActions';
+import { useSessionControls } from '@/hooks/useSessionControls';
 import { showToast } from '@/hooks/useToast';
-import {
-  fetchMyEvents,
-  fetchSessionsByEventCode,
-  updateEvent,
-  updateSession,
-} from '@/lib/api/endpoints';
+import { fetchMyEvents, fetchSessionsByEventCode, updateEvent } from '@/lib/api/endpoints';
 import { ApiError } from '@/lib/apiClient';
 import type { Feedback } from '@/lib/schemas/api';
 
@@ -62,15 +58,6 @@ const DashboardView = () => {
 
   const [isQrOpen, setIsQrOpen] = useState(false);
   const [isEndConfirmOpen, setIsEndConfirmOpen] = useState(false);
-
-  /*
-   * 이 화면에서 멈춘 세션입니다. 세션은 생성 시 `CLOSED`라(2026-08-07 명세) 상태만으로는 "아직
-   * 열지 않았다"와 "열었다가 멈췄다"를 가를 수 없는데, 버튼이 권하는 다음 행동은 그 둘이 다릅니다.
-   *
-   * `SessionView`에는 열린 적이 있는지 알려주는 필드가 없어서 화면이 직접 기억합니다. 새로고침하면
-   * 잊고 다른 기기에서 멈춘 것도 모릅니다 — 정확히 하려면 서버에 흔적이 필요합니다(#143).
-   */
-  const [pausedSessionIds, setPausedSessionIds] = useState<ReadonlySet<number>>(new Set());
 
   const { copy: copyLink, isFailed: isCopyFailed } = useCopyLink();
 
@@ -151,28 +138,8 @@ const DashboardView = () => {
   /* 조회·생성·공개 전환이 같은 캐시 칸을 두고 움직여서 한 훅으로 묶여 있습니다. */
   const report = useEventReport(eventCode, eventStatus);
 
-  /*
-   * 선택한 세션의 소감 수신을 켜고 끕니다. 세션은 생성 시 `CLOSED`라, 발표가 시작될 때 주최자가
-   * 열어야 소감이 들어옵니다(2026-08-07 명세).
-   *
-   * 이벤트 종료와 달리 확인 다이얼로그를 두지 않습니다. `ACTIVE ↔ CLOSED`는 되돌릴 수 있어서
-   * 잘못 눌러도 다시 누르면 그만입니다.
-   */
-  const toggleSessionMutation = useMutation({
-    mutationFn: ({ id, status }: { id: number; status: 'ACTIVE' | 'CLOSED' }) =>
-      updateSession(eventCode, id, { status }),
-    onSuccess: (session) => {
-      queryClient.invalidateQueries({ queryKey: ['sessions', eventCode] });
-      /* 다시 열면 지웁니다. 남겨두면 멈췄다 연 세션을 또 멈출 때가 아니라 처음 열 때부터 "다시"가 됩니다. */
-      setPausedSessionIds((previous) => {
-        const next = new Set(previous);
-        if (session.status === 'ACTIVE') next.delete(session.id);
-        else next.add(session.id);
-        return next;
-      });
-      showToast(session.status === 'ACTIVE' ? '이제 소감을 받아요' : '소감 받기를 멈췄어요');
-    },
-  });
+  /* 뒤집기와 「이 화면에서 멈춘 세션인가」 판정이 한 덩어리라 훅으로 묶여 있습니다. */
+  const sessionControls = useSessionControls(eventCode);
 
   const handleSelectSession = (nextSessionId: number | null) => {
     setSessionId(nextSessionId);
@@ -290,10 +257,6 @@ const DashboardView = () => {
   const selectedSession =
     sessionId === null ? null : (sessions.find((session) => session.id === sessionId) ?? null);
 
-  /* 같은 `CLOSED`라도 이 화면에서 멈춘 세션은 "다시", 아직 안 연 세션은 "처음"입니다. */
-  const isSelectedSessionPaused =
-    selectedSession !== null && pausedSessionIds.has(selectedSession.id);
-
   /*
    * 세션 토글은 데스크톱에선 헤더 안, 모바일에선 칩 줄 아래에 섭니다. 부모가 달라 CSS로는 옮길
    * 수 없어서 자리마다 하나씩 두고 `className`으로 감춥니다. 조건과 넘기는 값이 같으므로
@@ -307,9 +270,9 @@ const DashboardView = () => {
     event.status === 'LIVE' && selectedSession !== null ? (
       <SessionToggle
         session={selectedSession}
-        isPaused={isSelectedSessionPaused}
-        isPending={toggleSessionMutation.isPending}
-        onToggle={(status) => toggleSessionMutation.mutate({ id: selectedSession.id, status })}
+        isPaused={sessionControls.isPaused(selectedSession.id)}
+        isPending={sessionControls.isPending}
+        onToggle={(status) => sessionControls.toggle(selectedSession.id, status)}
         className={className}
       />
     ) : null;
@@ -341,7 +304,7 @@ const DashboardView = () => {
       {report.isTogglePublicError && (
         <Banner type="negative">리포트 공개 설정을 바꾸지 못했어요</Banner>
       )}
-      {toggleSessionMutation.isError && (
+      {sessionControls.isError && (
         <Banner type="negative">세션의 소감 수신 상태를 바꾸지 못했어요</Banner>
       )}
       {isCopyFailed && (
