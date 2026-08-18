@@ -91,7 +91,7 @@ const DashboardHeader = ({
                 variant="secondary"
                 size="sm"
                 className="ml-auto"
-                disabled={event.status !== 'ENDED' || report.isUnknown || report.isGenerating}
+                disabled={report.isGenerateDisabled}
                 onClick={report.generate}
               >
                 요약 생성

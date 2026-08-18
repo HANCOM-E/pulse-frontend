@@ -40,6 +40,14 @@ interface EventReportControls {
   isUnknown: boolean;
   isPublic: boolean;
   generate: () => void;
+  /**
+   * 생성 버튼을 잠글지입니다. `ENDED`가 아니거나, 상태를 모르거나, 이미 만드는 중이면 잠깁니다.
+   *
+   * 판정을 훅이 하는 이유는 버튼이 헤더와 리포트 카드 두 곳에 있기 때문입니다. 화면마다 세 조건을
+   * 다시 조합하면 한쪽만 빠뜨렸을 때 INVALID_EVENT_STATE_TRANSITION이나 REPORT_ALREADY_EXISTS를
+   * 받는 버튼이 열립니다.
+   */
+  isGenerateDisabled: boolean;
   /** 공개 ↔ 비공개를 뒤집습니다. 지금 값은 이 훅이 알고 있어서 인자를 받지 않습니다. */
   togglePublic: () => void;
   isTogglePublicPending: boolean;
@@ -111,6 +119,7 @@ const useEventReport = (eventCode: string, eventStatus?: EventStatus): EventRepo
     isUnknown,
     isPublic,
     generate: () => generateMutation.mutate(),
+    isGenerateDisabled: eventStatus !== 'ENDED' || isUnknown || isGenerating,
     togglePublic: () => setPublicMutation.mutate(!isPublic),
     isTogglePublicPending: setPublicMutation.isPending,
     isGenerateError: generateMutation.isError,
