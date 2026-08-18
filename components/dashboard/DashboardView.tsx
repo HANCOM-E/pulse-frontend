@@ -13,6 +13,7 @@ import {
   YAxis,
 } from 'recharts';
 
+import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { DashboardSkeleton } from '@/components/dashboard/DashboardSkeleton';
 import {
   buildTrend,
@@ -22,10 +23,11 @@ import {
   TREND_BUCKET_MS,
 } from '@/components/dashboard/metrics';
 import { QrCodeDialog } from '@/components/dashboard/QrCodeDialog';
+import { SessionToggle } from '@/components/dashboard/SessionToggle';
 import { Donut } from '@/components/feedback/Donut';
 import { FEED_SENTIMENT, FeedItem } from '@/components/feedback/FeedItem';
 import { Thermometer } from '@/components/feedback/Thermometer';
-import { EVENT_STATUS_BADGE, isVisibleEvent } from '@/components/events/eventStatusBadge';
+import { isVisibleEvent } from '@/components/events/eventStatusBadge';
 import { ModerationQueue } from '@/components/moderation/ModerationQueue';
 import { Badge } from '@/components/ui/Badge';
 import { Banner } from '@/components/ui/Banner';
@@ -314,146 +316,38 @@ const DashboardView = () => {
   const isSelectedSessionPaused =
     selectedSession !== null && pausedSessionIds.has(selectedSession.id);
 
+  /*
+   * 세션 토글은 데스크톱에선 헤더 안, 모바일에선 칩 줄 아래에 섭니다. 부모가 달라 CSS로는 옮길
+   * 수 없어서 자리마다 하나씩 두고 `className`으로 감춥니다. 조건과 넘기는 값이 같으므로
+   * 여기서 한 번만 만듭니다.
+   *
+   * `LIVE`에서만 내놓습니다. 제출은 이벤트가 `LIVE`이고 세션이 `ACTIVE`여야 통과하는데,
+   * 시작 전이나 끝난 뒤에 세션만 열어두면 화면은 "소감 받는 중"이라고 하고 참가자는
+   * `EVENT_NOT_LIVE`로 막히는 거짓말이 됩니다.
+   */
+  const renderSessionToggle = (className: string) =>
+    event.status === 'LIVE' && selectedSession !== null ? (
+      <SessionToggle
+        session={selectedSession}
+        isPaused={isSelectedSessionPaused}
+        isPending={toggleSessionMutation.isPending}
+        onToggle={(status) => toggleSessionMutation.mutate({ id: selectedSession.id, status })}
+        className={className}
+      />
+    ) : null;
+
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        {/* 제목과 상태는 붙어 있어야 해서 바깥 `gap-4`에서 빼고 따로 묶습니다. */}
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-semibold leading-7 text-text-primary">{event.title}</h1>
-            {/* 이벤트 목록과 같은 표를 씁니다. 따로 쓰면 #192처럼 한쪽만 한글화되는 일이 반복됩니다. */}
-            <Badge tone={EVENT_STATUS_BADGE[event.status].tone}>
-              {EVENT_STATUS_BADGE[event.status].label}
-            </Badge>
-          </div>
-          {/* 복사되는 값과 같은 것을 보여줍니다. 다르면 눈으로 옮겨 적는 사람이 틀립니다. */}
-          <p className="text-xs font-normal leading-4 break-all text-primary-darker">{publicUrl}</p>
-        </div>
-
-        {/*
-         * QR·링크 복사·이벤트 종료는 `LIVE`에서만 내놓습니다.
-         *
-         * 종료는 서버가 허용하는 전이가 `DRAFT → LIVE`와 `LIVE → ENDED` 둘뿐이라, 그 밖에서
-         * 누르면 INVALID_EVENT_STATE_TRANSITION만 받습니다. QR과 참가자 링크는 소감을 받는
-         * 동안에만 쓸모가 있습니다 — 시작 전이거나 끝난 이벤트의 주소를 건네봐야 받는 쪽은
-         * 제출이 막힌 화면을 봅니다. 눌러보고 실패하게 두는 대신 아예 내놓지 않습니다.
-         *
-         * 리포트 공개 전환만 `ENDED` 쪽에 남습니다. 주소는 제목 아래에 늘 떠 있습니다.
-         */}
-        <div className="flex w-full flex-col gap-2 md:w-auto md:items-end">
-          <div className="flex items-center justify-between gap-2 md:justify-end">
-            {event.status === 'ENDED' && (
-              /*
-               * 모바일에서는 이 묶음이 줄을 다 차지하고(`flex-1`) 버튼만 오른쪽 끝으로
-               * 밀립니다(`ml-auto`). 배지가 함께 서는 생성 중·완료 상태에서는 배지가 왼쪽에
-               * 남아 양끝 정렬이 됩니다. 데스크톱은 `md:flex-none`으로 내용 폭인 원래
-               * 배치로 돌아가고, 그때는 밀어낼 여백이 없어 `ml-auto`도 함께 죽습니다.
-               */
-              <div className="flex flex-1 items-center gap-2 md:flex-none">
-                {report.isGenerating && <Badge tone="neutral">생성 중</Badge>}
-                {report.isGenerated && <Badge tone="positive">생성 완료</Badge>}
-
-                {/* 다 만든 리포트에는 다시 만들 길이 없습니다(재생성은 REPORT_ALREADY_EXISTS). */}
-                {!report.isGenerated && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="ml-auto"
-                    disabled={event.status !== 'ENDED' || report.isUnknown || report.isGenerating}
-                    onClick={report.generate}
-                  >
-                    요약 생성
-                  </Button>
-                )}
-              </div>
-            )}
-            {event.status === 'LIVE' && (
-              <>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="flex-1 md:flex-none"
-                  onClick={() => setIsQrOpen(true)}
-                >
-                  QR
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="flex-1 md:flex-none"
-                  onClick={handleCopyLink}
-                >
-                  링크 복사
-                </Button>
-              </>
-            )}
-
-            {/*
-             * 다 만든 리포트에만 붙습니다. 만들기 전이나 만드는 중에는 뒤집을 공개 여부 자체가
-             * 없습니다(`GENERATED`가 아니면 공개해도 게스트는 404를 봅니다).
-             */}
-            {report.isGenerated && (
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={report.isTogglePublicPending}
-                onClick={report.togglePublic}
-              >
-                {report.isPublic ? '리포트 비공개' : '리포트 공개'}
-              </Button>
-            )}
-            {event.status === 'LIVE' && (
-              <Button
-                variant="secondary"
-                size="sm"
-                className="flex-1 md:flex-none"
-                aria-label="이벤트 종료"
-                disabled={endEventMutation.isPending}
-                onClick={() => setIsEndConfirmOpen(true)}
-              >
-                <span className="md:hidden">종료</span>
-                <span className="hidden md:inline">이벤트 종료</span>
-              </Button>
-            )}
-          </div>
-
-          {/*
-           * 선택한 세션의 소감 수신 상태와 그걸 뒤집는 버튼입니다.
-           *
-           * `LIVE`에서만 내놓습니다. 제출은 이벤트가 `LIVE`이고 세션이 `ACTIVE`여야 통과하는데,
-           * 시작 전이나 끝난 뒤에 세션만 열어두면 여기서는 "소감 받는 중"이라고 하고 참가자는
-           * `EVENT_NOT_LIVE`로 막히는 거짓말이 됩니다.
-           */}
-          {event.status === 'LIVE' && selectedSession !== null && (
-            <div className="hidden items-center gap-2 md:flex">
-              <Badge tone={selectedSession.status === 'ACTIVE' ? 'positive' : 'neutral'}>
-                {selectedSession.status === 'ACTIVE'
-                  ? '소감 받는 중'
-                  : isSelectedSessionPaused
-                    ? '소감 멈춤'
-                    : '시작 전'}
-              </Badge>
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={toggleSessionMutation.isPending}
-                onClick={() =>
-                  toggleSessionMutation.mutate({
-                    id: selectedSession.id,
-                    status: selectedSession.status === 'ACTIVE' ? 'CLOSED' : 'ACTIVE',
-                  })
-                }
-              >
-                {selectedSession.status === 'ACTIVE'
-                  ? '멈추기'
-                  : isSelectedSessionPaused
-                    ? '다시 받기'
-                    : '소감 받기'}
-              </Button>
-            </div>
-          )}
-        </div>
-      </div>
+      <DashboardHeader
+        event={event}
+        publicUrl={publicUrl}
+        report={report}
+        sessionToggle={renderSessionToggle('hidden md:flex')}
+        onOpenQr={() => setIsQrOpen(true)}
+        onCopyLink={handleCopyLink}
+        onEndEvent={() => setIsEndConfirmOpen(true)}
+        isEndEventPending={endEventMutation.isPending}
+      />
 
       <div className="flex flex-wrap items-center gap-2">
         <Chip selected={sessionId === null} onClick={() => handleSelectSession(null)}>
@@ -471,34 +365,7 @@ const DashboardView = () => {
         <span className="ml-auto text-xs font-normal leading-4 text-text-tertiary">
           총 {sessions.length}개 중 {openSessionCount}개 열림
         </span>
-        {event.status === 'LIVE' && selectedSession !== null && (
-          <div className="flex w-full items-center justify-between gap-2 md:hidden">
-            <Badge tone={selectedSession.status === 'ACTIVE' ? 'positive' : 'neutral'}>
-              {selectedSession.status === 'ACTIVE'
-                ? '소감 받는 중'
-                : isSelectedSessionPaused
-                  ? '소감 멈춤'
-                  : '시작 전'}
-            </Badge>
-            <Button
-              variant="secondary"
-              size="sm"
-              disabled={toggleSessionMutation.isPending}
-              onClick={() =>
-                toggleSessionMutation.mutate({
-                  id: selectedSession.id,
-                  status: selectedSession.status === 'ACTIVE' ? 'CLOSED' : 'ACTIVE',
-                })
-              }
-            >
-              {selectedSession.status === 'ACTIVE'
-                ? '멈추기'
-                : isSelectedSessionPaused
-                  ? '다시 받기'
-                  : '소감 받기'}
-            </Button>
-          </div>
-        )}
+        {renderSessionToggle('flex w-full justify-between md:hidden')}
       </div>
 
       {isFeedError && <Banner type="negative">지금은 소감을 불러올 수 없어요</Banner>}
