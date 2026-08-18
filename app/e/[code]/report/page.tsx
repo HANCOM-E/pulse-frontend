@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { Donut } from '@/components/feedback/Donut';
 import { toRates } from '@/components/feedback/sentiment';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { Stat } from '@/components/ui/Stat';
 import { fetchEventByCode, fetchPublicReport, fetchSessionsByEventCode } from '@/lib/api/endpoints';
 import { ApiError } from '@/lib/apiClient';
@@ -33,21 +34,12 @@ const PAGE = 'mx-auto flex w-full max-w-md flex-col gap-6 px-5 py-4';
 const CARD = 'flex flex-col gap-3 rounded-xl border border-border-subtle bg-background-default p-4';
 
 /**
- * 서버 타임존에 따라 하루가 밀리지 않도록 Asia/Seoul로 고정합니다.
- * Vercel 서버는 UTC라 자정 근처에 만든 이벤트의 날짜가 어긋납니다.
+ * `eventDate`는 시각이 없는 `YYYY-MM-DD`라(API 명세) 구분자만 바꿉니다.
+ *
+ * `Date`로 파싱하지 않습니다. 날짜만 있는 문자열은 UTC 자정으로 읽히는데, 그걸 다시
+ * 지역 시간으로 그리면 타임존에 따라 하루가 밀립니다. Vercel 서버는 UTC입니다.
  */
-const formatDate = (iso: string) => {
-  const parts = new Intl.DateTimeFormat('ko-KR', {
-    timeZone: 'Asia/Seoul',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(new Date(iso));
-  const valueOf = (type: Intl.DateTimeFormatPartTypes) =>
-    parts.find((part) => part.type === type)?.value ?? '';
-
-  return `${valueOf('year')}.${valueOf('month')}.${valueOf('day')}`;
-};
+const formatDate = (isoDate: string) => isoDate.replaceAll('-', '.');
 
 // 목 데이터가 매 요청 반영되도록 캐시하지 않습니다(app/dev/msw/ssr/page.tsx와 같은 이유).
 export const dynamic = 'force-dynamic';
@@ -66,15 +58,10 @@ const ReportPage = async ({ params }: ReportPageProps) => {
   if (report === null) {
     return (
       <main className={PAGE}>
-        {/* not-found.tsx의 빈 상태 카드와 같은 모양을 씁니다. */}
-        <div className="flex flex-col items-center gap-1 rounded-xl border border-border-subtle px-5 py-10">
-          <p className="text-base font-medium leading-6 text-text-primary">
-            공개된 리포트가 없어요
-          </p>
-          <p className="text-sm font-normal leading-5 text-text-secondary">
-            주최자가 공개하면 이 페이지에서 볼 수 있어요
-          </p>
-        </div>
+        <EmptyState
+          title="공개된 리포트가 없어요"
+          description="주최자가 공개하면 이 페이지에서 볼 수 있어요"
+        />
       </main>
     );
   }
@@ -102,9 +89,14 @@ const ReportPage = async ({ params }: ReportPageProps) => {
   return (
     <main className={PAGE}>
       <header className="flex flex-col gap-1">
-        {/* 소감 수는 날짜가 아니므로 `time` 바깥에 둡니다. 문구는 LiveResult의 같은 줄과 맞췄습니다. */}
+        {/*
+          행사 날짜(`eventDate`)입니다. `createdAt`은 주최자가 이벤트를 등록한 시각이라,
+          일주일 전에 만들어뒀으면 참가자에게 엉뚱한 날짜가 보입니다.
+
+          소감 수는 날짜가 아니므로 `time` 바깥에 둡니다. 문구는 LiveResult의 같은 줄과 맞췄습니다.
+        */}
         <p className="text-xs leading-4 text-text-tertiary">
-          <time dateTime={event.createdAt}>{formatDate(event.createdAt)}</time> · 소감{' '}
+          <time dateTime={event.eventDate}>{formatDate(event.eventDate)}</time> · 소감{' '}
           {submissionCount}개{unclassifiedCount > 0 && ` (미분류 ${unclassifiedCount}개)`}
         </p>
 
