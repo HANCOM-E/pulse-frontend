@@ -12,7 +12,7 @@ import { ChevronLeftIcon } from '@/components/ui/icons';
 import ReportPanel from '@/components/report/ReportPanel';
 import { showToast } from '@/hooks/useToast';
 import { eventCreateRequestSchema, sessionCreateRequestSchema } from '@/lib/schemas/api';
-import type { SessionView } from '@/lib/schemas/api';
+import type { EventView, SessionView } from '@/lib/schemas/api';
 import {
   createEvent,
   createSession,
@@ -84,7 +84,11 @@ const EventForm = ({ eventCode }: EventFormProps) => {
 
   // 쿼리 데이터가 새로 도착했을 때만 폼 입력값을 덮어씁니다(렌더링 중 상태 조정 —
   // useEffect로 하면 렌더가 한 번 더 겹치고 react-hooks/set-state-in-effect에 걸립니다).
-  const [loadedEventData, setLoadedEventData] = useState(eventQuery.data);
+  //
+  // 초깃값을 undefined로 고정합니다. eventQuery.data로 초기화하면, TanStack Query 캐시가
+  // 이전 방문에서 이미 이 이벤트를 받아온 상태로 재마운트될 때 loadedEventData가 처음부터
+  // eventQuery.data와 같아져서 아래 비교가 한 번도 참이 되지 않고, 폼이 빈 값으로 남습니다.
+  const [loadedEventData, setLoadedEventData] = useState<EventView | undefined>(undefined);
   if (eventQuery.data && eventQuery.data !== loadedEventData) {
     setLoadedEventData(eventQuery.data);
     setEventFormInputs({
