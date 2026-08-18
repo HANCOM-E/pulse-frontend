@@ -1,6 +1,6 @@
 import type { ComponentProps } from 'react';
 
-type BadgeTone = 'positive' | 'neutral' | 'negative' | 'toxic' | 'outline';
+type BadgeTone = 'positive' | 'neutral' | 'negative' | 'toxic' | 'outline' | 'info';
 
 interface BadgeProps extends ComponentProps<'span'> {
   tone: BadgeTone;
@@ -17,6 +17,7 @@ const TONE: Record<BadgeTone, string> = {
   neutral: 'bg-neutral-subtle text-neutral-darker',
   negative: 'bg-negative-subtle text-negative-darker',
   toxic: 'bg-toxic-subtle text-toxic-darker',
+  info: 'bg-primary-subtle text-primary-darker',
   outline: 'border border-border-strong bg-background-default text-text-secondary',
 };
 

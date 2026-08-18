@@ -519,6 +519,7 @@ import { Textarea } from '@/components/ui/Textarea';
 | positive | `bg-positive-subtle`                             | `text-positive-darker` | 8.21:1 |
 | neutral  | `bg-neutral-subtle`                              | `text-neutral-darker`  | 8.49:1 |
 | negative | `bg-negative-subtle`                             | `text-negative-darker` | 8.86:1 |
+| info     | `bg-primary-subtle`                              | `text-primary-darker`  | 5.05:1 |
 | toxic    | `bg-toxic-subtle`                                | `text-toxic-darker`    | 8.98:1 |
 | outline  | `bg-background-default` + `border-border-strong` | `text-text-secondary`  | 6.49:1 |
 
@@ -540,7 +541,8 @@ import { Badge } from '@/components/ui/Badge';
 <Badge tone="toxic">⚑ 독성 의심</Badge>
 <Badge tone="outline">미분류</Badge>
 <Badge tone="positive">● LIVE</Badge>
-<Badge tone="neutral">ENDED</Badge>
+<Badge tone="info">종료</Badge>
+
 ```
 
 ---
@@ -823,6 +825,14 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 ---
 
 ## 결정 기록
+
+- **2026.08.15 #191** — `Badge`에 `info` 톤을 추가하고 `ENDED` 배지를 `outline`에서 `info`로 바꿨습니다.
+
+  위 결정(variant 제거) 당시 근거는 `ENDED`가 `neutral`과 같은 색이라 따로 둘 이유가 없다는 것이었습니다. 이후 시안이 `ENDED`를 Primary 계열로 바꾸면서 그 근거가 성립하지 않게 됐습니다. `outline`으로 대체하면 `DRAFT`(`neutral`)와 시각적 구분이 약합니다.
+
+  이름을 `primary`가 아니라 `info`로 정한 이유는, 다른 톤이 전부 의미(`positive`·`neutral`·`negative`·`toxic`)로 나뉘어 있고 `primary`는 색 이름이라 축이 어긋나기 때문입니다. `Banner`에 이미 `info` 타입이 있어 같은 말이 같은 뜻으로 쓰입니다.
+
+  대비 `5.05:1`로 12px 기준 WCAG AA(4.5:1)를 충족합니다.
 
 - 2026.08.11 (#106) — `Button`·`Chip`에 `cursor-pointer` 추가. 비활성 커서만 정하고 기본 커서를 안 정해서, `<button>`의 브라우저 기본값인 `default`가 그대로 나왔음. #54가 화면에서 `className="cursor-pointer"`로 덧대고 있었는데 `Chip`은 전부 클릭 가능한 `<button>`이라 예외가 없어 컴포넌트로 올림. 칩 아이콘은 새 prop 없이 `children`으로 넣기로 함 — `gap-2.5`가 이미 있어 간격이 붙고, Figma의 `icon` Boolean과 대응됨
 - 2026.08.11 (#88) — 버튼 모양의 링크를 위해 `buttonStyle(variant, size)`를 export. `<a>` 안에 `<button>`을 넣을 수 없어(HTML 콘텐츠 모델) 요소는 `next/link`로 두고 모양만 가져옴. `as` prop으로 폴리모픽하게 만드는 방법도 있었지만 제네릭 타입이 복잡해지고 `type="button"` 기본값이 `<a>`로 새는 것도 막아야 해서 미룸. 사용처가 서넛 넘어가면 `LinkButton` 래퍼를 두기로 함
