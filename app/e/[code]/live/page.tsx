@@ -40,9 +40,13 @@ const LivePage = async ({ params, searchParams }: PageProps<'/e/[code]/live'>) =
     redirect(`/e/${code}`);
   }
 
+  /*
+   * 폭은 형제 페이지(`/e/[code]`·`report`·not-found)와 같은 열에 맞춥니다. 레이아웃의
+   * 로고도 `max-w-md`라, 여기만 넓히면 넓은 화면에서 로고와 본문의 왼쪽 끝이 어긋납니다.
+   */
   return (
-    <main className="flex flex-col gap-6 px-5 py-4">
-      <Suspense fallback={<LiveSkeleton withHeading />}>
+    <main className="mx-auto flex w-full max-w-md flex-col gap-6 px-5 py-4">
+      <Suspense fallback={<LiveSkeleton />}>
         <LiveResult />
       </Suspense>
     </main>

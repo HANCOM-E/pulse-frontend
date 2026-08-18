@@ -3,19 +3,11 @@ import { Badge } from '@/components/ui/Badge';
 import { ChevronRightIcon } from '@/components/ui/icons';
 import Link from 'next/link';
 import formatEventDate from '@/lib/formatEventDate';
+import { EVENT_STATUS_BADGE } from '@/components/events/eventStatusBadge';
 
 export interface EventCardProps {
   event: PulseEvent;
 }
-
-const TONE_BY_STATUS: Record<
-  'LIVE' | 'DRAFT' | 'ENDED',
-  { tone: 'positive' | 'neutral' | 'info'; label: string }
-> = {
-  LIVE: { tone: 'positive', label: '● 진행 중' },
-  DRAFT: { tone: 'neutral', label: '준비 중' },
-  ENDED: { tone: 'info', label: '종료' },
-};
 
 const RIGHT_CONTENT_BY_STATUS = {
   LIVE: (event: PulseEvent) => ({
@@ -38,10 +30,10 @@ const ROUTE_BY_STATUS = {
 const EventCard = ({ event }: EventCardProps) => {
   if (event.status === 'DELETED') return;
 
-  const { tone, label } = TONE_BY_STATUS[event.status];
+  const { tone, label } = EVENT_STATUS_BADGE[event.status];
 
   // TODO : 현재는 이벤트 생성 날짜(createdAt)으로 작업했으나, 백엔드 ERD에 '실제 이벤트 일자'가 추가되면 해당 날짜로 사용해야 함.
-  const datetime = formatEventDate(event.createdAt);
+  const datetime = formatEventDate(event.eventDate);
   const rightContent = RIGHT_CONTENT_BY_STATUS[event.status](event);
   const href = ROUTE_BY_STATUS[event.status](event);
 

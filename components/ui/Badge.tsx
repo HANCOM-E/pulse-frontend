@@ -25,4 +25,4 @@ const Badge = ({ tone, className = '', ...props }: BadgeProps) => {
   return <span className={`${BASE} ${TONE[tone]} ${className}`} {...props} />;
 };
 
-export { Badge };
+export { Badge, type BadgeTone };

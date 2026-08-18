@@ -24,6 +24,8 @@ import {
 import { QrCodeDialog } from '@/components/dashboard/QrCodeDialog';
 import { Donut } from '@/components/feedback/Donut';
 import { FEED_SENTIMENT, FeedItem } from '@/components/feedback/FeedItem';
+import { Thermometer } from '@/components/feedback/Thermometer';
+import { EVENT_STATUS_BADGE, isVisibleEvent } from '@/components/events/eventStatusBadge';
 import { ModerationQueue } from '@/components/moderation/ModerationQueue';
 import { Badge } from '@/components/ui/Badge';
 import { Banner } from '@/components/ui/Banner';
@@ -257,7 +259,14 @@ const DashboardView = () => {
    * 같아서 문구를 나누지 않습니다. 나누면 코드를 하나씩 넣어보며 남의 이벤트가 실재하는지
    * 알아낼 수 있습니다.
    */
-  const event = events.find((item) => item.code === eventCode) ?? null;
+  const found = events.find((item) => item.code === eventCode) ?? null;
+
+  /*
+   * `DELETED`도 "볼 수 없다"로 접습니다. 목록 응답에서 이미 빠지는 상태라 실제로는 오지
+   * 않지만, 여기서 좁혀야 아래 상태 배지 표(`EVENT_STATUS_BADGE`)가 DELETED 없는 키로
+   * 안전하게 인덱싱됩니다.
+   */
+  const event = found !== null && isVisibleEvent(found) ? found : null;
 
   if (event === null) {
     return <Banner type="negative">이 이벤트를 볼 수 없어요</Banner>;
@@ -355,6 +364,17 @@ const DashboardView = () => {
 
   const isReportPublic = report?.isPublic ?? false;
 
+  /*
+   * 리포트 카드의 상태 배지입니다. 모바일에선 제목 옆, 데스크톱에선 오른쪽 조치 자리에
+   * 서는데 부모가 달라 CSS로는 옮길 수 없습니다. 두 자리에 같은 것을 두고 감싸는 span으로
+   * 하나씩 감추므로, 본문은 여기서 한 번만 만듭니다.
+   */
+  const reportBadge = isReportGenerating ? (
+    <Badge tone="neutral">생성 중</Badge>
+  ) : isReportGenerated ? (
+    <Badge tone="positive">생성 완료</Badge>
+  ) : null;
+
   /* 칩에서 고른 세션입니다. "전체"(`null`)에는 켜고 끌 대상이 없어 아래 토글을 감춥니다. */
   const selectedSession =
     sessionId === null ? null : (sessions.find((session) => session.id === sessionId) ?? null);
@@ -370,10 +390,13 @@ const DashboardView = () => {
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-semibold leading-7 text-text-primary">{event.title}</h1>
-            <Badge tone={event.status === 'LIVE' ? 'positive' : 'neutral'}>{event.status}</Badge>
+            {/* 이벤트 목록과 같은 표를 씁니다. 따로 쓰면 #192처럼 한쪽만 한글화되는 일이 반복됩니다. */}
+            <Badge tone={EVENT_STATUS_BADGE[event.status].tone}>
+              {EVENT_STATUS_BADGE[event.status].label}
+            </Badge>
           </div>
           {/* 복사되는 값과 같은 것을 보여줍니다. 다르면 눈으로 옮겨 적는 사람이 틀립니다. */}
-          <p className="text-xs font-normal leading-4 break-all text-text-tertiary">{publicUrl}</p>
+          <p className="text-xs font-normal leading-4 break-all text-primary-darker">{publicUrl}</p>
         </div>
 
         {/*
@@ -386,10 +409,16 @@ const DashboardView = () => {
          *
          * 리포트 공개 전환만 `ENDED` 쪽에 남습니다. 주소는 제목 아래에 늘 떠 있습니다.
          */}
-        <div className="flex flex-col items-end gap-2">
-          <div className="flex items-center gap-2">
+        <div className="flex w-full flex-col gap-2 md:w-auto md:items-end">
+          <div className="flex items-center justify-between gap-2 md:justify-end">
             {event.status === 'ENDED' && (
-              <div className="flex shrink-0 items-center gap-2">
+              /*
+               * 모바일에서는 이 묶음이 줄을 다 차지하고(`flex-1`) 버튼만 오른쪽 끝으로
+               * 밀립니다(`ml-auto`). 배지가 함께 서는 생성 중·완료 상태에서는 배지가 왼쪽에
+               * 남아 양끝 정렬이 됩니다. 데스크톱은 `md:flex-none`으로 내용 폭인 원래
+               * 배치로 돌아가고, 그때는 밀어낼 여백이 없어 `ml-auto`도 함께 죽습니다.
+               */
+              <div className="flex flex-1 items-center gap-2 md:flex-none">
                 {isReportGenerating && <Badge tone="neutral">생성 중</Badge>}
                 {isReportGenerated && <Badge tone="positive">생성 완료</Badge>}
 
@@ -398,6 +427,7 @@ const DashboardView = () => {
                   <Button
                     variant="secondary"
                     size="sm"
+                    className="ml-auto"
                     disabled={event.status !== 'ENDED' || isReportUnknown || isReportGenerating}
                     onClick={() => generateReportMutation.mutate()}
                   >
@@ -408,10 +438,20 @@ const DashboardView = () => {
             )}
             {event.status === 'LIVE' && (
               <>
-                <Button variant="secondary" size="sm" onClick={() => setIsQrOpen(true)}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="flex-1 md:flex-none"
+                  onClick={() => setIsQrOpen(true)}
+                >
                   QR
                 </Button>
-                <Button variant="secondary" size="sm" onClick={handleCopyLink}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="flex-1 md:flex-none"
+                  onClick={handleCopyLink}
+                >
                   링크 복사
                 </Button>
               </>
@@ -435,10 +475,13 @@ const DashboardView = () => {
               <Button
                 variant="secondary"
                 size="sm"
+                className="flex-1 md:flex-none"
+                aria-label="이벤트 종료"
                 disabled={endEventMutation.isPending}
                 onClick={() => setIsEndConfirmOpen(true)}
               >
-                이벤트 종료
+                <span className="md:hidden">종료</span>
+                <span className="hidden md:inline">이벤트 종료</span>
               </Button>
             )}
           </div>
@@ -451,7 +494,7 @@ const DashboardView = () => {
            * `EVENT_NOT_LIVE`로 막히는 거짓말이 됩니다.
            */}
           {event.status === 'LIVE' && selectedSession !== null && (
-            <div className="flex items-center gap-2">
+            <div className="hidden items-center gap-2 md:flex">
               <Badge tone={selectedSession.status === 'ACTIVE' ? 'positive' : 'neutral'}>
                 {selectedSession.status === 'ACTIVE'
                   ? '소감 받는 중'
@@ -497,6 +540,34 @@ const DashboardView = () => {
         <span className="ml-auto text-xs font-normal leading-4 text-text-tertiary">
           총 {sessions.length}개 중 {openSessionCount}개 열림
         </span>
+        {event.status === 'LIVE' && selectedSession !== null && (
+          <div className="flex w-full items-center justify-between gap-2 md:hidden">
+            <Badge tone={selectedSession.status === 'ACTIVE' ? 'positive' : 'neutral'}>
+              {selectedSession.status === 'ACTIVE'
+                ? '소감 받는 중'
+                : isSelectedSessionPaused
+                  ? '소감 멈춤'
+                  : '시작 전'}
+            </Badge>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={toggleSessionMutation.isPending}
+              onClick={() =>
+                toggleSessionMutation.mutate({
+                  id: selectedSession.id,
+                  status: selectedSession.status === 'ACTIVE' ? 'CLOSED' : 'ACTIVE',
+                })
+              }
+            >
+              {selectedSession.status === 'ACTIVE'
+                ? '멈추기'
+                : isSelectedSessionPaused
+                  ? '다시 받기'
+                  : '소감 받기'}
+            </Button>
+          </div>
+        )}
       </div>
 
       {isFeedError && <Banner type="negative">지금은 소감을 불러올 수 없어요</Banner>}
@@ -529,7 +600,18 @@ const DashboardView = () => {
           <div className="grid gap-3 md:grid-cols-[16rem_1fr]">
             <section className={CARD}>
               <h2 className={CARD_TITLE}>감정 분포</h2>
-              <Donut positive={positive} neutral={neutral} negative={negative} className="py-2" />
+              <Donut
+                positive={positive}
+                neutral={neutral}
+                negative={negative}
+                className="py-2 hidden md:flex"
+              />
+              <Thermometer
+                positive={positive}
+                neutral={neutral}
+                negative={negative}
+                className="py-2 md:hidden"
+              />
             </section>
 
             <section className={CARD}>
@@ -690,12 +772,16 @@ const DashboardView = () => {
            * 멈춰서(위 `refetchInterval`) 기다려도 아무것도 다시 오지 않습니다.
            */}
           <section
-            className={`${CARD} flex-row items-start justify-between gap-4 bg-background-muted`}
+            className={`${CARD} flex-col items-start justify-between gap-4 bg-background-muted md:flex-row`}
           >
-            <div className="flex flex-col gap-1">
-              <h2 className="text-base font-semibold leading-6 text-text-primary">
-                AI 요약 리포트
-              </h2>
+            <div className="flex w-full flex-col gap-1 md:w-auto">
+              {/* 배지를 오른쪽 끝에 붙이려면 이 열이 폭을 다 써야 합니다(`w-full`). */}
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="text-base font-semibold leading-6 text-text-primary">
+                  AI 요약 리포트
+                </h2>
+                {reportBadge && <span className="md:hidden">{reportBadge}</span>}
+              </div>
 
               {summaryText !== null ? (
                 <p className="text-sm font-normal leading-5 text-text-secondary">{summaryText}</p>
@@ -713,14 +799,22 @@ const DashboardView = () => {
             {/*
              * 오른쪽은 이 카드의 상태와 조치가 함께 서는 자리입니다. 상태 배지를 제목이 아니라
              * 여기 두는 이유는, 다 만들고 나면 버튼이 빠져서 이 자리가 비기 때문입니다.
+             *
+             * 모바일에서는 카드가 세로로 서면서 이 자리가 제목에서 멀어지므로, 배지만 제목 옆으로
+             * 올립니다(`reportBadge`). 그러면 생성 완료 상태의 모바일에서는 배지도 버튼도 없어
+             * 이 자리가 통째로 비므로 아예 감춥니다 — 안 그러면 section의 `gap-4`만 남습니다.
              */}
-            <div className="flex shrink-0 items-center gap-2">
-              {isReportGenerating && <Badge tone="neutral">생성 중</Badge>}
-              {isReportGenerated && <Badge tone="positive">생성 완료</Badge>}
+            <div
+              className={`flex w-full shrink-0 items-center gap-2 md:w-auto ${
+                isReportGenerated ? 'hidden md:flex' : ''
+              }`}
+            >
+              {reportBadge && <span className="hidden md:contents">{reportBadge}</span>}
 
               {/* 다 만든 리포트에는 다시 만들 길이 없습니다(재생성은 REPORT_ALREADY_EXISTS). */}
               {!isReportGenerated && (
                 <Button
+                  className="flex-1 md:flex-none"
                   variant="primary"
                   disabled={event.status !== 'ENDED' || isReportUnknown || isReportGenerating}
                   onClick={() => generateReportMutation.mutate()}
