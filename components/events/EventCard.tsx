@@ -33,7 +33,7 @@ const EventCard = ({ event }: EventCardProps) => {
   const { tone, label } = EVENT_STATUS_BADGE[event.status];
 
   // TODO : 현재는 이벤트 생성 날짜(createdAt)으로 작업했으나, 백엔드 ERD에 '실제 이벤트 일자'가 추가되면 해당 날짜로 사용해야 함.
-  const datetime = formatEventDate(event.createdAt);
+  const datetime = formatEventDate(event.eventDate);
   const rightContent = RIGHT_CONTENT_BY_STATUS[event.status](event);
   const href = ROUTE_BY_STATUS[event.status](event);
 
