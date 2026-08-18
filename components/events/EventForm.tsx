@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/Textarea';
 import { Button } from '@/components/ui/Button';
 import { Banner } from '@/components/ui/Banner';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { ChevronLeftIcon } from '@/components/ui/icons';
 import ReportPanel from '@/components/report/ReportPanel';
 import { showToast } from '@/hooks/useToast';
 import { eventCreateRequestSchema, sessionCreateRequestSchema } from '@/lib/schemas/api';
@@ -221,6 +222,16 @@ const EventForm = ({ eventCode }: EventFormProps) => {
 
   return (
     <>
+      <div className="w-full max-w-190">
+        <button
+          type="button"
+          className="-ml-1 flex cursor-pointer items-center rounded p-1 text-text-secondary hover:bg-background-secondary"
+          aria-label="이벤트 목록으로 돌아가기"
+          onClick={() => router.push('/events')}
+        >
+          <ChevronLeftIcon className="h-6 w-6" />
+        </button>
+      </div>
       <h1 className="w-full max-w-190 text-xl font-semibold text-text-primary">이벤트 설정</h1>
       <form onSubmit={handleFormSubmit} className="w-full max-w-190 flex flex-col gap-6">
         <Field
