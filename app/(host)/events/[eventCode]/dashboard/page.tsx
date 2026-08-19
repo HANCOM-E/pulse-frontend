@@ -16,7 +16,7 @@ import { DashboardView } from '@/components/dashboard/DashboardView';
  */
 const DashboardPage = () => {
   return (
-    <main className="flex flex-col gap-6 px-5 md:px-20">
+    <main className="flex flex-col gap-6 p-5 md:px-20">
       <DashboardView />
     </main>
   );
