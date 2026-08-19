@@ -126,21 +126,27 @@ const ReportPage = async ({ params }: ReportPageProps) => {
         <Donut {...counts} className="py-2" />
       </section>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-xs leading-4 text-text-tertiary">주요 키워드</h2>
-        {/* Chip은 button + aria-pressed라 읽기 전용 목록에는 쓰지 않습니다(토글로 읽힙니다). */}
-        <ul className="flex flex-wrap gap-2">
-          {topKeywords.map(({ keyword, count }) => (
-            <li
-              key={keyword}
-              className="inline-flex h-8 items-center gap-1.5 rounded-full border border-border-default bg-background-default px-3.5 text-sm leading-5 text-text-secondary"
-            >
-              {keyword}
-              <span className="text-text-tertiary">{count}</span>
-            </li>
-          ))}
-        </ul>
-      </section>
+      {/*
+        키워드가 하나도 없으면 제목만 남은 빈 칸이 되므로 섹션을 통째로 뺍니다. 생성이 끝난
+        리포트라도 소감이 적으면 뽑힐 키워드가 없을 수 있습니다(publicReportSchema).
+      */}
+      {topKeywords.length > 0 && (
+        <section className="flex flex-col gap-3">
+          <h2 className="text-xs leading-4 text-text-tertiary">주요 키워드</h2>
+          {/* Chip은 button + aria-pressed라 읽기 전용 목록에는 쓰지 않습니다(토글로 읽힙니다). */}
+          <ul className="flex flex-wrap gap-2">
+            {topKeywords.map(({ keyword, count }) => (
+              <li
+                key={keyword}
+                className="inline-flex h-8 items-center gap-1.5 rounded-full border border-border-default bg-background-default px-3.5 text-sm leading-5 text-text-secondary"
+              >
+                {keyword}
+                <span className="text-text-tertiary">{count}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </main>
   );
 };
