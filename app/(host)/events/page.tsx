@@ -19,7 +19,7 @@ const EventsListPage = () => {
 
   // API: GET/POST /events. "새 이벤트 만들기" 버튼은 /events/new로 이동합니다.
   const myEvents = useQuery({
-    queryKey: ['events', 'my'],
+    queryKey: ['myEvents'],
     queryFn: fetchMyEvents,
   });
 
