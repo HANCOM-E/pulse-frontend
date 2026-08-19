@@ -11,7 +11,7 @@ export interface EventCardProps {
 
 const RIGHT_CONTENT_BY_STATUS = {
   LIVE: (event: PulseEvent) => ({
-    label: `pulse.app/e/${event.code}`,
+    label: `${window.location.origin}/e/${event.code}`,
     className: 'text-xs text-primary-darker',
   }),
   ENDED: () => ({
