@@ -45,6 +45,15 @@ const FeedbackForm = ({ eventCode, sessions }: FeedbackFormProps) => {
   const { warmup, tag } = useTagger();
 
   /*
+   * 모델이 13.9MB라 받는 데 시간이 걸립니다. 참가자가 입력창을 누른 뒤 시작하면
+   * 타이핑이 짧은 사람은 3초 타임아웃에 걸려 UNKNOWN으로 나갑니다.
+   * 화면이 뜨자마자 받기 시작하면 소감을 쓰는 동안 준비가 끝납니다.
+   */
+  useEffect(() => {
+    warmup();
+  }, [warmup]);
+
+  /*
    * 제출 기록은 브라우저에만 있어서 서버 렌더에서는 항상 비어 있습니다. 렌더 중에 읽으면
    * 서버와 클라이언트 결과가 어긋나므로 마운트 후에 읽습니다.
    *
@@ -176,7 +185,6 @@ const FeedbackForm = ({ eventCode, sessions }: FeedbackFormProps) => {
               maxLength={200}
               value={text}
               onChange={(event) => setText(event.target.value)}
-              onFocus={warmup}
             />
           </section>
 
