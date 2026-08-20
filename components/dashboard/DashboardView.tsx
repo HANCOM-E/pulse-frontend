@@ -266,8 +266,23 @@ const DashboardView = () => {
    * 시작 전이나 끝난 뒤에 세션만 열어두면 화면은 "소감 받는 중"이라고 하고 참가자는
    * `EVENT_NOT_LIVE`로 막히는 거짓말이 됩니다.
    */
-  const renderSessionToggle = (className: string) =>
-    event.status === 'LIVE' && selectedSession !== null ? (
+  const renderSessionToggle = (className: string) => {
+    if (event.status !== 'LIVE') return null;
+
+    /*
+     * "전체"에는 켜고 끌 대상이 없지만 자리는 남겨둡니다. 비워두면 칩을 오갈 때마다 토글
+     * 한 줄이 통째로 생겼다 사라지면서, 데스크톱은 헤더가 접혀 아래 카드가 전부 밀리고
+     * 모바일은 칩 줄 높이가 바뀝니다.
+     *
+     * `h-9`는 토글의 높이입니다 — 안에서 가장 큰 게 `size="sm"` 버튼이라 그 높이가 그대로
+     * 줄 높이가 됩니다. 배지(`h-6`)는 가운데 정렬돼서 높이를 정하지 않습니다.
+     *
+     * `LIVE`가 아닐 때는 위에서 이미 빠져나갔습니다. 그 상태에서는 토글이 영영 나오지
+     * 않으므로 자리를 잡아봐야 빈 공간만 남습니다.
+     */
+    if (selectedSession === null) return <div className={`h-9 ${className}`} aria-hidden />;
+
+    return (
       <SessionToggle
         session={selectedSession}
         isPaused={sessionControls.isPaused(selectedSession.id)}
@@ -275,7 +290,8 @@ const DashboardView = () => {
         onToggle={(status) => sessionControls.toggle(selectedSession.id, status)}
         className={className}
       />
-    ) : null;
+    );
+  };
 
   return (
     <div className="flex flex-col gap-4">
