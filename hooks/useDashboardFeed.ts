@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 
+import { useAuth } from '@/hooks/useAuth';
 import { fetchModerationQueue } from '@/lib/api/endpoints';
 import { ApiError } from '@/lib/apiClient';
 import { isClientError, type Feedback } from '@/lib/schemas/api';
@@ -59,6 +60,13 @@ const useDashboardFeed = ({
   eventCode,
   sessionId,
 }: UseDashboardFeedParams): UseDashboardFeedResult => {
+  /*
+   * 인증 여부를 화면에서 받지 않고 여기서 직접 봅니다. "로그인이 없으면 폴링하지 않는다"는
+   * 화면이 정할 일이 아니라 이 훅의 불변조건입니다. `['auth','me']` 캐시를 공유하므로 요청은
+   * 늘지 않습니다 — 대시보드에는 `HostHeader`가 이미 같은 쿼리를 띄워둡니다.
+   */
+  const { isAuthenticated } = useAuth();
+
   const { data, isPending, isError, error } = useQuery({
     queryKey: [DASHBOARD_FEED_KEY, eventCode, sessionId],
     queryFn: () =>
@@ -67,6 +75,18 @@ const useDashboardFeed = ({
         sessionId: sessionId ?? undefined,
         includeHidden: true,
       }),
+    /*
+     * 로그인이 풀리면 요청 자체를 내보내지 않습니다. 아래 `isPermanentFailure`가 401을 받고
+     * 폴링을 멈추긴 하지만 멈추기 전 한 번은 나가는데, #247의 401 인터셉터가 붙으면 그 한 번이
+     * `/auth/refresh`까지 부릅니다. 방금 로그아웃한 사용자를 위해 재발급을 시도하다 다시 401을
+     * 받고 로그아웃 처리가 한 번 더 도는 흐름이라, 요청을 아예 막는 편이 낫습니다.
+     *
+     * `isAuthenticated`는 `/auth/me` 응답 전에도 `false`라 진입 직후 한 박자 늦게 시작합니다.
+     * 미들웨어가 비로그인 진입을 이미 막으므로 그 지연은 첫 왕복뿐이고, 한 번이라도 받아둔
+     * 데이터가 있으면 `enabled`가 꺼져도 `isPending`으로 되돌아가지 않아 화면이 스켈레톤으로
+     * 깜빡이지 않습니다.
+     */
+    enabled: isAuthenticated,
     /*
      * 폴링 타이머는 에러 상태에서도 그대로 돕니다. `QueryObserver`가 간격을 다시 잴 때 보는 건
      * `enabled`와 간격값뿐이라 실패 여부는 아예 안 봅니다. 그래서 로그인이 풀린 화면이 401을
