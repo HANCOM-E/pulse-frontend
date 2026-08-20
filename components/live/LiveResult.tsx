@@ -193,13 +193,13 @@ const LiveResult = () => {
             <Thermometer positive={POS} neutral={NEU} negative={NEG} />
           </section>
 
-          {/*
-            키워드가 없으면 제목과 빈 상자만 남으므로 섹션을 통째로 뺍니다(#221). 폴링이라
-            소감이 쌓이면 다시 나타납니다.
-          */}
-          {keywords.length > 0 && (
-            <section className="flex flex-col gap-2">
-              <h3 className="text-xs text-text-tertiary">많이 나온 말</h3>
+          <section className="flex flex-col gap-2">
+            <h3 className="text-xs text-text-tertiary">주요 키워드</h3>
+            {keywords.length === 0 ? (
+              <p className="flex min-h-32 items-center justify-center rounded-xl border border-border-subtle p-4 text-sm text-text-tertiary">
+                아직 모인 키워드가 없어요
+              </p>
+            ) : (
               <ul className="flex min-h-32 flex-wrap items-center justify-center gap-x-6 gap-y-4 rounded-xl border border-border-subtle p-4">
                 {keywords.map(({ keyword, count }) => (
                   <li key={keyword}>
@@ -208,8 +208,8 @@ const LiveResult = () => {
                   </li>
                 ))}
               </ul>
-            </section>
-          )}
+            )}
+          </section>
 
           {refreshIntervalMs !== null && (
             <p className="text-center text-xs text-text-secondary">

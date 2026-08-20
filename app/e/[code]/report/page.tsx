@@ -126,14 +126,16 @@ const ReportPage = async ({ params }: ReportPageProps) => {
         <Donut {...counts} className="py-2" />
       </section>
 
-      {/*
-        키워드가 하나도 없으면 제목만 남은 빈 칸이 되므로 섹션을 통째로 뺍니다. 생성이 끝난
-        리포트라도 소감이 적으면 뽑힐 키워드가 없을 수 있습니다(publicReportSchema).
-      */}
-      {topKeywords.length > 0 && (
-        <section className="flex flex-col gap-3">
-          <h2 className="text-xs leading-4 text-text-tertiary">주요 키워드</h2>
-          {/* Chip은 button + aria-pressed라 읽기 전용 목록에는 쓰지 않습니다(토글로 읽힙니다). */}
+      <section className="flex flex-col gap-3">
+        <h2 className="text-xs leading-4 text-text-tertiary">주요 키워드</h2>
+        {/*
+          생성이 끝난 리포트라도 소감이 적으면 뽑힐 키워드가 없을 수 있습니다(publicReportSchema).
+          이때 제목만 남지 않도록 라이브 화면과 같은 문구를 보여줍니다.
+        */}
+        {topKeywords.length === 0 ? (
+          <p className="text-sm leading-5 text-text-tertiary">아직 모인 키워드가 없어요</p>
+        ) : (
+          /* Chip은 button + aria-pressed라 읽기 전용 목록에는 쓰지 않습니다(토글로 읽힙니다). */
           <ul className="flex flex-wrap gap-2">
             {topKeywords.map(({ keyword, count }) => (
               <li
@@ -145,8 +147,8 @@ const ReportPage = async ({ params }: ReportPageProps) => {
               </li>
             ))}
           </ul>
-        </section>
-      )}
+        )}
+      </section>
     </main>
   );
 };
