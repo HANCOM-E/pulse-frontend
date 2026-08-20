@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { useAuth } from '@/hooks/useAuth';
 import { showToast } from '@/hooks/useToast';
 import { fetchOwnReport, generateReport, setReportPublic } from '@/lib/api/endpoints';
 import type { EventStatus } from '@/lib/schemas/api';
@@ -55,9 +56,14 @@ interface EventReportControls {
   isGenerateError: boolean;
   isTogglePublicError: boolean;
 }
-
 const useEventReport = (eventCode: string, eventStatus?: EventStatus): EventReportControls => {
   const queryClient = useQueryClient();
+
+  /*
+   * 인증 여부를 화면에서 받지 않고 여기서 직접 봅니다(`useDashboardFeed`와 같은 이유).
+   * `['auth','me']` 캐시를 공유하므로 요청은 늘지 않습니다.
+   */
+  const { isAuthenticated } = useAuth();
 
   const reportQueryKey = ['report', eventCode];
 
@@ -73,8 +79,15 @@ const useEventReport = (eventCode: string, eventStatus?: EventStatus): EventRepo
   const reportQuery = useQuery({
     queryKey: reportQueryKey,
     queryFn: () => fetchOwnReport(eventCode),
-    // 생성 자체가 `ENDED`에서만 가능해서, 그 전에는 물어볼 이유가 없습니다.
-    enabled: eventStatus === 'ENDED',
+    /*
+     * 생성 자체가 `ENDED`에서만 가능해서, 그 전에는 물어볼 이유가 없습니다.
+     *
+     * 로그인이 풀린 상태에서도 내보내지 않습니다. 이쪽은 `GENERATING` 동안에만 폴링해서 노출
+     * 창이 좁지만, 그 몇 초에 걸리면 `useDashboardFeed`와 똑같이 401 한 번이 #247의 인터셉터를
+     * 타고 `/auth/refresh`까지 부릅니다. 조건을 한쪽에만 걸어두면 왜 다른지 다음 사람이
+     * 되짚어야 해서 같이 맞춥니다.
+     */
+    enabled: eventStatus === 'ENDED' && isAuthenticated,
     refetchInterval: ({ state }) =>
       state.data?.status === 'GENERATING' ? REPORT_POLL_INTERVAL_MS : false,
   });
