@@ -46,6 +46,8 @@ export const errorResponse = (code: ApiErrorCode, message?: string) =>
 /** 인증 쿠키 이름입니다(2026-08-07 명세). 실제 BE가 `Set-Cookie`로 내려주는 이름과 같아야 합니다. */
 export const ACCESS_TOKEN_COOKIE = 'accessToken';
 
+export const REFRESH_TOKEN_COOKIE = 'refreshToken';
+
 /** CSRF double-submit용 쿠키. HttpOnly가 아니라서 FE가 읽어 `X-XSRF-TOKEN` 헤더로 되돌려 보냅니다. */
 export const XSRF_TOKEN_COOKIE = 'XSRF-TOKEN';
 
@@ -66,9 +68,20 @@ const ACCESS_TOKEN_PREFIX = 'mock-access-token-';
 
 export const issueAccessToken = (accountId: number): string => `${ACCESS_TOKEN_PREFIX}${accountId}`;
 
+const REFRESH_TOKEN_PREFIX = 'mock-refresh-token-';
+
+export const issueRefreshToken = (accountId: number): string =>
+  `${REFRESH_TOKEN_PREFIX}${accountId}`;
+
 const accountIdFromAccessToken = (token: string | undefined): number | null => {
   if (token === undefined || !token.startsWith(ACCESS_TOKEN_PREFIX)) return null;
   const parsed = Number(token.slice(ACCESS_TOKEN_PREFIX.length));
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+};
+
+export const accountIdFromRefreshToken = (token: string | undefined): number | null => {
+  if (token === undefined || !token.startsWith(REFRESH_TOKEN_PREFIX)) return null;
+  const parsed = Number(token.slice(REFRESH_TOKEN_PREFIX.length));
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 };
 
