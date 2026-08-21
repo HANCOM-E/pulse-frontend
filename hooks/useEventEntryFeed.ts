@@ -2,28 +2,36 @@
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { fetchEventByCode, fetchPublicReport, fetchSessionsByEventCode } from '@/lib/api/endpoints';
+import { 
+  fetchCurrentGame,
+  fetchEventByCode,
+  fetchPublicReport,
+  fetchSessionsByEventCode
+} from '@/lib/api/endpoints';
 import { ApiError } from '@/lib/apiClient';
 import {
   isClientError,
   listResponseSchema,
   sessionViewSchema,
   type EventView,
+  type GameView,
   type SessionView,
 } from '@/lib/schemas/api';
 import { useEffect, useState } from 'react';
 import { API_BASE_URL } from '@/lib/env';
 
 /**
- * 게스트 진입 화면(`/e/[code]`)이 보는 이벤트·세션·리포트입니다.
+ * 게스트 진입 화면(`/e/[code]`)이 보는 이벤트·세션·리포트·게임입니다.
  *
- * 셋을 한 훅에 두는 이유는 서로 배타적으로 켜졌다 꺼지는 하나의 상태 머신이기 때문입니다.
+ * 넷을 한 훅에 두는 이유는 서로 배타적으로 켜졌다 꺼지는 하나의 상태 머신이기 때문입니다.
  * 이벤트가 `ENDED`를 잡는 순간 세션 구독을 끊고 리포트 폴링을 켜는 그 조율이 이 훅의 알맹이라,
  * 나눠두면 조율이 화면으로 흘러나갑니다(`useEventReport`가 조회·생성·공개를 묶은 것과 같은 이유).
  *
  * 갱신 수단이 둘로 갈립니다. 세션만 SSE(`.../sessions/stream`)로 받고, 이벤트 상태와 리포트는
  * 폴링입니다. 명세에 스트림이 셋뿐이라 이벤트 상태에는 아예 없고, 리포트는 "실시간 push(SSE)는
  * 도입하지 않고 폴링으로 확정"이라고 명시적으로 배제됐습니다(2026-08-21).
+ * 
+ * 게임도 폴링입니다. 명세의 스트림 3종에 게임이 없어서 이벤트 상태와 같은 처지입니다.
  *
  * CLAUDE.md의 "실시간(클라이언트): 폴링 → SSE 승급, 훅으로 격리" 원칙에 따라 갱신 방식을 아는
  * 코드는 이 파일에만 둡니다. 화면은 `EventSource`도 폴링 간격도 모릅니다.
@@ -124,6 +132,8 @@ interface UseEventEntryFeedParams {
   initialEvent: EventView;
   initialSessions: SessionView[];
   initialHasReport: boolean;
+  /** 열린 게임이 없으면 `null`입니다. 404가 정상 상태라 에러가 아닙니다. */
+  initialCurrentGame: GameView | null;
 }
 
 interface UseEventEntryFeedResult {
@@ -134,6 +144,8 @@ interface UseEventEntryFeedResult {
   isEnded: boolean;
   /** 공개된 리포트가 있는지입니다. `ENDED`가 아니면 항상 `false`입니다. */
   hasReport: boolean;
+  /** 지금 열린 게임입니다. 없거나 행사가 끝났으면 `null`입니다. */
+  currentGame: GameView | null;
 }
 
 const useEventEntryFeed = ({
@@ -141,6 +153,7 @@ const useEventEntryFeed = ({
   initialEvent,
   initialSessions,
   initialHasReport,
+  initialCurrentGame,
 }: UseEventEntryFeedParams): UseEventEntryFeedResult => {
   const queryClient = useQueryClient();
   /** 세션 스트림이 죽었는지입니다. 참이면 아래 쿼리가 폴링으로 되돌아갑니다. */
@@ -243,6 +256,28 @@ const useEventEntryFeed = ({
     };
   }, [eventCode, isEnded, queryClient]);
 
+  /*
+   * 소감 화면 배너가 쓰는 "지금 열린 게임"입니다(#243).
+   *
+   * 세션과 달리 스트림이 없습니다. 명세의 실시간 3종에 게임이 안 들어가 있어서, 이벤트
+   * 상태와 같이 폴링으로 남습니다. 간격을 맞춘 것도 그래서입니다 — 둘 다 "주최자가
+   * 스위치를 눌렀나"를 묻는 질문이고 반응 속도 요구가 같습니다.
+   *
+   * `isEnded`에서 멈추는 이유도 이벤트 상태와 같습니다. 행사가 끝나면 게임이 새로 열릴
+   * 일이 없습니다.
+   *
+   * 열린 게임이 없을 때는 `fetchCurrentGame`이 404를 `null`로 삼켜서 옵니다. 그대로
+   * 던지면 `isPermanentFailure`가 4xx로 보고 폴링을 멈춰서, 주최자가 나중에 열어도
+   * 화면이 모릅니다.
+   */
+  const gameQuery = useQuery({
+    queryKey: ['currentGame', eventCode],
+    queryFn: () => fetchCurrentGame(eventCode),
+    initialData: initialCurrentGame,
+    refetchInterval: ({ state }) =>
+      isEnded || isPermanentFailure(state.error) ? false : REFRESH_INTERVAL_MS,
+  });
+
   const reportQuery = useQuery({
     queryKey: ['publicReportExists', eventCode],
     queryFn: () => fetchReportExists(eventCode),
@@ -286,6 +321,11 @@ const useEventEntryFeed = ({
     canSubmit: event.status === 'LIVE' && sessionsQuery.data.length > 0,
     isEnded,
     hasReport: isEnded && reportQuery.data === true,
+    /*
+     * `isEnded`면 폴링만 멈추는 게 아니라 값도 지웁니다. 멈추기만 하면 주최자가 결과를 안
+     * 올린 채 종료했을 때 배너가 「레이스 진행 중」에 굳습니다.
+     */
+    currentGame: isEnded ? null : gameQuery.data,
   };
 };
 

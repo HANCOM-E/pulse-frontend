@@ -9,6 +9,7 @@ import type {
   FeedbackSnapshot,
   FeedbackSubmitRequest,
   FeedbackView,
+  GameView,
   LoginRequest,
   PublicReport,
   PulseEvent,
@@ -26,6 +27,7 @@ import {
   feedbackSchema,
   feedbackSnapshotSchema,
   feedbackViewSchema,
+  gameViewSchema,
   listResponseSchema,
   publicReportSchema,
   pulseEventSchema,
@@ -303,4 +305,28 @@ export const setReportPublic = async (eventCode: string, isPublic: boolean): Pro
     body: JSON.stringify({ isPublic }),
   });
   return parseResponse(reportSchema, data, 'PATCH /events/{eventCode}/report');
+};
+
+/**
+ * 참가자 화면 배너가 쓰는 "지금 열린 게임"입니다(#243).
+ *
+ * `skipAuth`를 씁니다. 공개 경로라 인증이 필요 없고, 주최자가 자기 폰으로 참가자 화면을
+ * 열어도 같은 응답을 받아야 합니다.
+ */
+export const fetchCurrentGame = async (eventCode: string): Promise<GameView | null> => {
+  try {
+    const data = await apiClient<unknown>(`/events/${eventCode}/games/current`, { skipAuth: true });
+    return parseResponse(gameViewSchema, data, 'GET /events/{eventCode}/games/current');
+  } catch (error) {
+    /*
+     * 열린 게임이 없으면 서버가 GAME_NOT_FOUND(404)를 줍니다. 이 화면에서 그건 실패가
+     * 아니라 "아직 안 열렸다"는 정상 상태입니다.
+     *
+     * 에러로 남기면 useEventEntryFeed의 isPermanentFailure가 4xx로 보고 폴링을 멈춰서,
+     * 주최자가 나중에 게임을 열어도 화면이 영영 모릅니다. 리포트 쪽 fetchReportExists가
+     * 같은 이유로 404를 삼킵니다.
+     */
+    if (error instanceof ApiError && error.code === 'GAME_NOT_FOUND') return null;
+    throw error;
+  }
 };
