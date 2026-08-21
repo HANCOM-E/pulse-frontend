@@ -1,4 +1,11 @@
-import type { Feedback, PulseEvent, Report, Session } from '@/lib/schemas/api';
+import type {
+  Feedback,
+  Game,
+  GameParticipant,
+  PulseEvent,
+  Report,
+  Session,
+} from '@/lib/schemas/api';
 
 /**
  * MSW 목 서버의 시드 데이터입니다.
@@ -7,6 +14,7 @@ import type { Feedback, PulseEvent, Report, Session } from '@/lib/schemas/api';
  *   - LIVE  (ab3f9x) 대시보드·실시간·모더레이션 확인용. 독성/미분류 소감이 섞여 있습니다.
  *   - ENDED (kd7m2p) 공개 리포트 확인용. 리포트가 GENERATED·isPublic=true 상태입니다.
  *   - DRAFT (zq1v8t) 세션 0개. LIVE 전이 시 409를 확인하는 용도입니다.
+ *   - 게임은 LIVE 이벤트(ab3f9x)에만 깔려 있습니다. OPEN 1개 + FINISHED 1개입니다.
  */
 
 export const HOST_USER = {
@@ -51,6 +59,92 @@ export const seedEvents: PulseEvent[] = [
     ownerId: HOST_USER.id,
     status: 'DRAFT',
     createdAt: '2026-08-04T05:00:00.000Z',
+  },
+];
+
+/**
+ * 게임 시드입니다. LIVE 이벤트(42)에만 깔았습니다.
+ *
+ * `OPEN` 하나와 `FINISHED` 하나를 둡니다. 소감 화면 배너가 상태별로 문구를 바꾸는데,
+ * 둘 다 있어야 `current`가 무엇을 고르는지(가장 최근 것)를 화면에서 확인할 수 있습니다.
+ *
+ * 소감 시드와 달리 id 를 직접 씁니다. 배열 순번으로 정하면 중간에 끼워 넣을 때
+ * 참가자의 gameId 가 통째로 어긋납니다.
+ */
+export const seedGames: Game[] = [
+  {
+    id: 1,
+    eventId: 42,
+    title: '쉬는 시간 몸풀기',
+    gameType: 'PINBALL',
+    status: 'FINISHED',
+    createdAt: '2026-08-05T01:00:00.000Z',
+    results: [
+      { rank: 1, participantId: 2, nickname: '감자' },
+      { rank: 2, participantId: 1, nickname: '초코송이' },
+      { rank: 3, participantId: 3, nickname: '눈사람' },
+    ],
+  },
+  {
+    id: 2,
+    eventId: 42,
+    title: '오후 세션 시작 전',
+    gameType: 'PINBALL',
+    status: 'OPEN',
+    createdAt: '2026-08-05T04:00:00.000Z',
+    results: null,
+  },
+];
+
+/**
+ * 게임 참가자입니다. 저장소 행이라 공개 응답에 안 나가는 `gameId`·`clientId`가 붙습니다.
+ *
+ * 타입을 store가 아니라 여기 두는 이유는 순환 임포트 때문입니다 — store가 seed를 임포트하고
+ * 있어서 반대 방향으로 타입을 가져올 수 없습니다. 공개 `GameParticipant`에서 파생시켰으므로
+ * 필드 목록이 두 벌로 갈라지지는 않습니다.
+ */
+export interface MockGameParticipant extends GameParticipant {
+  gameId: number;
+  /** 브라우저 UUID입니다. 공개 응답에 절대 나가면 안 됩니다. */
+  clientId: string;
+}
+
+export const seedGameParticipants: MockGameParticipant[] = [
+  {
+    id: 1,
+    gameId: 1,
+    nickname: '초코송이',
+    clientId: 'seed-client-1',
+    joinedAt: '2026-08-05T01:02:00.000Z',
+  },
+  {
+    id: 2,
+    gameId: 1,
+    nickname: '감자',
+    clientId: 'seed-client-2',
+    joinedAt: '2026-08-05T01:02:30.000Z',
+  },
+  {
+    id: 3,
+    gameId: 1,
+    nickname: '눈사람',
+    clientId: 'seed-client-3',
+    joinedAt: '2026-08-05T01:03:00.000Z',
+  },
+  // 같은 clientId(seed-client-2)가 다른 게임에도 있습니다. 재참가 판정이 게임 단위인지 확인용입니다.
+  {
+    id: 4,
+    gameId: 2,
+    nickname: '라면',
+    clientId: 'seed-client-4',
+    joinedAt: '2026-08-05T04:01:00.000Z',
+  },
+  {
+    id: 5,
+    gameId: 2,
+    nickname: '커피',
+    clientId: 'seed-client-2',
+    joinedAt: '2026-08-05T04:01:20.000Z',
   },
 ];
 

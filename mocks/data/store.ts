@@ -9,9 +9,22 @@ import type {
   Session,
   SentimentBreakdown,
   SessionView,
+  Game,
+  GameParticipant,
+  GameView,
 } from '@/lib/schemas/api';
 import { RECENT_FEEDBACK_LIMIT, TOP_KEYWORD_LIMIT } from '@/lib/schemas/api';
-import { HOST_USER, seedEvents, seedFeedbacks, seedReports, seedSessions } from '@/mocks/data/seed';
+
+import type { MockGameParticipant } from '@/mocks/data/seed';
+import {
+  HOST_USER,
+  seedEvents,
+  seedFeedbacks,
+  seedReports,
+  seedSessions,
+  seedGames,
+  seedGameParticipants,
+} from '@/mocks/data/seed';
 
 /**
  * MSW 목 서버의 인메모리 저장소입니다.
@@ -39,6 +52,8 @@ interface MockDb {
   sessions: Session[];
   feedbacks: Feedback[];
   reports: Report[];
+  games: Game[];
+  gameParticipants: MockGameParticipant[];
 }
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
@@ -49,6 +64,8 @@ const createDb = (): MockDb => ({
   sessions: clone(seedSessions),
   feedbacks: clone(seedFeedbacks),
   reports: clone(seedReports),
+  games: clone(seedGames),
+  gameParticipants: clone(seedGameParticipants),
 });
 
 export const db: MockDb = createDb();
@@ -61,6 +78,8 @@ export const resetDb = (): void => {
   db.sessions = fresh.sessions;
   db.feedbacks = fresh.feedbacks;
   db.reports = fresh.reports;
+  db.games = fresh.games;
+  db.gameParticipants = fresh.gameParticipants;
   submissionLog.clear();
 };
 
@@ -76,6 +95,8 @@ export const nextEventId = (): number => nextId(db.events);
 export const nextSessionId = (): number => nextId(db.sessions);
 export const nextFeedbackId = (): number => nextId(db.feedbacks);
 export const nextReportId = (): number => nextId(db.reports);
+export const nextGameId = (): number => nextId(db.games);
+export const nextGameParticipantId = (): number => nextId(db.gameParticipants);
 
 /**
  * 이벤트 code는 nanoid로 자동 생성됩니다(요구사항 "2. 이벤트 생성"). 목에서는 길이만 맞춥니다.
@@ -153,6 +174,39 @@ export const findEventOfSession = (sessionId: number): PulseEvent | undefined =>
 export const findReportByEventId = (eventId: number): Report | undefined =>
   db.reports.find((report) => report.eventId === eventId);
 
+export const findGameById = (gameId: number): Game | undefined =>
+  db.games.find((game) => game.id === gameId);
+
+export const listParticipantsOfGame = (gameId: number): MockGameParticipant[] =>
+  db.gameParticipants
+    .filter((participant) => participant.gameId === gameId)
+    .sort((a, b) => a.id - b.id);
+
+/**
+ * 같은 사람이 이미 참가했는지 봅니다. **게임 단위**입니다 — 같은 브라우저가 다른 게임에
+ * 참가하는 건 정상이라 `clientId`만으로 판단하면 안 됩니다.
+ */
+export const findParticipantByClientId = (
+  gameId: number,
+  clientId: string,
+): MockGameParticipant | undefined =>
+  db.gameParticipants.find(
+    (participant) => participant.gameId === gameId && participant.clientId === clientId,
+  );
+
+/**
+ * 참가자 화면 배너가 쓰는 "지금 열린 게임"입니다(`GET .../games/current`).
+ *
+ * `DRAFT`는 뺍니다. 배너가 뜨면 참가자가 눌러 들어갔다가 `GAME_NOT_OPEN`을 맞습니다.
+ * 비밀로 감추는 건 아닙니다 — `GET .../games/{id}`는 `DRAFT`도 그대로 돌려줍니다.
+ * 동시에 둘이 열릴 일은 없다고 보지만, 실수로 그렇게 되면 가장 최근 것을 내려줍니다.
+ * `createdAt` 대신 id 로 고르는 이유는 같은 시각에 만들어져도 순서가 흔들리지 않아서입니다.
+ */
+export const findCurrentGame = (eventId: number): Game | undefined =>
+  db.games
+    .filter((game) => game.eventId === eventId && game.status !== 'DRAFT')
+    .sort((a, b) => b.id - a.id)[0];
+
 // ─────────────────────────────────────────────────────────────
 // 집계 (GET /events/{eventCode}/feedbacks)
 // ─────────────────────────────────────────────────────────────
@@ -194,6 +248,36 @@ export const toFeedbackView = (feedback: Feedback): FeedbackView => ({
   keywords: feedback.keywords,
   createdAt: feedback.createdAt,
 });
+
+/**
+ * 참가자 행에서 `gameId`·`clientId`를 떨굽니다. **공개 경로는 반드시 이걸 거쳐야 합니다.**
+ * 행을 그대로 반환하면 브라우저 식별자가 밖으로 나갑니다.
+ */
+export const toGameParticipantView = (participant: MockGameParticipant): GameParticipant => ({
+  id: participant.id,
+  nickname: participant.nickname,
+  joinedAt: participant.joinedAt,
+});
+
+/**
+ * `eventId`를 떨구고 참가자·인원을 붙입니다.
+ *
+ * `participantCount`를 `participants.length`에서 파생시킵니다. 두 값을 따로 들면
+ * 참가 처리에서 한쪽만 갱신했을 때 배너 숫자와 명단이 조용히 어긋납니다.
+ */
+export const toGameView = (game: Game): GameView => {
+  const participants = listParticipantsOfGame(game.id);
+  return {
+    id: game.id,
+    title: game.title,
+    gameType: game.gameType,
+    status: game.status,
+    results: game.results,
+    createdAt: game.createdAt,
+    participantCount: participants.length,
+    participants: participants.map(toGameParticipantView),
+  };
+};
 
 /**
  * 서버 집계 스냅샷을 만듭니다. VISIBLE 소감만 대상이며,
