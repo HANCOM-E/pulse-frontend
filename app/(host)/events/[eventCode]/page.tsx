@@ -10,7 +10,7 @@ const EventEditPage = async ({ params }: EventEditPageProps) => {
   const { eventCode } = await params;
 
   return (
-    <div className="min-h-dvh w-full flex flex-col justify-center items-center gap-6 p-14 bg-background-default">
+    <div className="w-full flex flex-col items-center gap-6 px-14 py-8 bg-background-default">
       <EventForm eventCode={eventCode} />
     </div>
   );
