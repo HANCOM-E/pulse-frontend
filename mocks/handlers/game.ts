@@ -13,6 +13,7 @@ import {
   findEventByCode,
   findGameById,
   findParticipantByClientId,
+  listGamesOfEvent,
   listParticipantsOfGame,
   nextGameId,
   nextGameParticipantId,
@@ -109,6 +110,13 @@ export const gameHandlers = [
     db.games.push(game);
 
     return HttpResponse.json(toGameView(game), { status: 201 });
+  }),
+
+  http.get(`${API_BASE_URL}/events/:eventCode/games`, ({ request, params, cookies }) => {
+    const event = requireOwnedEvent(request, cookies, params.eventCode);
+    if (event instanceof Response) return event;
+
+    return HttpResponse.json({ items: listGamesOfEvent(event.id).map(toGameView) });
   }),
 
   /*

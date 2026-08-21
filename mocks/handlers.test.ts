@@ -4,6 +4,7 @@ import {
   eventViewSchema,
   feedbackListResponseSchema,
   feedbackSnapshotSchema,
+  gameListResponseSchema,
   gameParticipantSchema,
   gameViewSchema,
   listResponseSchema,
@@ -258,6 +259,18 @@ describe('다른 계정의 자원 접근', () => {
 
     expect(response.status).toBe(404);
     await expect(response.json()).resolves.toMatchObject({ code: 'REPORT_NOT_FOUND' });
+  });
+
+  /*
+   * 이 목록은 DRAFT 게임까지 내보내는 유일한 경로입니다. 주최자가 아직 안 연 게임의
+   * 제목이 남에게 보이면 안 됩니다.
+   */
+  it('남의 이벤트 게임 목록은 NOT_OWNER를 준다', async () => {
+    const other = createOtherAccount();
+    const response = await call(`/events/${LIVE_EVENT_CODE}/games`, { headers: other });
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({ code: 'NOT_OWNER' });
   });
 });
 
@@ -945,12 +958,12 @@ describe('리포트', () => {
 });
 
 describe('게임', () => {
-  /** 시드 게임(mock/data/seed.ts) */
+  /** 시드 게임(mocks/data/seed.ts) */
   const FINISHED_GAME_ID = 1;
   const OPEN_GAME_ID = 2;
 
-  const createGame = (title: string) =>
-    call(`/events/${LIVE_EVENT_CODE}/games`, {
+  const createGame = (title: string, eventCode = LIVE_EVENT_CODE) =>
+    call(`/events/${eventCode}/games`, {
       method: 'POST',
       headers: { ...AUTH_HEADERS, 'Content-Type': 'application/json' },
       body: JSON.stringify({ title }),
@@ -1183,5 +1196,48 @@ describe('게임', () => {
     await expect(response.json()).resolves.toMatchObject({
       code: 'UNAUTHORIZED',
     });
+  });
+
+  /*
+   * `current`와 정반대입니다. 그쪽은 DRAFT를 빼는 게 목적이고, 이쪽은 DRAFT를 보여주는 게
+   * 목적입니다 — 만들어두고 아직 안 연 게임을 다시 찾을 방법이 이것뿐입니다(#255).
+   */
+  it('주최자 목록에는 DRAFT도 나오고 최근 것이 위다', async () => {
+    const created = gameViewSchema.parse(await (await createGame('새 게임')).json());
+
+    const response = await call(`/events/${LIVE_EVENT_CODE}/games`, { headers: AUTH_HEADERS });
+    expect(response.status).toBe(200);
+
+    const { items } = gameListResponseSchema.parse(await response.json());
+
+    expect(items.map((game) => game.id)).toEqual([created.id, OPEN_GAME_ID, FINISHED_GAME_ID]);
+    expect(items[0].status).toBe('DRAFT');
+  });
+
+  /*
+   * 다른 이벤트에 게임을 하나 만들어두고 봅니다. 시드의 게임 둘이 전부 eventId 42라,
+   * 빈 목록만 확인하면 필터가 동작한 건지 애초에 없는 건지 구분되지 않습니다.
+   */
+  it('다른 이벤트의 게임은 목록에 섞이지 않는다', async () => {
+    const other = gameViewSchema.parse(
+      await (await createGame('다른 이벤트 게임', DRAFT_EVENT_CODE)).json(),
+    );
+
+    const live = gameListResponseSchema.parse(
+      await (await call(`/events/${LIVE_EVENT_CODE}/games`, { headers: AUTH_HEADERS })).json(),
+    );
+    expect(live.items.map((game) => game.id)).not.toContain(other.id);
+
+    const draft = gameListResponseSchema.parse(
+      await (await call(`/events/${DRAFT_EVENT_CODE}/games`, { headers: AUTH_HEADERS })).json(),
+    );
+    expect(draft.items.map((game) => game.id)).toEqual([other.id]);
+  });
+
+  it('목록은 인증이 필요하다', async () => {
+    const response = await call(`/events/${LIVE_EVENT_CODE}/games`);
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toMatchObject({ code: 'UNAUTHORIZED' });
   });
 });
