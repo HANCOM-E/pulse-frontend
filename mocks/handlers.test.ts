@@ -260,6 +260,18 @@ describe('다른 계정의 자원 접근', () => {
     expect(response.status).toBe(404);
     await expect(response.json()).resolves.toMatchObject({ code: 'REPORT_NOT_FOUND' });
   });
+
+  /*
+   * 이 목록은 DRAFT 게임까지 내보내는 유일한 경로입니다. 주최자가 아직 안 연 게임의
+   * 제목이 남에게 보이면 안 됩니다.
+   */
+  it('남의 이벤트 게임 목록은 NOT_OWNER를 준다', async () => {
+    const other = createOtherAccount();
+    const response = await call(`/events/${LIVE_EVENT_CODE}/games`, { headers: other });
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({ code: 'NOT_OWNER' });
+  });
 });
 
 describe('이벤트 조회', () => {
@@ -950,8 +962,8 @@ describe('게임', () => {
   const FINISHED_GAME_ID = 1;
   const OPEN_GAME_ID = 2;
 
-  const createGame = (title: string) =>
-    call(`/events/${LIVE_EVENT_CODE}/games`, {
+  const createGame = (title: string, eventCode = LIVE_EVENT_CODE) =>
+    call(`/events/${eventCode}/games`, {
       method: 'POST',
       headers: { ...AUTH_HEADERS, 'Content-Type': 'application/json' },
       body: JSON.stringify({ title }),
@@ -1202,11 +1214,24 @@ describe('게임', () => {
     expect(items[0].status).toBe('DRAFT');
   });
 
+  /*
+   * 다른 이벤트에 게임을 하나 만들어두고 봅니다. 시드의 게임 둘이 전부 eventId 42라,
+   * 빈 목록만 확인하면 필터가 동작한 건지 애초에 없는 건지 구분되지 않습니다.
+   */
   it('다른 이벤트의 게임은 목록에 섞이지 않는다', async () => {
-    const response = await call(`/events/${DRAFT_EVENT_CODE}/games`, { headers: AUTH_HEADERS });
-    const { items } = gameListResponseSchema.parse(await response.json());
+    const other = gameViewSchema.parse(
+      await (await createGame('다른 이벤트 게임', DRAFT_EVENT_CODE)).json(),
+    );
 
-    expect(items).toEqual([]);
+    const live = gameListResponseSchema.parse(
+      await (await call(`/events/${LIVE_EVENT_CODE}/games`, { headers: AUTH_HEADERS })).json(),
+    );
+    expect(live.items.map((game) => game.id)).not.toContain(other.id);
+
+    const draft = gameListResponseSchema.parse(
+      await (await call(`/events/${DRAFT_EVENT_CODE}/games`, { headers: AUTH_HEADERS })).json(),
+    );
+    expect(draft.items.map((game) => game.id)).toEqual([other.id]);
   });
 
   it('목록은 인증이 필요하다', async () => {
