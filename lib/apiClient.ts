@@ -38,6 +38,16 @@ const readXsrfToken = (): string | null => {
   return match ? decodeURIComponent(match[1]) : null;
 };
 
+let refreshing: Promise<Response> | null = null;
+const refreshOnce = () => {
+  refreshing ??= fetch(`${API_BASE_URL}/auth/refresh`, {
+    method: 'POST',
+    credentials: 'include',
+  }).finally(() => (refreshing = null));
+
+  return refreshing;
+};
+
 async function parseJsonSafely(response: Response): Promise<unknown> {
   if (response.status === 204) return null;
   const text = await response.text();
@@ -59,12 +69,25 @@ export async function apiClient<T>(path: string, options: ApiClientOptions = {})
     mergedHeaders.set(XSRF_TOKEN_HEADER, xsrfToken);
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  let response = await fetch(`${API_BASE_URL}${path}`, {
     ...rest,
     // 인증은 HttpOnly 쿠키라 FE가 헤더로 실어 보낼 수 없습니다. 브라우저가 붙이게 맡깁니다.
     credentials: skipAuth ? 'omit' : 'include',
     headers: mergedHeaders,
   });
+
+  const requiresRefresh = response.status === 401 && path !== '/auth/refresh' && !skipAuth;
+  if (requiresRefresh) {
+    const refreshResponse = await refreshOnce();
+
+    if (refreshResponse.ok) {
+      response = await fetch(`${API_BASE_URL}${path}`, {
+        ...rest,
+        credentials: skipAuth ? 'omit' : 'include',
+        headers: mergedHeaders,
+      });
+    }
+  }
 
   if (!response.ok) {
     let body: { code?: string; message?: string } | null;

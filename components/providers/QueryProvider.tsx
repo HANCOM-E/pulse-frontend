@@ -1,9 +1,10 @@
 'use client';
 
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
 import { ApiError } from '@/lib/apiClient';
 import { isClientError } from '@/lib/schemas/api';
+import { useRouter } from 'next/navigation';
 
 interface QueryProviderProps {
   children: ReactNode;
@@ -19,28 +20,38 @@ interface QueryProviderProps {
  * 실시간 대시보드처럼 필요한 쿼리에서 개별로 지정합니다.
  */
 const QueryProvider = ({ children }: QueryProviderProps) => {
-  const [queryClient] = useState(
-    () =>
-      new QueryClient({
-        defaultOptions: {
-          queries: {
-            staleTime: 10_000,
-            // 다시 물어봐도 같은 답이 오는 실패는 재시도하지 않습니다.
-            retry: (failureCount, error) => {
-              if (error instanceof ApiError) {
-                // 응답이 계약과 다른 경우. 같은 요청에 같은 응답이 옵니다.
-                if (error.code === 'INVALID_RESPONSE') return false;
-                // 4xx.
-                if (isClientError(error.code)) return false;
-              }
+  const router = useRouter();
+  const [queryClient] = useState(() => {
+    const client = new QueryClient({
+      defaultOptions: {
+        queries: {
+          staleTime: 10_000,
+          // 다시 물어봐도 같은 답이 오는 실패는 재시도하지 않습니다.
+          retry: (failureCount, error) => {
+            if (error instanceof ApiError) {
+              // 응답이 계약과 다른 경우. 같은 요청에 같은 응답이 옵니다.
+              if (error.code === 'INVALID_RESPONSE') return false;
+              // 4xx.
+              if (isClientError(error.code)) return false;
+            }
 
-              return failureCount < 2;
-            },
-            refetchOnWindowFocus: false,
+            return failureCount < 2;
           },
+          refetchOnWindowFocus: false,
+        },
+      },
+      queryCache: new QueryCache({
+        onError: (error) => {
+          if (error instanceof ApiError && error.code === 'UNAUTHORIZED') {
+            client.setQueryData(['auth', 'me'], null);
+            router.push('/login');
+          }
         },
       }),
-  );
+    });
+
+    return client;
+  });
 
   return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
 };

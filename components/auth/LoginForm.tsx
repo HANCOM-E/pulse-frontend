@@ -50,6 +50,7 @@ const LoginForm = () => {
     try {
       await login(loginInputs.email, loginInputs.password);
       router.push('/events');
+      router.refresh();
     } catch (error) {
       setLoginFailed(true);
 

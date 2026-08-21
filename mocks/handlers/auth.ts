@@ -1,16 +1,19 @@
 import { http, HttpResponse } from 'msw';
 import type { AuthUser } from '@/lib/schemas/api';
 import { loginRequestSchema, signupRequestSchema } from '@/lib/schemas/api';
-import type { MockAccount } from '@/mocks/data/store';
+import { findAccountById, MockAccount } from '@/mocks/data/store';
 import { db, findAccountByEmail, nextAccountId } from '@/mocks/data/store';
 import {
   ACCESS_TOKEN_COOKIE,
+  REFRESH_TOKEN_COOKIE,
   API_BASE_URL,
   XSRF_TOKEN_COOKIE,
   authenticatedAccount,
   errorResponse,
   issueAccessToken,
   parseBody,
+  issueRefreshToken,
+  accountIdFromRefreshToken,
 } from '@/mocks/handlers/shared';
 
 /**
@@ -72,6 +75,10 @@ const sessionCookies = (
   ],
   // CSRF double-submit용이라 HttpOnly가 아닙니다. FE가 읽어서 X-XSRF-TOKEN 헤더로 되돌려 보냅니다.
   ['Set-Cookie', `${XSRF_TOKEN_COOKIE}=${MOCK_XSRF_TOKEN}; Path=/; SameSite=Lax`],
+  [
+    'Set-Cookie',
+    `${REFRESH_TOKEN_COOKIE}=${issueRefreshToken(accountId)}; Path=/; SameSite=Lax${httpOnly ? '; HttpOnly' : ''}`,
+  ],
 ];
 
 const expiredCookies = ({ httpOnly }: { httpOnly: boolean }): [string, string][] => [
@@ -80,6 +87,10 @@ const expiredCookies = ({ httpOnly }: { httpOnly: boolean }): [string, string][]
     `${ACCESS_TOKEN_COOKIE}=; Path=/; SameSite=Lax; Max-Age=0${httpOnly ? '; HttpOnly' : ''}`,
   ],
   ['Set-Cookie', `${XSRF_TOKEN_COOKIE}=; Path=/; SameSite=Lax; Max-Age=0`],
+  [
+    'Set-Cookie',
+    `${REFRESH_TOKEN_COOKIE}=; Path=/; SameSite=Lax; Max-Age=0${httpOnly ? '; HttpOnly' : ''}`,
+  ],
 ];
 
 const toAuthUser = (account: MockAccount): AuthUser => ({
@@ -146,5 +157,23 @@ export const createAuthHandlers = ({ httpOnly }: { httpOnly: boolean }) => [
     if (!account) return errorResponse('UNAUTHORIZED');
 
     return HttpResponse.json(toAuthUser(account));
+  }),
+
+  http.post(`${API_BASE_URL}/auth/refresh`, ({ cookies }) => {
+    const accountId = accountIdFromRefreshToken(cookies[REFRESH_TOKEN_COOKIE]);
+
+    if (!accountId) {
+      return errorResponse('UNAUTHORIZED');
+    }
+
+    const account = findAccountById(accountId);
+
+    if (!account) {
+      return errorResponse('UNAUTHORIZED');
+    }
+
+    return HttpResponse.json(toAuthUser(account), {
+      headers: sessionCookies(account.id, { httpOnly }),
+    });
   }),
 ];
