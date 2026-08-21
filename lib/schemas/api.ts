@@ -510,6 +510,8 @@ export const gameResultsRequestSchema = z.object({
     .refine((values) => new Set(values).size === values.length, '참가자가 중복될 수 없습니다.'),
 });
 
+export const gameListResponseSchema = listResponseSchema(gameViewSchema);
+
 export type GameStatus = z.infer<typeof gameStatusSchema>;
 export type GameType = z.infer<typeof gameTypeSchema>;
 export type Game = z.infer<typeof gameSchema>;

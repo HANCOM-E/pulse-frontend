@@ -4,6 +4,7 @@ import {
   eventViewSchema,
   feedbackListResponseSchema,
   feedbackSnapshotSchema,
+  gameListResponseSchema,
   gameParticipantSchema,
   gameViewSchema,
   listResponseSchema,
@@ -945,7 +946,7 @@ describe('리포트', () => {
 });
 
 describe('게임', () => {
-  /** 시드 게임(mock/data/seed.ts) */
+  /** 시드 게임(mocks/data/seed.ts) */
   const FINISHED_GAME_ID = 1;
   const OPEN_GAME_ID = 2;
 
@@ -1183,5 +1184,35 @@ describe('게임', () => {
     await expect(response.json()).resolves.toMatchObject({
       code: 'UNAUTHORIZED',
     });
+  });
+
+  /*
+   * `current`와 정반대입니다. 그쪽은 DRAFT를 빼는 게 목적이고, 이쪽은 DRAFT를 보여주는 게
+   * 목적입니다 — 만들어두고 아직 안 연 게임을 다시 찾을 방법이 이것뿐입니다(#255).
+   */
+  it('주최자 목록에는 DRAFT도 나오고 최근 것이 위다', async () => {
+    const created = gameViewSchema.parse(await (await createGame('새 게임')).json());
+
+    const response = await call(`/events/${LIVE_EVENT_CODE}/games`, { headers: AUTH_HEADERS });
+    expect(response.status).toBe(200);
+
+    const { items } = gameListResponseSchema.parse(await response.json());
+
+    expect(items.map((game) => game.id)).toEqual([created.id, OPEN_GAME_ID, FINISHED_GAME_ID]);
+    expect(items[0].status).toBe('DRAFT');
+  });
+
+  it('다른 이벤트의 게임은 목록에 섞이지 않는다', async () => {
+    const response = await call(`/events/${DRAFT_EVENT_CODE}/games`, { headers: AUTH_HEADERS });
+    const { items } = gameListResponseSchema.parse(await response.json());
+
+    expect(items).toEqual([]);
+  });
+
+  it('목록은 인증이 필요하다', async () => {
+    const response = await call(`/events/${LIVE_EVENT_CODE}/games`);
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toMatchObject({ code: 'UNAUTHORIZED' });
   });
 });

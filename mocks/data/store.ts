@@ -195,6 +195,16 @@ export const findParticipantByClientId = (
   );
 
 /**
+ * 주최자용 게임 목록입니다. `findCurrentGame`과 달리 **`DRAFT`도 포함**합니다 —
+ * 만들어두고 아직 안 연 게임을 다시 찾는 게 이 목록의 존재 이유입니다.
+ *
+ * 최근에 만든 것이 위입니다. `createdAt`이 아니라 id로 고른 이유는 같은 시각에
+ * 만들어져도 순서가 안 흔들리기 때문이고, `findCurrentGame`과 기준을 맞췄습니다.
+ */
+export const listGamesOfEvent = (eventId: number): Game[] =>
+  db.games.filter((game) => game.eventId === eventId).sort((a, b) => b.id - a.id);
+
+/**
  * 참가자 화면 배너가 쓰는 "지금 열린 게임"입니다(`GET .../games/current`).
  *
  * `DRAFT`는 뺍니다. 배너가 뜨면 참가자가 눌러 들어갔다가 `GAME_NOT_OPEN`을 맞습니다.
