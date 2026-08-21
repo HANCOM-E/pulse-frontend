@@ -2,15 +2,18 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { DashboardSkeleton } from '@/components/dashboard/DashboardSkeleton';
 import { KeywordCard } from '@/components/dashboard/KeywordCard';
 import { LiveFeedCard } from '@/components/dashboard/LiveFeedCard';
 import {
+  MODERATION_ALERT_MIN_COUNT,
   buildTrend,
   countKeywords,
+  isNegativeAlerting,
+  isPositiveSurging,
   summarizeSentiments,
   toRelativeTime,
 } from '@/components/dashboard/metrics';
@@ -49,6 +52,16 @@ import type { Feedback } from '@/lib/schemas/api';
 
 const CARD = 'flex flex-col gap-3 rounded-xl border border-border-subtle p-4';
 const CARD_TITLE = 'text-xs font-normal leading-4 text-text-tertiary';
+
+/**
+ * 급증 배너를 다시 판정하는 주기입니다.
+ *
+ * 세 알림 중 급증만 시간이 답을 바꿉니다. 소감이 들어오지 않아도 최근 2분 창이 지나면 거짓이
+ * 되어야 하는데, 새 소감이 없으면 폴링이 같은 배열을 돌려주고 화면은 다시 그려지지 않습니다.
+ * 그러면 반응이 뚝 끊긴 상황 — 배너가 가장 내려가야 할 때 — 에 오히려 그대로 남습니다.
+ * 창(2분)보다 훨씬 짧게 잡아서, 늦어도 이 간격 안에 내려가게 합니다.
+ */
+const POSITIVE_SURGE_RECHECK_MS = 10_000;
 
 const DashboardView = () => {
   const { eventCode } = useParams<{ eventCode: string }>();
@@ -141,6 +154,117 @@ const DashboardView = () => {
   /* 뒤집기와 「이 화면에서 멈춘 세션인가」 판정이 한 덩어리라 훅으로 묶여 있습니다. */
   const sessionControls = useSessionControls(eventCode);
 
+  /*
+   * 소감에서 뽑는 값들입니다. 정작 그리는 자리는 한참 아래지만 계산은 여기서 합니다.
+   * 바로 아래 알림 훅이 이 값을 봐야 하는데, 훅은 early return 뒤로 내려갈 수 없습니다.
+   */
+  const items = feedbacks ?? [];
+
+  /*
+   * 숨긴 건은 집계와 피드에서 뺍니다. 목록을 `includeHidden=true`로 받는 건 모더레이션
+   * 큐가 이미 숨긴 건도 보여줘야 해서지, 숫자에 넣으려는 게 아닙니다.
+   * 독성 건수만 예외입니다(아래 참고).
+   */
+  const visible = items.filter((feedback) => feedback.status === 'VISIBLE');
+
+  const { positive, neutral, negative, unclassified, classified, positiveRate, negativeRate } =
+    summarizeSentiments(visible);
+
+  /*
+   * 독성 건수만 `visible`이 아니라 전체를 셉니다. 독성 소감은 제출 시점에
+   * 이미 HIDDEN으로 저장되므로 `visible`에는 한 건도 남지 않습니다.
+   * 이건 감정 집계가 아니라 모더레이션 지표라서, 숨겼어도 몇 건 들어왔는지는
+   * 주최자에게 보여야 합니다. `visible` 기준으로 되돌리지 마세요.
+   */
+  const toxicCount = items.filter((feedback) => feedback.toxic).length;
+
+  /*
+   * 여기부터 주최자 실시간 알림입니다(#253). 무엇이 알림감인지는 `metrics.ts`가 정하고,
+   * 화면은 그 판정을 그리기만 합니다.
+   *
+   * 셋 다 조건이 참인 동안 떠 있는 배너입니다. 처음에는 급증과 독성을 지나가는 사건으로 보고
+   * 토스트로 띄웠는데, 4초 만에 사라져서 화면을 보고 있는 사람도 놓쳤습니다. 배너로 옮기니
+   * 알림을 언제 한 번만 띄울지 정할 일이 없어져서, 발화 시각과 이미 알린 단계를 들고 있던
+   * 상태도 함께 사라졌습니다.
+   *
+   * 셋 중 부정 비율만 여기에 상태로 남습니다. 켜지는 선과 꺼지는 선이 달라서 지금 떠 있는지를
+   * 알아야 다음 판정을 할 수 있기 때문입니다. 나머지 둘은 지금 목록만 보면 답이 나옵니다.
+   */
+  const [isNegativeHeavy, setIsNegativeHeavy] = useState(false);
+
+  /**
+   * 긍정 급증입니다. 지금 목록만 보면 답이 나오는데도 상태로 두는 이유는 위
+   * `POSITIVE_SURGE_RECHECK_MS` 주석에 적어뒀습니다. 시각이 답을 바꾸는 유일한 판정이라
+   * 렌더에서 바로 부르면 소감이 끊긴 순간부터 영영 갱신되지 않습니다.
+   */
+  const [isPositiveSurge, setIsPositiveSurge] = useState(false);
+
+  /** 지금 잡아둔 판정이 어느 세션 것인지입니다. 필터가 바뀌면 여기서 알아챕니다. */
+  const alertScopeRef = useRef(sessionId);
+
+  /*
+   * 부정 비율 판정입니다. 켜지는 선과 꺼지는 선이 달라서 직전 상태를 판정에 넘깁니다.
+   * updater로 넘기면 그 값을 deps에 넣지 않아도 됩니다. 넣으면 자기가 자기를 다시 부릅니다.
+   *
+   * 세션 전환을 여기서 같이 봅니다. 전환을 따로 훅으로 빼면 세션이 하나뿐인 이벤트에서
+   * "전체"와 그 세션을 오갈 때 구멍이 납니다. 두 목록이 같은 내용이라 아래 deps가 그대로여서
+   * 이 훅이 돌지 않는데, 리셋만 먼저 적용돼 배너가 사라진 채 돌아오지 않습니다. `sessionId`를
+   * deps에 넣고 전환 여부를 직접 보면 그 경우에도 반드시 다시 판정합니다.
+   */
+  useEffect(() => {
+    const isScopeChanged = alertScopeRef.current !== sessionId;
+    if (isScopeChanged) alertScopeRef.current = sessionId;
+
+    if (eventStatus !== 'LIVE') {
+      /*
+       * `react-hooks/set-state-in-effect`를 끕니다. 룰이 막으려는 건 렌더가 꼬리를 무는
+       * 상황인데, 여기서는 이벤트가 `LIVE`를 벗어나는 한 번뿐이고 그 뒤로는 조건이 계속
+       * 거짓이라 다시 돌지 않습니다. 렌더로 옮길 수도 없습니다 — 아래 판정이 직전 상태를
+       * 봐야 해서 렌더에서 읽으면 자기가 만든 값을 다시 읽게 됩니다.
+       */
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setIsNegativeHeavy(false);
+      return;
+    }
+
+    setIsNegativeHeavy((wasAlerting) =>
+      isNegativeAlerting({
+        negativeRate,
+        classified,
+        /* 다른 세션에서 켜둔 것을 물려받으면 안 됩니다. 새 모집단에서 처음부터 판정합니다. */
+        wasAlerting: isScopeChanged ? false : wasAlerting,
+      }),
+    );
+  }, [negativeRate, classified, eventStatus, sessionId]);
+
+  /*
+   * 급증 판정입니다. 목록이 바뀔 때 한 번 보고, 그 뒤로는 타이머가 같은 판정을 반복합니다.
+   *
+   * `visible`을 deps에 넣지 않고 여기서 다시 거릅니다. 저쪽은 렌더마다 새로 만들어지는
+   * 배열이라 넣으면 데이터가 그대로여도 이 훅이 매번 다시 돌고 타이머도 매번 새로 섭니다.
+   *
+   * 타이머는 목록이 바뀌면 정리되고 다시 섭니다. 소감이 계속 들어오는 동안에는 폴링이
+   * 판정을 갱신해주므로 타이머가 발동할 일이 없고, 끊긴 뒤에야 제 몫을 합니다.
+   */
+  useEffect(() => {
+    if (eventStatus !== 'LIVE') {
+      // 위 부정 배너와 같은 이유입니다. `LIVE`를 벗어나는 한 번으로 끝납니다.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setIsPositiveSurge(false);
+      return;
+    }
+
+    const judge = () => {
+      const visibleNow = items.filter((feedback) => feedback.status === 'VISIBLE');
+      setIsPositiveSurge(isPositiveSurging(visibleNow, Date.now()));
+    };
+
+    judge();
+
+    const timer = setInterval(judge, POSITIVE_SURGE_RECHECK_MS);
+    return () => clearInterval(timer);
+  }, [items, eventStatus]);
+
   const handleSelectSession = (nextSessionId: number | null) => {
     setSessionId(nextSessionId);
   };
@@ -212,25 +336,6 @@ const DashboardView = () => {
     if (await copyLink(publicUrl)) showToast('링크가 복사되었어요');
   };
 
-  const items = feedbacks ?? [];
-
-  /*
-   * 숨긴 건은 집계와 피드에서 뺍니다. 목록을 `includeHidden=true`로 받는 건 모더레이션
-   * 큐가 이미 숨긴 건도 보여줘야 해서지, 숫자에 넣으려는 게 아닙니다.
-   * 독성 건수만 예외입니다(아래 참고).
-   */
-  const visible = items.filter((feedback) => feedback.status === 'VISIBLE');
-
-  const { positive, neutral, negative, unclassified, positiveRate } = summarizeSentiments(visible);
-
-  /*
-   * 독성 건수만 `visible`이 아니라 전체를 셉니다. 독성 소감은 제출 시점에
-   * 이미 HIDDEN으로 저장되므로 `visible`에는 한 건도 남지 않습니다.
-   * 이건 감정 집계가 아니라 모더레이션 지표라서, 숨겼어도 몇 건 들어왔는지는
-   * 주최자에게 보여야 합니다. `visible` 기준으로 되돌리지 마세요.
-   */
-  const toxicCount = items.filter((feedback) => feedback.toxic).length;
-
   /*
    * 모더레이션 큐가 받는 목록입니다. 자동 판정된 독성 소감에 더해, 주최자가 실시간 피드에서
    * 직접 숨긴 소감도 넣습니다(#170).
@@ -243,6 +348,16 @@ const DashboardView = () => {
    * 항상 빼고 내려줍니다.
    */
   const queueItems = items.filter((feedback) => feedback.toxic || feedback.status === 'HIDDEN');
+
+  /*
+   * 큐 알림입니다. 위 `queueItems`를 그대로 세기 때문에 배너 숫자와 큐 배지 숫자가 어긋나지
+   * 않고, 주최자가 큐를 비우면 배너도 함께 내려갑니다. 나머지 둘과 달리 시각도 이력도 보지
+   * 않아서 여기서 바로 판정합니다.
+   *
+   * `LIVE`에서만 내놓는 것은 세 알림이 같습니다. 끝난 이벤트에는 지금 대응할 일이 없고,
+   * 시작 전에는 소감이 들어오지 않습니다.
+   */
+  const isQueueHeavy = event.status === 'LIVE' && queueItems.length >= MODERATION_ALERT_MIN_COUNT;
 
   const trend = buildTrend(visible);
   const keywords = countKeywords(visible);
@@ -331,6 +446,21 @@ const DashboardView = () => {
         <DashboardSkeleton />
       ) : (
         <>
+          {/*
+           * 실패 배너들과 떨어뜨려 통계 바로 위에 둡니다. 이건 고장이 아니라 지금 화면이
+           * 보여주는 숫자에 대한 경고라, 그 숫자 옆에 있어야 읽힙니다.
+           *
+           * 손이 가야 하는 순서로 세웁니다. 분위기가 꺾인 것과 큐가 밀린 것은 지금 대응할
+           * 일이고, 긍정 급증은 알아두면 좋은 소식이라 `info`로 맨 아래 섭니다.
+           */}
+          {isNegativeHeavy && (
+            <Banner type="warning">부정 반응이 {negativeRate}%까지 올라갔어요</Banner>
+          )}
+          {isQueueHeavy && (
+            <Banner type="warning">처리할 소감이 {queueItems.length}건 쌓였어요</Banner>
+          )}
+          {isPositiveSurge && <Banner type="info">긍정 반응이 늘고 있어요</Banner>}
+
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             <Stat label="총 소감" value={`${visible.length}`} />
             <Stat label="긍정 비율" value={`${positiveRate}%`} tone="positive" />
