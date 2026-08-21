@@ -993,6 +993,21 @@ describe('게임', () => {
     expect(game.participantCount).toBe(game.participants.length);
   });
 
+  /*
+   * 시드의 `results.nickname`은 손으로 적은 값이라 참가자 명단과 어긋날 수 있습니다.
+   * 어긋나면 목이 "이런 것도 온다"고 거짓말하게 되고, 그 오해가 서버로 넘어갑니다.
+   */
+  it('시드 결과의 닉네임이 참가자 명단과 일치한다', async () => {
+    const response = await call(`/events/${LIVE_EVENT_CODE}/games/${FINISHED_GAME_ID}`);
+    const game = gameViewSchema.parse(await response.json());
+    const nicknameById = new Map(game.participants.map((p) => [p.id, p.nickname]));
+
+    expect(game.results).not.toBeNull();
+    for (const entry of game.results ?? []) {
+      expect(entry.nickname).toBe(nicknameById.get(entry.participantId));
+    }
+  });
+
   it('다른 이벤트의 gameId는 GAME_NOT_FOUND를 준다', async () => {
     const response = await call(`/events/${DRAFT_EVENT_CODE}/games/${OPEN_GAME_ID}`);
 
