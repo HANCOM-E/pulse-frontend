@@ -1,10 +1,10 @@
 import type {
   Feedback,
+  Game,
+  GameParticipant,
   PulseEvent,
   Report,
   Session,
-  Game,
-  GameParticipant,
 } from '@/lib/schemas/api';
 
 /**
@@ -91,8 +91,8 @@ export const seedGames: Game[] = [
     title: '오후 세션 시작 전',
     gameType: 'PINBALL',
     status: 'OPEN',
-    results: null,
     createdAt: '2026-08-05T04:00:00.000Z',
+    results: null,
   },
 ];
 
