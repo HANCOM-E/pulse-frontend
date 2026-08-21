@@ -127,7 +127,7 @@ const LiveResult = () => {
     snapshot,
     isPending: isSnapshotPending,
     isError: isSnapshotError,
-    refreshIntervalMs,
+    isLive,
   } = useFeedbackSnapshot({ eventCode: code, sessionId: allowedSession?.id ?? null });
 
   const handleWriteAnother = () => {
@@ -211,10 +211,8 @@ const LiveResult = () => {
             )}
           </section>
 
-          {refreshIntervalMs !== null && (
-            <p className="text-center text-xs text-text-secondary">
-              {refreshIntervalMs / 1000}초마다 자동으로 갱신돼요
-            </p>
+          {isLive && (
+            <p className="text-center text-xs text-text-secondary">실시간으로 갱신되고 있어요</p>
           )}
         </>
       )}
