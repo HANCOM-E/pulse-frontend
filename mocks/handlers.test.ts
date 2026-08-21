@@ -4,6 +4,8 @@ import {
   eventViewSchema,
   feedbackListResponseSchema,
   feedbackSnapshotSchema,
+  gameParticipantSchema,
+  gameViewSchema,
   listResponseSchema,
   publicReportSchema,
   pulseEventSchema,
@@ -939,5 +941,232 @@ describe('리포트', () => {
 
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toMatchObject({ code: 'UNAUTHORIZED' });
+  });
+});
+
+describe('게임', () => {
+  /** 시드 게임(mock/data/seed.ts) */
+  const FINISHED_GAME_ID = 1;
+  const OPEN_GAME_ID = 2;
+
+  const createGame = (title: string) =>
+    call(`/events/${LIVE_EVENT_CODE}/games`, {
+      method: 'POST',
+      headers: { ...AUTH_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title }),
+    });
+
+  const patchGame = (gameId: number, status: string) =>
+    call(`/events/${LIVE_EVENT_CODE}/games/${gameId}`, {
+      method: 'PATCH',
+      headers: { ...AUTH_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    });
+
+  const joinGame = (gameId: number, nickname: string, clientId: string) =>
+    call(`/events/${LIVE_EVENT_CODE}/games/${gameId}/participants`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Client-Id': clientId },
+      body: JSON.stringify({ nickname }),
+    });
+
+  /*
+   * 참가자 목록이 프로젝터와 폰에 그대로 뿌려집니다. 브라우저 식별자가 섞여 나가면
+   * 누가 어떤 소감을 냈는지 추적할 여지가 생깁니다. 스키마 통과만으로는 못 잡습니다 —
+   * zod가 모르는 키를 조용히 떨구기 때문에 직렬화한 문자열을 직접 봅니다.
+   */
+  it('공개 조회에 clientId가 실리지 않는다', async () => {
+    const response = await call(`/events/${LIVE_EVENT_CODE}/games/${OPEN_GAME_ID}`);
+    const body = (await response.json()) as Record<string, unknown>;
+
+    expect(response.status).toBe(200);
+    const game = gameViewSchema.parse(body);
+    expect(game.status).toBe('OPEN');
+    expect(JSON.stringify(body)).not.toContain('clientId');
+    expect(JSON.stringify(body)).not.toContain('seed-client-');
+  });
+
+  it('participantCount는 명단 길이와 같다', async () => {
+    const response = await call(`/events/${LIVE_EVENT_CODE}/games/${OPEN_GAME_ID}`);
+    const game = gameViewSchema.parse(await response.json());
+
+    expect(game.participantCount).toBe(game.participants.length);
+  });
+
+  it('다른 이벤트의 gameId는 GAME_NOT_FOUND를 준다', async () => {
+    const response = await call(`/events/${DRAFT_EVENT_CODE}/games/${OPEN_GAME_ID}`);
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({ code: 'GAME_NOT_FOUND' });
+  });
+
+  it('current는 가장 최근 게임을 준다', async () => {
+    const response = await call(`/events/${LIVE_EVENT_CODE}/games/current`);
+    const game = gameViewSchema.parse(await response.json());
+
+    expect(game.id).toBe(OPEN_GAME_ID);
+  });
+
+  /*
+   * 소감 화면 배너가 이 응답만 보고 자기를 띄웁니다. DRAFT가 잡히면 주최자가 아직 열지
+   * 않은 게임에 참가자가 들어가려다 GAME_NOT_OPEN을 맞습니다.
+   */
+  it('current는 DRAFT를 잡지 않는다', async () => {
+    const created = await createGame('아직 안 연 게임');
+    expect(created.status).toBe(201);
+    const draft = gameViewSchema.parse(await created.json());
+    expect(draft.status).toBe('DRAFT');
+    // gameType을 안 보냈는데도 채워집니다(스키마 기본값).
+    expect(draft.gameType).toBe('PINBALL');
+
+    const response = await call(`/events/${LIVE_EVENT_CODE}/games/current`);
+    const current = gameViewSchema.parse(await response.json());
+
+    expect(current.id).toBe(OPEN_GAME_ID);
+    expect(current.id).not.toBe(draft.id);
+  });
+
+  it('열면 current가 그 게임으로 바뀐다', async () => {
+    const draft = gameViewSchema.parse(await (await createGame('오후 게임')).json());
+    expect((await patchGame(draft.id, 'OPEN')).status).toBe(200);
+
+    const current = gameViewSchema.parse(
+      await (await call(`/events/${LIVE_EVENT_CODE}/games/current`)).json(),
+    );
+
+    expect(current.id).toBe(draft.id);
+  });
+
+  it('게임이 없는 이벤트의 current는 GAME_NOT_FOUND를 준다', async () => {
+    const response = await call(`/events/${DRAFT_EVENT_CODE}/games/current`);
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({ code: 'GAME_NOT_FOUND' });
+  });
+
+  it('상태는 한 칸씩만 간다', async () => {
+    const draft = gameViewSchema.parse(await (await createGame('건너뛰기 시도')).json());
+    const response = await patchGame(draft.id, 'RUNNING');
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'INVALID_GAME_STATE_TRANSITION',
+    });
+  });
+
+  /*
+   * RUNNING → FINISHED 는 결과 확정만 할 수 있습니다. PATCH로도 열어두면 results가 null인
+   * 채로 FINISHED가 돼서, 화면이 "끝났는데 결과가 없는" 상태를 그리게 됩니다.
+   */
+  it('PATCH로는 FINISHED까지 갈 수 없다', async () => {
+    expect((await patchGame(OPEN_GAME_ID, 'RUNNING')).status).toBe(200);
+    const response = await patchGame(OPEN_GAME_ID, 'FINISHED');
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'INVALID_GAME_STATE_TRANSITION',
+    });
+  });
+
+  it('끝난 게임은 다시 바꿀 수 없다', async () => {
+    const response = await patchGame(FINISHED_GAME_ID, 'OPEN');
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'GAME_ALREADY_FINISHED',
+    });
+  });
+
+  it('모집 중이 아니면 참가가 막힌다', async () => {
+    const response = await joinGame(FINISHED_GAME_ID, '늦둥이', 'client-late');
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'GAME_NOT_OPEN',
+    });
+  });
+
+  /*
+   * 새로고침으로 인원을 부풀릴 수 없어야 합니다. 별도 빈도 제한을 안 두기로 한 근거가
+   * 이 동작이라(#246), 여기서 깨지면 그 결정도 같이 깨집니다.
+   */
+  it('같은 브라우저가 다시 참가하면 닉네임만 바뀐다', async () => {
+    const before = gameViewSchema.parse(
+      await (await call(`/events/${LIVE_EVENT_CODE}/games/${OPEN_GAME_ID}`)).json(),
+    );
+
+    const first = await joinGame(OPEN_GAME_ID, '첫 이름', 'client-same');
+    expect(first.status).toBe(201);
+    const created = gameParticipantSchema.parse(await first.json());
+
+    const second = await joinGame(OPEN_GAME_ID, '바꾼이름', 'client-same');
+    // 새로 만든게 아니고 갱신이라 201이 아닙니다.
+    expect(second.status).toBe(200);
+    const updated = gameParticipantSchema.parse(await second.json());
+
+    expect(updated.id).toBe(created.id);
+    expect(updated.nickname).toBe('바꾼이름');
+
+    const after = gameViewSchema.parse(
+      await (await call(`/events/${LIVE_EVENT_CODE}/games/${OPEN_GAME_ID}`)).json(),
+    );
+    expect(after.participantCount).toBe(before.participantCount + 1);
+  });
+
+  /*
+   * 재참가 판정은 게임 단위입니다. clientId만 보면 한 브라우저가 두 번째 게임에
+   * 아예 못 들어갑니다.
+   */
+  it('다른 게임에는 같은 브라우저도 새로 참가한다', async () => {
+    // seed-client-1은 시드에서 FINISHED 게임에만 들어가 있습니다.
+    const response = await joinGame(OPEN_GAME_ID, '초코송이', 'seed-client-1');
+
+    expect(response.status).toBe(201);
+  });
+
+  it('결과를 올리면 FINISHED가 되고 순위가 채워진다', async () => {
+    expect((await patchGame(OPEN_GAME_ID, 'RUNNING')).status).toBe(200);
+
+    const response = await call(`/events/${LIVE_EVENT_CODE}/games/${OPEN_GAME_ID}/results`, {
+      method: 'POST',
+      headers: { ...AUTH_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ranking: [5, 4] }),
+    });
+
+    expect(response.status).toBe(200);
+    const game = gameViewSchema.parse(await response.json());
+
+    expect(game.status).toBe('FINISHED');
+    expect(game.results).toEqual([
+      { rank: 1, participantId: 5, nickname: '커피' },
+      { rank: 2, participantId: 4, nickname: '라면' },
+    ]);
+  });
+
+  it('이 게임에 없는 참가자를 올리면 VALIDATION_ERROR를 준다', async () => {
+    expect((await patchGame(OPEN_GAME_ID, 'RUNNING')).status).toBe(200);
+
+    const response = await call(`/events/${LIVE_EVENT_CODE}/games/${OPEN_GAME_ID}/results`, {
+      method: 'POST',
+      headers: { ...AUTH_HEADERS, 'Content-Type': 'application/json' },
+      // 1번은 FINISHED 게임의 참가자입니다.
+      body: JSON.stringify({ ranking: [5, 1] }),
+    });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({ code: 'VALIDATION_ERROR' });
+  });
+
+  it('인증 없이 게임을 만들 수 없다', async () => {
+    const response = await call(`/events/${LIVE_EVENT_CODE}/games`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: '몰래 만들기' }),
+    });
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'UNAUTHORIZED',
+    });
   });
 });

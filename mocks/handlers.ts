@@ -3,8 +3,12 @@ import { createAuthHandlers } from '@/mocks/handlers/auth';
 import { eventHandlers } from '@/mocks/handlers/event';
 import { feedbackHandlers } from '@/mocks/handlers/feedback';
 import { reportHandlers } from '@/mocks/handlers/report';
+import { gameHandlers } from './handlers/game';
 
 /**
+ * 게임 핸들러(`game.ts`)는 아직 확정 계약이 아닙니다. #246에서 BE와 방향을 맞췄고,
+ * 이 목 스키마가 확정본이 되는 구조입니다(계약 우선 개발).
+ *
  * MSW 목 서버의 핸들러 모음입니다. 계약 원본은 Notion API 명세서(2026-08-06 갱신본)입니다.
  * https://app.notion.com/p/f3f5f62e868482ee9faf816de775057c
  *
@@ -21,4 +25,5 @@ export const createHandlers = ({ httpOnly }: { httpOnly: boolean }) => [
   ...feedbackHandlers,
   ...adminHandlers,
   ...reportHandlers,
+  ...gameHandlers,
 ];
