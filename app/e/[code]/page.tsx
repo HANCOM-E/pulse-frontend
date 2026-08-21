@@ -1,6 +1,11 @@
 import { notFound } from 'next/navigation';
 
-import { fetchEventByCode, fetchPublicReport, fetchSessionsByEventCode } from '@/lib/api/endpoints';
+import {
+  fetchCurrentGame,
+  fetchEventByCode,
+  fetchPublicReport,
+  fetchSessionsByEventCode,
+} from '@/lib/api/endpoints';
 import { ApiError } from '@/lib/apiClient';
 import { EventEntryView } from '@/components/feedback/EventEntryView';
 
@@ -13,7 +18,7 @@ interface EventEntryPageProps {
  * 첫 데이터만 서버에서 받아 `EventEntryView`에 넘깁니다. 화면 분기는 그쪽이 폴링 결과로 다시
  * 계산합니다(#237).
  *
- * fetch를 서버에 남겨두는 이유는 SSR HTML에 완성된 첫 화면을 실어 보내기 위해서입니다. 셋 다
+ * fetch를 서버에 남겨두는 이유는 SSR HTML에 완성된 첫 화면을 실어 보내기 위해서입니다. 전부
  * 클라이언트로 내리면 게스트가 빈 화면을 먼저 받고 나서 요청 세 개를 새로 쏘게 됩니다.
  */
 const EventEntryPage = async ({ params }: EventEntryPageProps) => {
@@ -22,9 +27,13 @@ const EventEntryPage = async ({ params }: EventEntryPageProps) => {
   // 서버에서 부릅니다. 두 요청이 서로를 안 기다리도록 병렬로 보냅니다.
   // DRAFT·ENDED에서는 sessions를 쓸 일이 없지만, 상태를 먼저 받고 결정하면
   // 가장 흔한 LIVE 경로가 왕복 하나만큼 느려집니다. 안 쓰는 응답 하나가 낫습니다.
-  const [event, sessions] = await Promise.all([
+
+  // 게임은 열린 게 없으면 `fetchCurrentGame`이 404를 null로 삼켜서 옵니다. 여기 없으면
+  // 첫 화면에 배너가 빠졌다가 폴링 한 박자 뒤에 나타나 화면이 밀립니다.
+  const [event, sessions, currentGame] = await Promise.all([
     fetchEventByCode(code),
     fetchSessionsByEventCode(code),
+    fetchCurrentGame(code),
   ]).catch((error: unknown) => {
     if (error instanceof ApiError && error.code === 'EVENT_NOT_FOUND') notFound();
     throw error;
@@ -49,6 +58,7 @@ const EventEntryPage = async ({ params }: EventEntryPageProps) => {
       initialEvent={event}
       initialSessions={sessions}
       initialHasReport={hasReport}
+      initialCurrentGame={currentGame}
     />
   );
 };

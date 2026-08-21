@@ -3,10 +3,11 @@
 import Link from 'next/link';
 
 import { FeedbackForm } from '@/components/feedback/FeedbackForm';
+import { GameBanner } from '../game/GameBanner';
 import { buttonStyle } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useEventEntryFeed } from '@/hooks/useEventEntryFeed';
-import type { EventView, SessionView } from '@/lib/schemas/api';
+import type { EventView, GameView, SessionView } from '@/lib/schemas/api';
 
 /**
  * 게스트 진입 화면의 클라이언트 경계입니다.
@@ -25,6 +26,7 @@ interface EventEntryViewProps {
   initialEvent: EventView;
   initialSessions: SessionView[];
   initialHasReport: boolean;
+  initialCurrentGame: GameView | null;
 }
 
 const EventEntryView = ({
@@ -32,12 +34,14 @@ const EventEntryView = ({
   initialEvent,
   initialSessions,
   initialHasReport,
+  initialCurrentGame,
 }: EventEntryViewProps) => {
-  const { event, sessions, canSubmit, isEnded, hasReport } = useEventEntryFeed({
+  const { event, sessions, canSubmit, isEnded, hasReport, currentGame } = useEventEntryFeed({
     eventCode,
     initialEvent,
     initialSessions,
     initialHasReport,
+    initialCurrentGame,
   });
 
   return (
@@ -51,6 +55,12 @@ const EventEntryView = ({
           </p>
         ) : null}
       </section>
+
+      {/*
+        분기 밖에 둡니다. 아이스브레이킹은 행사 시작 직전이라 그때 이벤트가 `DRAFT`일 수 있는데,
+        `canSubmit`이 `LIVE`를 요구해서 안쪽에 넣으면 정작 필요한 순간에 안 뜹니다.
+      */}
+      {currentGame ? <GameBanner eventCode={eventCode} game={currentGame} /> : null}
 
       {canSubmit ? (
         <FeedbackForm eventCode={eventCode} sessions={sessions} />
