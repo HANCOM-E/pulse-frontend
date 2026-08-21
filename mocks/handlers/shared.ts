@@ -34,6 +34,10 @@ const DEFAULT_MESSAGE: Record<ApiErrorCode, string> = {
   REPORT_ALREADY_EXISTS: '리포트가 이미 생성 중이거나 완료되었습니다.',
   RATE_LIMIT_EXCEEDED: '잠시 후 다시 시도해 주세요.',
   REPORT_GENERATION_FAILED: '요약 생성에 실패했습니다.',
+  GAME_NOT_FOUND: '게임을 찾을 수 없습니다.',
+  GAME_NOT_OPEN: '지금은 참가를 받지 않습니다.',
+  INVALID_GAME_STATE_TRANSITION: '허용되지 않는 상태 전이입니다.',
+  GAME_ALREADY_FINISHED: '이미 끝난 게임입니다.',
   INTERNAL_ERROR: '알 수 없는 오류가 발생했습니다.',
 };
 

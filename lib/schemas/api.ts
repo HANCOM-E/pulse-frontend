@@ -56,6 +56,10 @@ export const apiErrorCodeSchema = z.enum([
   'REPORT_ALREADY_EXISTS',
   'RATE_LIMIT_EXCEEDED',
   'REPORT_GENERATION_FAILED',
+  'GAME_NOT_FOUND',
+  'GAME_NOT_OPEN',
+  'INVALID_GAME_STATE_TRANSITION',
+  'GAME_ALREADY_FINISHED',
   'INTERNAL_ERROR',
 ]);
 
@@ -136,6 +140,10 @@ export const API_ERROR_STATUS: Record<ApiErrorCode, number> = {
   REPORT_ALREADY_EXISTS: 409,
   RATE_LIMIT_EXCEEDED: 429,
   REPORT_GENERATION_FAILED: 502,
+  GAME_NOT_FOUND: 404,
+  GAME_NOT_OPEN: 409,
+  INVALID_GAME_STATE_TRANSITION: 409,
+  GAME_ALREADY_FINISHED: 409,
   INTERNAL_ERROR: 500,
 };
 
@@ -400,3 +408,115 @@ export const publicReportSchema = z.object({
 
 export type Report = z.infer<typeof reportSchema>;
 export type PublicReport = z.infer<typeof publicReportSchema>;
+
+// ─────────────────────────────────────────────────────────────
+// game
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * 행사 시작용 미니게임입니다(#243). 이벤트 하나에 여러 개를 둘 수 있고 세션에 딸리지
+ * 않습니다 — 아이스브레이킹·쉬는 시간 등 시점을 주최자가 정하기 때문입니다.
+ *
+ * 세션의 `ACTIVE`↔`CLOSED`와 달리 되돌릴 수 없습니다. 결과가 나온 뒤 다시 열면
+ * 순위가 무의미해집니다. 다시 하려면 새 게임을 만듭니다.
+ */
+export const gameStatusSchema = z.enum(['DRAFT', 'OPEN', 'RUNNING', 'FINISHED']);
+
+/**
+ * 지금은 핀볼뿐입니다. `ROULETTE`·`VOTE`는 화면이 생길 때 값을 늘립니다 —
+ * 미리 정의하면 그릴 수 없는 값을 스키마가 통과시킵니다.
+ *
+ * 이 필드가 있어야 나중에 `results`를 타입별로 넓힐 때 비파괴적입니다(#246 BE 제안).
+ */
+export const gameTypeSchema = z.enum(['PINBALL']);
+
+/** 여러 게임을 구분하는 값이라 필수입니다. */
+const GAME_TITLE_MAX = 50;
+
+/** 프로젝터에 구슬로 뜨는 값이라 짧아야 합니다. */
+const GAME_NICKNAME_MAX = 12;
+
+/**
+ * 공개 참가자입니다. `clientId`가 없습니다 — 브라우저 식별자를 공개 응답에 내보내면
+ * 안 됩니다. 소감 공개 뷰에서 `toxic`·`status`를 빼는 것과 같은 이유입니다.
+ * 저장소 쪽 내부 타입(`mocks/data/store.ts`)만 `clientId`를 들고 있습니다.
+ */
+export const gameParticipantSchema = z.object({
+  id,
+  nickname: z.string().min(1).max(GAME_NICKNAME_MAX),
+  joinedAt: isoDateTime,
+});
+
+export const gameResultEntrySchema = z.object({
+  rank: z.int().positive(),
+  participantId: id,
+  nickname: z.string().min(1),
+});
+
+export const gameSchema = z.object({
+  id,
+  eventId: id,
+  title: z.string().min(1).max(GAME_TITLE_MAX),
+  gameType: gameTypeSchema,
+  status: gameStatusSchema,
+  /** `FINISHED` 전에는 `null`입니다. */
+  results: z.array(gameResultEntrySchema).nullable(),
+  createdAt: isoDateTime,
+});
+
+/**
+ * 공개 조회 응답입니다. 참가자와 결과를 함께 실어 화면이 한 번에 그립니다.
+ * `eventId`는 code로 조회한 것이라 중복이어서 뺐습니다.
+ *
+ * `participantCount`는 `participants.length`와 같은 값입니다. 중복이지만 남겨둡니다 —
+ * 소감 화면 배너는 인원만 쓰고 명단은 안 씁니다. 대신 목은 배열에서 파생시켜서
+ * 둘이 어긋날 수 없게 합니다. 실제 서버도 같아야 합니다.
+ */
+export const gameViewSchema = gameSchema.omit({ eventId: true }).extend({
+  participantCount: count,
+  participants: z.array(gameParticipantSchema),
+  /** `FINISHED` 전에는 `null`입니다. */
+});
+
+export const gameCreateRequestSchema = z.object({
+  title: z
+    .string()
+    .min(1, '제목을 입력해 주세요')
+    .max(GAME_TITLE_MAX, `제목은 ${GAME_TITLE_MAX}자 이하여야 합니다.`),
+  /** 값이 하나뿐이라 지금은 생략 가능합니다. 늘어나면 필수로 바꿉니다 */
+  gameType: gameTypeSchema.default('PINBALL'),
+});
+
+/** `DRAFT`로는 되돌아갈 수 없어서 전이 대상에서 뺐습니다. */
+export const gameUpdateRequestSchema = z.object({
+  status: gameStatusSchema.exclude(['DRAFT']),
+});
+
+export const gameJoinRequestSchema = z.object({
+  nickname: z
+    .string()
+    .min(1, '닉네임을 입력해 주세요')
+    .max(GAME_NICKNAME_MAX, `닉네임은 ${GAME_NICKNAME_MAX}자 이하여야 합니다.`),
+});
+
+/**
+ * 프로젝터가 물리 시뮬레이션 결과를 올립니다. `participantId`를 도착 순서대로 담습니다.
+ * 서버는 순위 자체를 검증하지 않고 소속·중복만 봅니다(#246 BE 확인).
+ */
+export const gameResultsRequestSchema = z.object({
+  ranking: z
+    .array(id)
+    .min(1)
+    .refine((values) => new Set(values).size === values.length, '참가자가 중복될 수 없습니다.'),
+});
+
+export type GameStatus = z.infer<typeof gameStatusSchema>;
+export type GameType = z.infer<typeof gameTypeSchema>;
+export type Game = z.infer<typeof gameSchema>;
+export type GameView = z.infer<typeof gameViewSchema>;
+export type GameParticipant = z.infer<typeof gameParticipantSchema>;
+export type GameResultEntry = z.infer<typeof gameResultEntrySchema>;
+export type GameCreateRequest = z.infer<typeof gameCreateRequestSchema>;
+export type GameUpdateRequest = z.infer<typeof gameUpdateRequestSchema>;
+export type GameJoinRequest = z.infer<typeof gameJoinRequestSchema>;
+export type GameResultsRequest = z.infer<typeof gameResultsRequestSchema>;
