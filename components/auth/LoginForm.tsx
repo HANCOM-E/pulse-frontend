@@ -7,6 +7,7 @@ import { Field } from '@/components/ui/Field';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/hooks/useAuth';
 import { ApiError } from '@/lib/apiClient';
+import useRedirectIfAuthenticated from '@/hooks/useRedirectIfAuthenticated';
 
 type LoginInputs = {
   email: string;
@@ -30,6 +31,7 @@ const LoginForm = () => {
 
   const router = useRouter();
   const { login } = useAuth();
+  useRedirectIfAuthenticated();
 
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     setLoginInputs((prev) => ({
