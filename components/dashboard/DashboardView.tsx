@@ -111,7 +111,7 @@ const DashboardView = () => {
     feedbacks,
     isPending: isFeedPending,
     isError: isFeedError,
-    refreshIntervalMs,
+    isLive,
   } = useDashboardFeed({ eventCode, sessionId });
 
   const moderation = useModerationActions();
@@ -490,7 +490,7 @@ const DashboardView = () => {
               positive={positive}
               neutral={neutral}
               negative={negative}
-              refreshIntervalMs={refreshIntervalMs}
+              isLive={isLive}
             />
           </div>
 
