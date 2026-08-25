@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { passwordSchema, signupRequestSchema } from '@/lib/schemas/api';
 import { useAuth } from '@/hooks/useAuth';
 import { ApiError } from '@/lib/apiClient';
+import useRedirectIfAuthenticated from '@/hooks/useRedirectIfAuthenticated';
 
 type SignupInputs = {
   email: string;
@@ -57,6 +58,7 @@ const SignupForm = () => {
 
   const router = useRouter();
   const { signup } = useAuth();
+  useRedirectIfAuthenticated();
 
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = event.target;
