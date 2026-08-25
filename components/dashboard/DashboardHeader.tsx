@@ -36,6 +36,9 @@ interface DashboardHeaderProps {
   /** 확인 다이얼로그를 엽니다. 되돌릴 수 없는 전이라 버튼이 바로 쏘지 않습니다. */
   onEndEvent: () => void;
   isEndEventPending: boolean;
+  /** 대시보드를 PDF로 내보냅니다. 소감을 받아 인쇄창을 여는 일은 밖에서 합니다(#268). */
+  onExportPdf: () => void;
+  isExportPdfPending: boolean;
 }
 
 const DashboardHeader = ({
@@ -47,6 +50,8 @@ const DashboardHeader = ({
   onCopyLink,
   onEndEvent,
   isEndEventPending,
+  onExportPdf,
+  isExportPdfPending,
 }: DashboardHeaderProps) => (
   <div className="flex flex-wrap items-start justify-between gap-3">
     {/* 제목과 상태는 붙어 있어야 해서 바깥 `gap-4`에서 빼고 따로 묶습니다. */}
@@ -123,16 +128,29 @@ const DashboardHeader = ({
         {/*
          * 다 만든 리포트에만 붙습니다. 만들기 전이나 만드는 중에는 뒤집을 공개 여부 자체가
          * 없습니다(`GENERATED`가 아니면 공개해도 게스트는 404를 봅니다).
+         *
+         * PDF도 같은 조건입니다. 마지막 장이 요약 리포트라 리포트가 없으면 문서가 성립하지
+         * 않습니다(#268).
          */}
         {report.isGenerated && (
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={report.isTogglePublicPending}
-            onClick={report.togglePublic}
-          >
-            {report.isPublic ? '리포트 비공개' : '리포트 공개'}
-          </Button>
+          <>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={report.isTogglePublicPending}
+              onClick={report.togglePublic}
+            >
+              {report.isPublic ? '리포트 비공개' : '리포트 공개'}
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={isExportPdfPending}
+              onClick={onExportPdf}
+            >
+              PDF 내보내기
+            </Button>
+          </>
         )}
         {event.status === 'LIVE' && (
           <Button

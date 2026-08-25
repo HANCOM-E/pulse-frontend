@@ -21,6 +21,8 @@ interface SentimentTrendCardProps extends SentimentCounts {
    * 문구를 감춥니다 — 그 사이에도 숫자는 갱신되지만 "실시간"은 아닙니다.
    */
   isLive: boolean;
+  /** 인쇄용 문서가 끕니다. 이유는 `SentimentTrendChart`의 같은 이름 prop에 적어뒀습니다. */
+  isAnimated?: boolean;
 }
 
 const SentimentTrendCard = ({
@@ -29,6 +31,7 @@ const SentimentTrendCard = ({
   neutral,
   negative,
   isLive,
+  isAnimated,
 }: SentimentTrendCardProps) => (
   <section className={CARD}>
     <div className="flex items-center justify-between gap-2">
@@ -48,6 +51,7 @@ const SentimentTrendCard = ({
         positive={positive}
         neutral={neutral}
         negative={negative}
+        isAnimated={isAnimated}
       />
     )}
   </section>

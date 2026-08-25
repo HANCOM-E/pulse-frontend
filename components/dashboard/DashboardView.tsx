@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
+import { DashboardPrintDocument } from '@/components/dashboard/DashboardPrintDocument';
 import { DashboardSkeleton } from '@/components/dashboard/DashboardSkeleton';
 import { KeywordCard } from '@/components/dashboard/KeywordCard';
 import { LiveFeedCard } from '@/components/dashboard/LiveFeedCard';
@@ -32,6 +33,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Stat } from '@/components/ui/Stat';
 import { useCopyLink } from '@/hooks/useCopyLink';
 import { useDashboardFeed } from '@/hooks/useDashboardFeed';
+import { useDashboardPrint } from '@/hooks/useDashboardPrint';
 import { useEventReport } from '@/hooks/useEventReport';
 import { useModerationActions } from '@/hooks/useModerationActions';
 import { useSessionControls } from '@/hooks/useSessionControls';
@@ -153,6 +155,12 @@ const DashboardView = () => {
 
   /* 뒤집기와 「이 화면에서 멈춘 세션인가」 판정이 한 덩어리라 훅으로 묶여 있습니다. */
   const sessionControls = useSessionControls(eventCode);
+
+  /*
+   * PDF 내보내기입니다(#268). 아래 `feedbacks`를 그대로 쓰지 않는 이유는 저 목록이 지금 고른
+   * 세션으로 이미 걸러져 있기 때문입니다. 훅이 "전체" 한 벌을 따로 받아옵니다.
+   */
+  const printControls = useDashboardPrint(eventCode);
 
   /*
    * 소감에서 뽑는 값들입니다. 정작 그리는 자리는 한참 아래지만 계산은 여기서 합니다.
@@ -419,6 +427,8 @@ const DashboardView = () => {
         onCopyLink={handleCopyLink}
         onEndEvent={() => setIsEndConfirmOpen(true)}
         isEndEventPending={endEventMutation.isPending}
+        onExportPdf={printControls.start}
+        isExportPdfPending={printControls.isPreparing}
       />
 
       <SessionFilterBar
@@ -437,6 +447,9 @@ const DashboardView = () => {
       )}
       {sessionControls.isError && (
         <Banner type="negative">세션의 소감 수신 상태를 바꾸지 못했어요</Banner>
+      )}
+      {printControls.isError && (
+        <Banner type="negative">PDF로 내보낼 소감을 불러오지 못했어요</Banner>
       )}
       {isCopyFailed && (
         <Banner type="negative">링크를 복사하지 못했어요. 위 주소를 직접 복사해주세요</Banner>
@@ -514,6 +527,19 @@ const DashboardView = () => {
 
           <ReportSection report={report} />
         </>
+      )}
+
+      {/*
+       * 인쇄용 문서입니다. 버튼을 누른 뒤 인쇄창이 닫힐 때까지만 붙어 있습니다. 상시 마운트하면
+       * 세션 수만큼 추이 차트가 더 그려지므로, 마운트 시점을 훅이 쥐고 있습니다(#268).
+       */}
+      {printControls.feedbacks !== null && (
+        <DashboardPrintDocument
+          event={event}
+          sessions={sessions}
+          feedbacks={printControls.feedbacks}
+          summaryText={report.summaryText}
+        />
       )}
 
       <QrCodeDialog open={isQrOpen} url={publicUrl} onClose={() => setIsQrOpen(false)} />
