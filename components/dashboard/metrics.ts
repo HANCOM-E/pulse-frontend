@@ -58,6 +58,15 @@ interface SentimentSummary {
 type KeywordCount = [keyword: string, count: number];
 
 /**
+ * 추이 계산이 실제로 읽는 필드입니다.
+ *
+ * `Feedback` 전체를 받지 않는 이유는 강연자 화면이 같은 차트를 공개 스냅샷의
+ * `FeedbackView`로 그리기 때문입니다. 저쪽에는 `toxic`·`status`가 없지만 추이에 필요한 두
+ * 필드는 있어서, 인자 타입을 여기까지만 좁혀두면 두 화면이 같은 계산을 나눠 씁니다.
+ */
+type TrendInput = Pick<Feedback, 'createdAt' | 'sentiment'>;
+
+/**
  * 소감을 5분 칸으로 묶어 감정별 건수를 셉니다.
  *
  * 누적이 아니라 칸별 건수입니다. 누적은 언제 반응이 몰렸는지가 기울기로만 남아서,
@@ -67,7 +76,7 @@ type KeywordCount = [keyword: string, count: number];
  * 앞 칸들의 경계를 밀지 않아 차트가 흔들리지 않습니다. `UNKNOWN`은 태깅 실패라
  * 감정선에 올리지 않습니다.
  */
-const buildTrend = (feedbacks: Feedback[]) => {
+const buildTrend = (feedbacks: TrendInput[]) => {
   if (feedbacks.length === 0) return [];
 
   const times = feedbacks.map((feedback) => Date.parse(feedback.createdAt));
@@ -226,7 +235,7 @@ const isNegativeAlerting = ({
  * 서버 시각이 클라이언트보다 조금 앞서면 `age`가 음수가 되는데, 그대로 최근 구간에 넣습니다.
  * 방금 들어온 소감이라는 뜻이라 다른 칸에 둘 이유가 없습니다.
  */
-const isPositiveSurging = (feedbacks: Feedback[], now: number): boolean => {
+const isPositiveSurging = (feedbacks: TrendInput[], now: number): boolean => {
   let recent = 0;
   let baseline = 0;
   /* 목록이 언제부터의 기록인지입니다. 아래에서 기준 구간이 실제로 얼마나 채워졌는지 재는 데 씁니다. */
@@ -281,5 +290,6 @@ export {
   toRelativeTime,
   type KeywordCount,
   type SentimentSummary,
+  type TrendInput,
   type TrendPoint,
 };
