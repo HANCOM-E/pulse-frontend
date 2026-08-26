@@ -486,11 +486,11 @@ const EventForm = ({ eventCode, duplicateFrom }: EventFormProps) => {
 
         {incompleteCleanup ? (
           <Banner type="negative" className="w-full">
-            {`다음 항목이 정리되지 않았습니다. 
-            ${getUndeletedItems(incompleteCleanup)
-              .map((item) => `${item.type} ${item.title}`)
-              .join(', ')}
-            이벤트 목록에서 직접 삭제해주세요.`}
+            <span className="whitespace-pre-line">
+              {`다음 항목이 정리되지 않았습니다.\n${getUndeletedItems(incompleteCleanup)
+                .map((item) => `${item.type} '${item.title}'`)
+                .join(', ')}\n이벤트 목록에서 직접 삭제해주세요.`}
+            </span>
           </Banner>
         ) : null}
 
