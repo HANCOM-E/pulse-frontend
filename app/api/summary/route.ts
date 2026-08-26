@@ -26,8 +26,15 @@ import type { FeedbackSnapshot } from '@/lib/schemas/api';
  * 서버가 공개 API로 직접 받아옵니다. 프롬프트도 서버가 조립합니다.
  */
 
-/** 모델은 환경변수로 뺍니다. OpenRouter는 모델이 자주 바뀌어서 코드에 박으면 금방 낡습니다. */
-const MODEL = process.env.OPENROUTER_MODEL ?? 'google/gemini-2.5-flash';
+/**
+ * 모델은 환경변수로 뺍니다. OpenRouter는 모델이 자주 바뀌어서 코드에 박으면 금방 낡습니다.
+ *
+ * 기본값은 팀이 쓰기로 한 모델과 같아야 합니다. 배포 환경에는 키만 넣고 이 변수는 두지 않기로
+ * 해서, 폴백이 항상 발동합니다 — 즉 이 기본값이 곧 배포에서 도는 모델입니다. 여기가 다른 값이면
+ * 로컬과 배포가 서로 다른 모델로 돌고, 로컬에서 멀쩡한 요약이 배포에서만 깨져도 원인을 짚기
+ * 어렵습니다.
+ */
+const MODEL = process.env.OPENROUTER_MODEL ?? 'qwen/qwen3.7-flash';
 
 /**
  * 요약 본문의 상한입니다. 3~4문장 한국어면 250토큰 안쪽이라 두 배 남짓 여유를 뒀습니다.
