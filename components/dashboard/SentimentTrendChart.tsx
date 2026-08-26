@@ -13,8 +13,23 @@ import type { SentimentCounts } from '@/components/feedback/sentiment';
 
 interface SentimentTrendChartProps extends SentimentCounts {
   trend: TrendPoint[];
+  /**
+   * 선이 그려지는 등장 애니메이션입니다. 인쇄용 문서(#268)만 끕니다.
+   *
+   * recharts는 선을 `stroke-dasharray`로 늘리면서 그립니다. 켜져 있으면 붙자마자 찍는
+   * 순간에는 선이 거의 0 길이라, 종이에는 축과 격자만 있고 선은 왼쪽 끝 토막만 남습니다.
+   * 애니메이션이 끝날 때까지 기다리는 방법도 있지만(기본 1.5초), 그동안 인쇄창이 안 떠서
+   * 버튼이 먹통처럼 보입니다. 종이에서 애니메이션은 어차피 뜻이 없어서 아예 끕니다.
+   */
+  isAnimated?: boolean;
 }
-const SentimentTrendChart = ({ trend, positive, neutral, negative }: SentimentTrendChartProps) => {
+const SentimentTrendChart = ({
+  trend,
+  positive,
+  neutral,
+  negative,
+  isAnimated = true,
+}: SentimentTrendChartProps) => {
   return (
     <div
       className="h-40"
@@ -55,6 +70,7 @@ const SentimentTrendChart = ({ trend, positive, neutral, negative }: SentimentTr
             stroke="var(--color-positive-default)"
             strokeWidth={2}
             dot={false}
+            isAnimationActive={isAnimated}
           />
           <Line
             type="monotone"
@@ -63,6 +79,7 @@ const SentimentTrendChart = ({ trend, positive, neutral, negative }: SentimentTr
             stroke="var(--color-neutral-default)"
             strokeWidth={2}
             dot={false}
+            isAnimationActive={isAnimated}
           />
           <Line
             type="monotone"
@@ -71,6 +88,7 @@ const SentimentTrendChart = ({ trend, positive, neutral, negative }: SentimentTr
             stroke="var(--color-negative-default)"
             strokeWidth={2}
             dot={false}
+            isAnimationActive={isAnimated}
           />
         </LineChart>
       </ResponsiveContainer>

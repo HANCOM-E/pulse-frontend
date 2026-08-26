@@ -87,3 +87,36 @@ body {
 body:has(dialog[open]) {
   overflow: hidden;
 }
+
+/*
+ * 대시보드 PDF 내보내기(#268)입니다. 그리는 쪽은 `components/dashboard/DashboardPrintDocument.tsx`,
+ * 언제 붙는지는 `hooks/useDashboardPrint.ts`가 압니다. 여기에는 문서 전체에 걸리는 것만 둡니다.
+ *
+ * Tailwind 유틸리티보다 이 규칙들이 이깁니다. `@import 'tailwindcss'`가 넣는 것은 전부
+ * 레이어 안이고, 레이어 밖 선언은 명시도와 무관하게 레이어를 이깁니다(위 `body` 규칙과 같은 근거).
+ */
+@page {
+  size: A4;
+  margin: 12mm;
+}
+
+@media print {
+  /*
+   * 인쇄용 문서가 붙어 있을 때만 나머지를 걷어냅니다. 조건 없이 걸면 주최자가 그냥 Ctrl+P를
+   * 눌렀을 때 빈 종이가 나옵니다 — 그때는 인쇄용 문서가 없어서 남는 게 아무것도 없습니다.
+   */
+  body:has(> [data-print-document]) > *:not([data-print-document]) {
+    display: none;
+  }
+
+  /*
+   * 배경과 색을 지우는 인쇄 기본값을 끕니다. 도넛 조각과 스탯 타일은 Tailwind 클래스로
+   * 칠해져 있어서, 이게 없으면 감정 분포가 흑백 고리로 나갑니다. 추이 차트는 stroke가
+   * 인라인 `var(--color-*)`라 이것 없이도 살아남지만, 상속되는 속성이라 문서 뿌리에 한 번만
+   * 걸어두면 둘 다 덮입니다.
+   */
+  [data-print-document] {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
