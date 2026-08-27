@@ -30,7 +30,7 @@ const LoginForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const router = useRouter();
-  const { login } = useAuth();
+  const { login, isLoading } = useAuth();
   useRedirectIfAuthenticated();
 
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -65,6 +65,16 @@ const LoginForm = () => {
       setIsSubmitting(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col w-full gap-4">
+        <div className="h-12 w-full animate-pulse rounded-lg bg-neutral-subtle" />
+        <div className="h-12 w-full animate-pulse rounded-lg bg-neutral-subtle" />
+        <div className="h-12 w-full animate-pulse rounded-lg bg-neutral-subtle" />
+      </div>
+    );
+  }
 
   return (
     <form className="flex flex-col w-full gap-4" onSubmit={handleSubmit}>
