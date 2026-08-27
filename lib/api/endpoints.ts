@@ -9,6 +9,8 @@ import type {
   FeedbackSnapshot,
   FeedbackSubmitRequest,
   FeedbackView,
+  GameJoinRequest,
+  GameParticipant,
   GameView,
   LoginRequest,
   PublicReport,
@@ -27,6 +29,7 @@ import {
   feedbackSchema,
   feedbackSnapshotSchema,
   feedbackViewSchema,
+  gameParticipantSchema,
   gameViewSchema,
   listResponseSchema,
   publicReportSchema,
@@ -307,6 +310,10 @@ export const setReportPublic = async (eventCode: string, isPublic: boolean): Pro
   return parseResponse(reportSchema, data, 'PATCH /events/{eventCode}/report');
 };
 
+// ─────────────────────────────────────────────────────────────
+// game
+// ─────────────────────────────────────────────────────────────
+
 /**
  * 참가자 화면 배너가 쓰는 "지금 열린 게임"입니다(#243).
  *
@@ -329,4 +336,41 @@ export const fetchCurrentGame = async (eventCode: string): Promise<GameView | nu
     if (error instanceof ApiError && error.code === 'GAME_NOT_FOUND') return null;
     throw error;
   }
+};
+
+/**
+ * 게임 하나를 봅니다. `current`로 찾은 게임을 계속 따라갈 때 씁니다.
+ *
+ * `current`와 달리 404를 삼키지 않습니다. gameId를 알고 부르는 자리라, 없다는 건
+ * 정상 상태가 아니라 링크가 낡았거나 잘못된 것입니다.
+ */
+export const fetchGameById = async (eventCode: string, gameId: number): Promise<GameView> => {
+  const data = await apiClient<unknown>(`/events/${eventCode}/games/${gameId}`, { skipAuth: true });
+  return parseResponse(gameViewSchema, data, 'GET /events/{eventCode}/games/{gameId}');
+};
+
+/**
+ * 게임에 참가합니다. 소감 제출과 같은 `X-Client-Id`로 사람을 가리므로, 같은 브라우저가
+ * 다시 부르면 새 참가자가 생기지 않고 닉네임만 갱신됩니다(#246).
+ *
+ * 응답의 `id`를 반드시 저장해야 합니다. 공개 응답에 `clientId`가 없어서, 저장해두지
+ * 않으면 새로고침 뒤에 참가자 목록에서 자기를 못 고릅니다. `RUNNING`이 되면 이
+ * 엔드포인트가 `GAME_NOT_OPEN`으로 막혀서 다시 물어볼 수도 없습니다.
+ */
+export const joinGame = async (
+  eventCode: string,
+  gameId: number,
+  body: GameJoinRequest,
+): Promise<GameParticipant> => {
+  const data = await apiClient<unknown>(`/events/${eventCode}/games/${gameId}/participants`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+    skipAuth: true,
+    headers: { 'X-Client-Id': getClientId() },
+  });
+  return parseResponse(
+    gameParticipantSchema,
+    data,
+    'POST /events/{eventCode}/games/{gameId}/participants',
+  );
 };
