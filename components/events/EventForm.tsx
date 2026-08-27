@@ -12,7 +12,7 @@ import { ChevronLeftIcon } from '@/components/ui/icons';
 import ReportPanel from '@/components/report/ReportPanel';
 import { showToast } from '@/hooks/useToast';
 import { eventCreateRequestSchema, sessionCreateRequestSchema } from '@/lib/schemas/api';
-import type { EventView, SessionView } from '@/lib/schemas/api';
+import type { EventView, PulseEvent, SessionView } from '@/lib/schemas/api';
 import {
   createEvent,
   createSession,
@@ -223,8 +223,24 @@ const EventForm = ({ eventCode, duplicateFrom }: EventFormProps) => {
 
   const { mutate: startEvent, isPending: isStarting } = useMutation({
     mutationFn: () => updateEvent(eventCode as string, { status: 'LIVE' }),
-    onSuccess: () => {
+    onSuccess: (started) => {
       queryClient.invalidateQueries({ queryKey: ['event', eventCode] });
+      /*
+       * 옮겨갈 대시보드는 상태를 이 단수 캐시가 아니라 내 이벤트 목록에서 코드로 찾아
+       * 씁니다(`DashboardView.tsx:151`, `:306`). 목록을 그대로 두면 방금 `LIVE`가 된
+       * 이벤트가 거기서는 여전히 `DRAFT`라, 배지가 "준비 중"으로 남고 그 상태에서만
+       * 나오는 QR·링크 복사·종료 버튼도 함께 사라집니다(#284).
+       *
+       * `invalidateQueries`가 아니라 응답을 직접 꽂는 이유는, 무효화는 stale 표시일 뿐이라
+       * 대시보드가 마운트되는 순간에는 여전히 캐시된 `DRAFT`를 한 번 그리기 때문입니다.
+       * 방금 받은 이벤트가 정답이라 다시 물어볼 것도 없습니다.
+       *
+       * 목록을 거치지 않고 들어온 경우에는 채울 칸 자체가 없습니다. 그때는 갱신자가
+       * `undefined`를 돌려주고, 대시보드가 마운트되면서 목록을 처음부터 받아옵니다.
+       */
+      queryClient.setQueryData<PulseEvent[]>(['myEvents'], (previous) =>
+        previous?.map((item) => (item.code === started.code ? started : item)),
+      );
       showToast('이벤트를 시작했어요');
       router.push(`/events/${eventCode}/dashboard`);
     },
