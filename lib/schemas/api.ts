@@ -84,7 +84,7 @@ const isoDateTime = z.iso.datetime();
  * UTC보다 서쪽 지역에서는 하루 앞선 날짜로 보입니다(명세 2026-08-12 경고). 화면까지
  * 문자열로 나르고, 포맷이 필요하면 그 자리에서 연·월·일을 직접 쪼개 씁니다.
  */
-const calendarDate = z.iso.date();
+const calendarDate = z.iso.date('행사 날짜를 선택해 주세요.');
 
 /**
  * 집계 개수. 0은 나오지만 음수는 나올 수 없습니다.
