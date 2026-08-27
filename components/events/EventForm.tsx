@@ -330,6 +330,13 @@ const EventForm = ({ eventCode, duplicateFrom }: EventFormProps) => {
     return <ReportPanel />;
   }
 
+  let formTitle = '새 이벤트 만들기';
+  if (isEditMode) {
+    formTitle = '이벤트 수정하기';
+  } else if (isDuplicateMode) {
+    formTitle = '이벤트 복제하기';
+  }
+
   return (
     <>
       <div className="w-full max-w-190">
@@ -342,7 +349,7 @@ const EventForm = ({ eventCode, duplicateFrom }: EventFormProps) => {
           <ChevronLeftIcon className="h-6 w-6" />
         </button>
       </div>
-      <h1 className="w-full max-w-190 text-xl font-semibold text-text-primary">이벤트 설정</h1>
+      <h1 className="w-full max-w-190 text-xl font-semibold text-text-primary">{formTitle}</h1>
       <form onSubmit={handleFormSubmit} className="w-full max-w-190 flex flex-col gap-6">
         <Field
           label="제목"
