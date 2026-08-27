@@ -35,6 +35,33 @@ const InfoIcon = (props: IconProps) => (
   </svg>
 );
 
+const DuplicateIcon = (props: IconProps) => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" {...props} aria-hidden="true">
+    <rect
+      x="2.5"
+      y="2.5"
+      width="8"
+      height="8"
+      rx="1.5"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <rect
+      x="5.5"
+      y="5.5"
+      width="8"
+      height="8"
+      rx="1.5"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
 const ChevronRightIcon = (props: IconProps) => (
   <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true" {...props}>
     <path
@@ -59,5 +86,5 @@ const ChevronLeftIcon = (props: IconProps) => (
   </svg>
 );
 
-export { AlertIcon, CheckIcon, InfoIcon, XIcon, ChevronRightIcon, ChevronLeftIcon };
+export { AlertIcon, CheckIcon, InfoIcon, XIcon, DuplicateIcon, ChevronRightIcon, ChevronLeftIcon };
 export type { IconProps };
