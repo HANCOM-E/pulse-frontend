@@ -26,6 +26,7 @@ const DEFAULT_MESSAGE: Record<ApiErrorCode, string> = {
   REPORT_NOT_FOUND: '리포트를 찾을 수 없습니다.',
   EVENT_NOT_LIVE: '진행 중인 이벤트가 아닙니다.',
   SESSION_CLOSED: '지금은 이 순서에 소감을 받지 않습니다.',
+  SESSION_NOT_CLOSED: '소감을 마감한 뒤에 리포트를 만들 수 있습니다.',
   INVALID_EVENT_STATE_TRANSITION: '허용되지 않는 상태 전이입니다.',
   EVENT_ALREADY_DELETED: '이미 삭제된 이벤트입니다.',
   FEEDBACK_ALREADY_DELETED: '이미 삭제된 소감입니다.',

@@ -48,6 +48,12 @@ export const apiErrorCodeSchema = z.enum([
   'REPORT_NOT_FOUND',
   'EVENT_NOT_LIVE',
   'SESSION_CLOSED',
+  /**
+   * `SESSION_CLOSED`와 정반대입니다. 저쪽은 마감된 세션에 소감을 넣으려 할 때고, 이쪽은
+   * 아직 마감되지 않은 세션의 리포트를 만들려 할 때입니다(2026-08-27, pulse-backend#43).
+   * 이름이 헷갈리기 쉬우니 쓰는 자리를 확인하세요.
+   */
+  'SESSION_NOT_CLOSED',
   'INVALID_EVENT_STATE_TRANSITION',
   'EVENT_ALREADY_DELETED',
   'FEEDBACK_ALREADY_DELETED',
@@ -132,6 +138,7 @@ export const API_ERROR_STATUS: Record<ApiErrorCode, number> = {
   REPORT_NOT_FOUND: 404,
   EVENT_NOT_LIVE: 409,
   SESSION_CLOSED: 409,
+  SESSION_NOT_CLOSED: 409,
   INVALID_EVENT_STATE_TRANSITION: 409,
   EVENT_ALREADY_DELETED: 409,
   FEEDBACK_ALREADY_DELETED: 409,
@@ -408,6 +415,53 @@ export const publicReportSchema = z.object({
 
 export type Report = z.infer<typeof reportSchema>;
 export type PublicReport = z.infer<typeof publicReportSchema>;
+
+// ─────────────────────────────────────────────────────────────
+// session report
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * 발표 자료 요약의 길이 상한입니다. BE가 `@Size(max=2000)`으로 막습니다(pulse-backend#43).
+ *
+ * 토큰이 아니라 문자 수입니다. 넘겨 보내면 `VALIDATION_ERROR`(400)라, 모델이 길게 뱉었을 때는
+ * 보내기 전에 이 값으로 잘라야 합니다. 자르는 자리는 `app/api/deck-summary/route.ts`입니다.
+ */
+export const MATERIAL_SUMMARY_MAX_LENGTH = 2_000;
+
+/**
+ * 세션 리포트 생성 요청입니다. 본문 전체가 선택이라 `{}`로도 부를 수 있습니다.
+ *
+ * 발표 자료 원본은 서버로 가지 않습니다. 프론트가 브라우저에서 텍스트를 뽑아 LLM으로 줄인
+ * 결과 문자열만 이 필드에 실립니다.
+ */
+export const sessionReportGenerateRequestSchema = z.object({
+  materialSummary: z.string().max(MATERIAL_SUMMARY_MAX_LENGTH).nullable().optional(),
+});
+
+/**
+ * 세션 리포트입니다. 이벤트 리포트(`reportSchema`)와 모양이 거의 같지만 셋이 다릅니다.
+ *
+ * 1. `eventId` 대신 `sessionId`입니다.
+ * 2. `isPublic`이 없습니다 — 세션 피드백 집계가 원래 공개라 공개 전환이라는 개념이 없고,
+ *    조회에 소유자/게스트 분기도 없습니다.
+ * 3. `materialSummary`가 있습니다. 생성 때 받은 값을 서버가 그대로 보존해 되돌려 줍니다.
+ *
+ * `GENERATING`·`FAILED` 동안에는 집계·요약 필드가 전부 null입니다.
+ */
+export const sessionReportSchema = z.object({
+  id,
+  sessionId: id,
+  status: reportStatusSchema,
+  summaryText: z.string().nullable(),
+  sentimentBreakdown: sentimentBreakdownSchema.nullable(),
+  unclassifiedCount: count.nullable(),
+  topKeywords: z.array(keywordCountSchema).nullable(),
+  materialSummary: z.string().nullable(),
+  generatedAt: isoDateTime.nullable(),
+});
+
+export type SessionReport = z.infer<typeof sessionReportSchema>;
+export type SessionReportGenerateRequest = z.infer<typeof sessionReportGenerateRequestSchema>;
 
 // ─────────────────────────────────────────────────────────────
 // game
