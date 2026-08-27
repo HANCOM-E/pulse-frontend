@@ -1,6 +1,7 @@
 import { HttpResponse, http } from 'msw';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
+  fetchCurrentGame,
   fetchEventByCode,
   fetchMyEvents,
   fetchOwnReport,
@@ -22,6 +23,7 @@ import { server } from '@/mocks/server';
  * 프로덕션에서 로그만 남기고 raw payload를 캐스팅해 반환하던 분기의 회귀 방지용입니다.
  */
 
+const DRAFT_EVENT_CODE = 'zq1v8t';
 const EVENT_CODE = 'ab3f9x';
 const ENDED_EVENT_CODE = 'kd7m2p';
 const SEED_CREDENTIALS = { email: 'host@example.com', password: 'pulse1234' };
@@ -115,5 +117,29 @@ describe('인증 쿠키', () => {
     });
 
     await logout();
+  });
+});
+
+describe('fetchCurrentGame', () => {
+  it('열린 게임이 있으면 계약대로 받는다', async () => {
+    const game = await fetchCurrentGame(EVENT_CODE);
+
+    expect(game?.status).toBe('OPEN');
+  });
+
+  /*
+   * "열린 게임 없음"은 실패가 아니라 정상 상태입니다. 에러로 두면 useEventEntryFeed의
+   * isPermanentFailure가 4xx로 보고 폴링을 멈춰서, 주최자가 나중에 열어도 화면이 모릅니다.
+   */
+  it('열린 게임이 없으면 null을 준다', async () => {
+    await expect(fetchCurrentGame(DRAFT_EVENT_CODE)).resolves.toBeNull();
+  });
+
+  /*
+   * 상태 코드가 아니라 에러 코드로 갈라야 합니다. 없는 이벤트도 404지만 이건 진짜 실패라
+   * 삼키면 안 됩니다 — 배너만 조용히 안 뜨고 원인을 알 수 없게 됩니다.
+   */
+  it('없는 이벤트의 404는 삼키지 않는다', async () => {
+    await expect(fetchCurrentGame('nope00')).rejects.toMatchObject({ code: 'EVENT_NOT_FOUND' });
   });
 });
