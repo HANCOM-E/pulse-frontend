@@ -23,6 +23,26 @@ const participantKey = (gameId: number) => `pulse:game-participant:${gameId}`;
 const NICKNAME_KEY = 'pulse:game-nickname';
 
 /**
+ * `useSyncExternalStore`용 구독입니다.
+ *
+ * `localStorage`는 React 밖에 있는 저장소라, 화면이 그 값을 읽으려면 "언제 바뀌는지"를
+ * 알려줘야 합니다. effect에서 `setState`로 옮겨 담는 방식은 React 19에서 막혔습니다
+ * (cascading render). 쓰는 쪽이 이 파일뿐이라 쓰기 함수가 직접 알립니다.
+ */
+const listeners = new Set<() => void>();
+
+const subscribe = (listener: () => void): (() => void) => {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+};
+
+const emit = (): void => {
+  for (const listener of listeners) listener();
+};
+
+/**
  * 서버에는 localStorage가 없어 항상 `null`입니다. 호출부는 첫 렌더에서 "기록 없음"으로
  * 그렸다가 마운트 후 다시 그려야 합니다.
  *
@@ -68,10 +88,11 @@ const rememberParticipant = (gameId: number, participantId: number): void => {
   if (!Number.isInteger(participantId) || participantId <= 0) return;
 
   writeRaw(participantKey(gameId), String(participantId));
+  emit();
 };
 
 /** 입력창 기본값으로 씁니다. 없으면 빈 문자열이라 그대로 넣으면 됩니다. */
-const readNickName = (): string => readRaw(NICKNAME_KEY) ?? '';
+const readNickname = (): string => readRaw(NICKNAME_KEY) ?? '';
 
 /** 참가에 성공한 이름만 남깁니다. 입력 중인 값을 저장하면 욕설 검사를 통과 못 한 이름이 굳습니다. */
 const rememberNickname = (nickname: string): void => {
@@ -79,6 +100,7 @@ const rememberNickname = (nickname: string): void => {
   if (trimmed.length === 0) return;
 
   writeRaw(NICKNAME_KEY, trimmed);
+  emit();
 };
 
-export { readNickName, readParticipantId, rememberNickname, rememberParticipant };
+export { readNickname, readParticipantId, rememberNickname, rememberParticipant, subscribe };
