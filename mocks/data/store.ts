@@ -8,6 +8,7 @@ import type {
   Report,
   Session,
   SentimentBreakdown,
+  SessionReport,
   SessionView,
   Game,
   GameParticipant,
@@ -52,6 +53,11 @@ interface MockDb {
   sessions: Session[];
   feedbacks: Feedback[];
   reports: Report[];
+  /**
+   * 시드가 없습니다. 세션 리포트는 세션이 `CLOSED`가 된 뒤에 강연자가 직접 만드는 것이라,
+   * 미리 깔아두면 "아직 생성 전"(404)이라는 정상 상태를 화면에서 확인할 수 없습니다.
+   */
+  sessionReports: SessionReport[];
   games: Game[];
   gameParticipants: MockGameParticipant[];
 }
@@ -64,6 +70,7 @@ const createDb = (): MockDb => ({
   sessions: clone(seedSessions),
   feedbacks: clone(seedFeedbacks),
   reports: clone(seedReports),
+  sessionReports: [],
   games: clone(seedGames),
   gameParticipants: clone(seedGameParticipants),
 });
@@ -78,6 +85,7 @@ export const resetDb = (): void => {
   db.sessions = fresh.sessions;
   db.feedbacks = fresh.feedbacks;
   db.reports = fresh.reports;
+  db.sessionReports = fresh.sessionReports;
   db.games = fresh.games;
   db.gameParticipants = fresh.gameParticipants;
   submissionLog.clear();
@@ -95,6 +103,7 @@ export const nextEventId = (): number => nextId(db.events);
 export const nextSessionId = (): number => nextId(db.sessions);
 export const nextFeedbackId = (): number => nextId(db.feedbacks);
 export const nextReportId = (): number => nextId(db.reports);
+export const nextSessionReportId = (): number => nextId(db.sessionReports);
 export const nextGameId = (): number => nextId(db.games);
 export const nextGameParticipantId = (): number => nextId(db.gameParticipants);
 
@@ -173,6 +182,10 @@ export const findEventOfSession = (sessionId: number): PulseEvent | undefined =>
 
 export const findReportByEventId = (eventId: number): Report | undefined =>
   db.reports.find((report) => report.eventId === eventId);
+
+/** 세션당 하나뿐입니다(BE는 `session_id` UNIQUE로 강제합니다). */
+export const findSessionReportBySessionId = (sessionId: number): SessionReport | undefined =>
+  db.sessionReports.find((report) => report.sessionId === sessionId);
 
 export const findGameById = (gameId: number): Game | undefined =>
   db.games.find((game) => game.id === gameId);

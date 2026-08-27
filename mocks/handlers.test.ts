@@ -11,6 +11,7 @@ import {
   publicReportSchema,
   pulseEventSchema,
   reportSchema,
+  sessionReportSchema,
   sessionSchema,
   sessionViewSchema,
 } from '@/lib/schemas/api';
@@ -30,6 +31,11 @@ const LIVE_EVENT_CODE = 'ab3f9x';
 const ENDED_EVENT_CODE = 'kd7m2p';
 const DRAFT_EVENT_CODE = 'zq1v8t';
 const LIVE_SESSION_IDS = [101, 102, 103, 104];
+
+/** 세션 리포트는 `CLOSED`에서만 만들 수 있어서 상태별로 하나씩 집어 둡니다. */
+const ACTIVE_SESSION_ID = 101;
+const CLOSED_SESSION_ID = 103;
+const DELETED_SESSION_ID = 104;
 
 /** 시드에서 상태가 고정된 소감들(mocks/data/seed.ts, id = 900 + 배열 순번) */
 const HIDDEN_FEEDBACK_ID = 915;
@@ -951,6 +957,130 @@ describe('리포트', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ isPublic: false }),
     });
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toMatchObject({ code: 'UNAUTHORIZED' });
+  });
+});
+
+/**
+ * 세션 리포트입니다(pulse-backend#43). 이벤트 리포트와 방어 방식이 아예 달라서 따로 봅니다 —
+ * 생성이 비인증이고, 인증 대신 세션 `CLOSED` 게이트와 세션당 멱등이 남용을 막습니다.
+ *
+ * 화면이 이 규칙을 그대로 복제해서 버튼을 잠그기 때문에(`useSessionReport`), 목이 실제와 다른
+ * 코드를 내면 화면은 열리는데 실서버에서만 막히는 상태가 됩니다.
+ */
+describe('세션 리포트', () => {
+  const generate = (sessionId: number, body?: unknown) =>
+    call(`/events/${LIVE_EVENT_CODE}/sessions/${sessionId}/report/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    });
+
+  it('CLOSED 세션에 자료 요약을 실어 보내면 202 GENERATING이 온다', async () => {
+    const response = await generate(CLOSED_SESSION_ID, { materialSummary: '발표 자료 요약입니다.' });
+
+    expect(response.status).toBe(202);
+    const report = sessionReportSchema.parse(await response.json());
+    expect(report).toMatchObject({
+      sessionId: CLOSED_SESSION_ID,
+      status: 'GENERATING',
+      materialSummary: '발표 자료 요약입니다.',
+      summaryText: null,
+    });
+  });
+
+  it('본문 없이 불러도 만들어진다', async () => {
+    /* 계약상 requestBody가 선택입니다. 자료 없는 리포트도 정상 경로입니다. */
+    const response = await generate(CLOSED_SESSION_ID);
+
+    expect(response.status).toBe(202);
+    await expect(response.json()).resolves.toMatchObject({ materialSummary: null });
+  });
+
+  it('ACTIVE 세션이면 SESSION_NOT_CLOSED를 준다', async () => {
+    /* 소감이 아직 들어오는 중이라, 지금 만들면 부분 집계가 멱등으로 잠깁니다. */
+    const response = await generate(ACTIVE_SESSION_ID);
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({ code: 'SESSION_NOT_CLOSED' });
+  });
+
+  it('이미 만들었으면 REPORT_ALREADY_EXISTS를 준다', async () => {
+    expect((await generate(CLOSED_SESSION_ID)).status).toBe(202);
+
+    const second = await generate(CLOSED_SESSION_ID, { materialSummary: '두 번째 시도' });
+
+    expect(second.status).toBe(409);
+    await expect(second.json()).resolves.toMatchObject({ code: 'REPORT_ALREADY_EXISTS' });
+  });
+
+  it('삭제된 세션은 SESSION_NOT_FOUND를 준다', async () => {
+    const response = await generate(DELETED_SESSION_ID);
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({ code: 'SESSION_NOT_FOUND' });
+  });
+
+  it('다른 이벤트의 세션이면 존재를 숨긴다', async () => {
+    /* 코드를 바꿔 넣어가며 어떤 세션 id가 살아 있는지 훑는 걸 막습니다. */
+    const response = await call(
+      `/events/${ENDED_EVENT_CODE}/sessions/${CLOSED_SESSION_ID}/report/generate`,
+      { method: 'POST' },
+    );
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({ code: 'SESSION_NOT_FOUND' });
+  });
+
+  it('자료 요약이 2000자를 넘으면 VALIDATION_ERROR를 준다', async () => {
+    /* BE의 `@Size(max=2000)`입니다. 프론트가 자르지 않고 보내면 여기서 걸립니다. */
+    const response = await generate(CLOSED_SESSION_ID, { materialSummary: '가'.repeat(2_001) });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({ code: 'VALIDATION_ERROR' });
+  });
+
+  it('만들기 전에 조회하면 REPORT_NOT_FOUND를 준다', async () => {
+    const response = await call(`/events/${LIVE_EVENT_CODE}/sessions/${CLOSED_SESSION_ID}/report`);
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({ code: 'REPORT_NOT_FOUND' });
+  });
+
+  it('조회는 인증 없이도 같은 뷰를 준다', async () => {
+    /* 세션 피드백 집계가 원래 공개라 소유자/게스트 분기가 없습니다. */
+    await generate(CLOSED_SESSION_ID, { materialSummary: '자료 요약' });
+
+    const response = await call(`/events/${LIVE_EVENT_CODE}/sessions/${CLOSED_SESSION_ID}/report`);
+
+    expect(response.status).toBe(200);
+    const report = sessionReportSchema.parse(await response.json());
+    expect(report.materialSummary).toBe('자료 요약');
+  });
+
+  it('주최자가 회수하면 다시 만들 수 있다', async () => {
+    await generate(CLOSED_SESSION_ID);
+
+    const reset = await call(
+      `/events/${LIVE_EVENT_CODE}/sessions/${CLOSED_SESSION_ID}/report/reset`,
+      { method: 'POST', headers: AUTH_HEADERS },
+    );
+    expect(reset.status).toBe(204);
+
+    /* 회수의 존재 이유가 이것입니다 — 잠긴 세션을 다시 열어주는 유일한 경로입니다. */
+    expect((await generate(CLOSED_SESSION_ID)).status).toBe(202);
+  });
+
+  it('회수에 토큰이 없으면 UNAUTHORIZED를 준다', async () => {
+    /* 생성은 비인증인데 회수는 아닙니다. 아무나 남의 리포트를 지울 수 있으면 안 됩니다. */
+    await generate(CLOSED_SESSION_ID);
+
+    const response = await call(
+      `/events/${LIVE_EVENT_CODE}/sessions/${CLOSED_SESSION_ID}/report/reset`,
+      { method: 'POST' },
+    );
 
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toMatchObject({ code: 'UNAUTHORIZED' });

@@ -1,12 +1,17 @@
 import { http, HttpResponse } from 'msw';
 import { z } from 'zod';
-import type { Report } from '@/lib/schemas/api';
+import type { Report, Session, SessionReport } from '@/lib/schemas/api';
+import { sessionReportGenerateRequestSchema } from '@/lib/schemas/api';
 import {
   buildSnapshot,
   db,
   findEventByCode,
+  findEventOfSession,
   findReportByEventId,
+  findSessionById,
+  findSessionReportBySessionId,
   nextReportId,
+  nextSessionReportId,
 } from '@/mocks/data/store';
 import {
   API_BASE_URL,
@@ -54,6 +59,104 @@ const completeReport = (reportId: number): void => {
   report.unclassifiedCount = snapshot.unclassifiedCount;
   report.topKeywords = snapshot.topKeywords;
   report.generatedAt = new Date().toISOString();
+};
+
+/**
+ * 세션을 찾고 이벤트 소속·미삭제까지 확인합니다. BE의 `loadSessionInEvent`와 같은 판정입니다.
+ *
+ * 삭제됐거나 다른 이벤트 소속이면 존재 자체를 숨겨 `SESSION_NOT_FOUND`로 뭉갭니다. 남의
+ * 이벤트 코드에 세션 id를 바꿔 넣어보며 어떤 id가 살아 있는지 훑는 걸 막습니다.
+ */
+const loadSessionInEvent = (
+  eventCode: string | readonly string[] | undefined,
+  rawSessionId: string | readonly string[] | undefined,
+): Session | Response => {
+  const sessionId = Number(rawSessionId);
+  const session = Number.isInteger(sessionId) ? findSessionById(sessionId) : undefined;
+
+  if (!session || session.status === 'DELETED') return errorResponse('SESSION_NOT_FOUND');
+  if (findEventOfSession(session.id)?.code !== eventCode) {
+    return errorResponse('SESSION_NOT_FOUND');
+  }
+
+  return session;
+};
+
+/**
+ * 세션 요약 문장입니다. 실제로는 BE가 LLM에 소감과 자료 요약을 함께 넘겨 만듭니다.
+ *
+ * 자료 요약이 있으면 문장에 실어 보입니다. 그래야 화면에서 "자료가 실제로 반영됐는지"를
+ * 눈으로 확인할 수 있습니다 — 목이 자료를 무시해도 요약은 그럴듯하게 나와서, 안 실으면
+ * 배선이 끊긴 걸 알아차릴 방법이 없습니다.
+ */
+const buildSessionSummaryText = (
+  eventId: number,
+  sessionId: number,
+  materialSummary: string | null,
+): string => {
+  const snapshot = buildSnapshot(eventId, sessionId);
+  const { POS, NEU, NEG } = snapshot.sentimentBreakdown;
+  const total = POS + NEU + NEG;
+
+  const feedbackPart =
+    total === 0
+      ? '집계할 소감이 없어 반응은 요약하지 못했습니다.'
+      : `이 세션에는 소감 ${total}건이 모였고 긍정 ${POS}건, 중립 ${NEU}건, 부정 ${NEG}건이었습니다.`;
+
+  if (materialSummary === null) return feedbackPart;
+
+  return `${feedbackPart} 발표 자료 요약을 함께 참고했습니다 — ${materialSummary}`;
+};
+
+const completeSessionReport = (sessionReportId: number): void => {
+  const report = db.sessionReports.find((item) => item.id === sessionReportId);
+  if (!report || report.status !== 'GENERATING') return;
+
+  const event = findEventOfSession(report.sessionId);
+  if (!event) return;
+
+  const snapshot = buildSnapshot(event.id, report.sessionId);
+  report.status = 'GENERATED';
+  report.summaryText = buildSessionSummaryText(event.id, report.sessionId, report.materialSummary);
+  report.sentimentBreakdown = snapshot.sentimentBreakdown;
+  report.unclassifiedCount = snapshot.unclassifiedCount;
+  report.topKeywords = snapshot.topKeywords;
+  report.generatedAt = new Date().toISOString();
+};
+
+/**
+ * 생성 요청의 본문은 계약상 선택입니다(`requestBody.required: false`). 본문 없이 부르는 것도
+ * 자료 없는 리포트를 만드는 정상 경로라, 빈 본문을 `{}`로 읽습니다.
+ *
+ * `parseBody`를 쓰지 않는 이유가 이것입니다. 그쪽은 본문이 비면 `VALIDATION_ERROR`를 냅니다.
+ */
+const parseGenerateBody = async (
+  request: Request,
+): Promise<{ ok: true; materialSummary: string | null } | { ok: false; response: Response }> => {
+  const raw = await request.text();
+
+  let parsed: unknown = {};
+  if (raw.trim() !== '') {
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return {
+        ok: false,
+        response: errorResponse('VALIDATION_ERROR', '요청 본문이 JSON이 아닙니다.'),
+      };
+    }
+  }
+
+  const result = sessionReportGenerateRequestSchema.safeParse(parsed);
+  if (!result.success) {
+    const [issue] = result.error.issues;
+    return {
+      ok: false,
+      response: errorResponse('VALIDATION_ERROR', `materialSummary: ${issue.message}`),
+    };
+  }
+
+  return { ok: true, materialSummary: result.data.materialSummary ?? null };
 };
 
 export const reportHandlers = [
@@ -137,4 +240,96 @@ export const reportHandlers = [
       topKeywords: report.topKeywords ?? [],
     });
   }),
+
+  /**
+   * 세션 리포트 생성입니다(비인증). 강연자에게는 계정이 없어서 인증으로 막을 수가 없고,
+   * 대신 두 가지가 남용을 막습니다(pulse-backend#43).
+   *
+   * 1. 세션이 `CLOSED`여야 합니다. `ACTIVE`면 소감이 아직 들어오는 중이라, 지금 만들면
+   *    부분 집계가 아래 멱등으로 잠겨버립니다.
+   * 2. 세션당 하나뿐입니다. `GENERATING`/`GENERATED`면 막고, `FAILED`만 같은 행을 재사용해
+   *    재시도합니다. LLM 호출이 세션당 1회로 묶입니다.
+   *
+   * 재시도에서 `materialSummary`를 덮어쓰는 것도 BE와 같습니다. 자료를 다시 안 실으면 이전
+   * 값이 null로 지워집니다 — 화면이 자료 요약을 들고 있다가 재시도에 다시 실어야 하는 이유입니다.
+   */
+  http.post(
+    `${API_BASE_URL}/events/:eventCode/sessions/:sessionId/report/generate`,
+    async ({ request, params }) => {
+      const session = loadSessionInEvent(params.eventCode, params.sessionId);
+      if (session instanceof Response) return session;
+
+      if (session.status !== 'CLOSED') return errorResponse('SESSION_NOT_CLOSED');
+
+      const body = await parseGenerateBody(request);
+      if (!body.ok) return body.response;
+
+      const existing = findSessionReportBySessionId(session.id);
+      if (existing && existing.status !== 'FAILED') return errorResponse('REPORT_ALREADY_EXISTS');
+
+      const report: SessionReport = existing ?? {
+        id: nextSessionReportId(),
+        sessionId: session.id,
+        status: 'GENERATING',
+        summaryText: null,
+        sentimentBreakdown: null,
+        unclassifiedCount: null,
+        topKeywords: null,
+        materialSummary: null,
+        generatedAt: null,
+      };
+
+      /* 재시도면 집계도 함께 비웁니다. 옛 값이 남으면 새 요약과 짝이 안 맞습니다. */
+      report.status = 'GENERATING';
+      report.materialSummary = body.materialSummary;
+      report.summaryText = null;
+      report.sentimentBreakdown = null;
+      report.unclassifiedCount = null;
+      report.topKeywords = null;
+      report.generatedAt = null;
+
+      if (!existing) db.sessionReports.push(report);
+
+      setTimeout(() => completeSessionReport(report.id), GENERATION_DELAY_MS);
+
+      return HttpResponse.json(report, { status: 202 });
+    },
+  ),
+
+  /**
+   * 세션 리포트 조회입니다(공개). 이벤트 리포트와 달리 인증 분기가 없습니다 — 세션 피드백
+   * 집계가 원래 공개라 그 요약도 공개이고, `isPublic` 같은 개념 자체가 없습니다.
+   */
+  http.get(`${API_BASE_URL}/events/:eventCode/sessions/:sessionId/report`, ({ params }) => {
+    const session = loadSessionInEvent(params.eventCode, params.sessionId);
+    if (session instanceof Response) return session;
+
+    /* 행이 없는 상태를 404로 알립니다. 화면은 이걸 "아직 생성 안 함"으로 읽습니다. */
+    const report = findSessionReportBySessionId(session.id);
+    if (!report) return errorResponse('REPORT_NOT_FOUND');
+
+    return HttpResponse.json(report);
+  }),
+
+  /**
+   * 세션 리포트 회수입니다(주최자 전용). 생성이 비인증이라 누군가 자료 없이 혹은 잘못 만들어
+   * 멱등으로 잠갔을 때, 주최자가 지워서 재생성을 여는 유일한 경로입니다.
+   */
+  http.post(
+    `${API_BASE_URL}/events/:eventCode/sessions/:sessionId/report/reset`,
+    ({ request, params, cookies }) => {
+      const event = requireOwnedEvent(request, cookies, params.eventCode);
+      if (event instanceof Response) return event;
+
+      const session = loadSessionInEvent(params.eventCode, params.sessionId);
+      if (session instanceof Response) return session;
+
+      const index = db.sessionReports.findIndex((item) => item.sessionId === session.id);
+      if (index === -1) return errorResponse('REPORT_NOT_FOUND');
+
+      db.sessionReports.splice(index, 1);
+
+      return new HttpResponse(null, { status: 204 });
+    },
+  ),
 ];
