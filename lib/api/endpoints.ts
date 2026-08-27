@@ -9,8 +9,11 @@ import type {
   FeedbackSnapshot,
   FeedbackSubmitRequest,
   FeedbackView,
+  GameCreateRequest,
   GameJoinRequest,
   GameParticipant,
+  GameResultsRequest,
+  GameUpdateRequest,
   GameView,
   LoginRequest,
   PublicReport,
@@ -29,6 +32,7 @@ import {
   feedbackSchema,
   feedbackSnapshotSchema,
   feedbackViewSchema,
+  gameListResponseSchema,
   gameParticipantSchema,
   gameViewSchema,
   listResponseSchema,
@@ -373,4 +377,58 @@ export const joinGame = async (
     data,
     'POST /events/{eventCode}/games/{gameId}/participants',
   );
+};
+
+/**
+ * 주최자가 만든 게임 목록입니다(#258). `current`와 달리 `DRAFT`도 옵니다 — 만들어두고
+ * 아직 안 연 게임을 다시 찾는 게 이 목록의 존재 이유입니다.
+ */
+export const fetchGamesOfEvent = async (eventCode: string): Promise<GameView[]> => {
+  const data = await apiClient<unknown>(`/events/${eventCode}/games`);
+  return parseResponse(gameListResponseSchema, data, 'GET /events/{eventCode}/games').items;
+};
+
+/** 게임을 만듭니다. `DRAFT`로 생깁니다 — 만들자마자 열지 않고 주최자가 시점을 정합니다. */
+export const createGame = async (eventCode: string, body: GameCreateRequest): Promise<GameView> => {
+  const data = await apiClient<unknown>(`/events/${eventCode}/games`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+  return parseResponse(gameViewSchema, data, 'POST /events/{eventCode}/games');
+};
+
+/**
+ * 상태를 한 칸 옮깁니다. `DRAFT → OPEN → RUNNING` 한 방향이고 되돌릴 수 없습니다.
+ *
+ * `RUNNING → FINISHED`는 여기로 못 갑니다. 결과 확정(`submitGameResults`)만 그 전이를
+ * 맡습니다 — 여기서 넘기면 `results`가 `null`인 채 `FINISHED`가 됩니다.
+ */
+export const updateGameStatus = async (
+  eventCode: string,
+  gameId: number,
+  body: GameUpdateRequest,
+): Promise<GameView> => {
+  const data = await apiClient<unknown>(`/events/${eventCode}/games/${gameId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
+  return parseResponse(gameViewSchema, data, 'PATCH /events/{eventCode}/games/{gameId}');
+};
+
+/**
+ * 순위를 확정하고 게임을 끝냅니다. `participantId`를 도착 순서대로 담습니다.
+ *
+ * 서버는 순위 자체를 검증하지 않습니다(#246). 소속과 중복만 봅니다 — 프로젝터가 물리
+ * 시뮬레이션으로 뽑은 결과라 서버가 재현할 수 없기 때문입니다.
+ */
+export const submitGameResults = async (
+  eventCode: string,
+  gameId: number,
+  body: GameResultsRequest,
+): Promise<GameView> => {
+  const data = await apiClient<unknown>(`/events/${eventCode}/games/${gameId}/results`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+  return parseResponse(gameViewSchema, data, 'POST /events/{eventCode}/games/{gameId}/results');
 };
