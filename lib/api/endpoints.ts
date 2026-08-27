@@ -21,6 +21,8 @@ import type {
   Report,
   Session,
   SessionCreateRequest,
+  SessionReport,
+  SessionReportGenerateRequest,
   SessionUpdateRequest,
   SessionView,
   SignupRequest,
@@ -39,6 +41,7 @@ import {
   publicReportSchema,
   pulseEventSchema,
   reportSchema,
+  sessionReportSchema,
   sessionSchema,
   sessionViewSchema,
 } from '@/lib/schemas/api';
@@ -431,4 +434,70 @@ export const submitGameResults = async (
     body: JSON.stringify(body),
   });
   return parseResponse(gameViewSchema, data, 'POST /events/{eventCode}/games/{gameId}/results');
+};
+
+// ─────────────────────────────────────────────────────────────
+// session report
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * 세션 리포트 생성을 요청합니다. 202로 `GENERATING` 상태의 리포트가 돌아오고, 집계·요약은
+ * 서버가 비동기로 채웁니다. 화면은 `fetchSessionReport`를 폴링해서 완료를 기다립니다.
+ *
+ * **세션당 한 번뿐입니다.** 서버가 `GENERATING`/`GENERATED`면 `REPORT_ALREADY_EXISTS`로
+ * 막습니다(`FAILED`만 같은 행을 재사용해 재시도). 그래서 `materialSummary`는 이 호출 전에
+ * 준비돼 있어야 합니다 — 나중에 자료만 덧붙이는 경로가 계약에 없고, 되돌리는 방법은 주최자의
+ * `resetSessionReport`뿐입니다.
+ *
+ * 재시도(`FAILED` → 재생성)할 때도 자료 요약을 다시 실어야 합니다. 서버가 이 값으로 덮어쓰기
+ * 때문에, 빼고 보내면 이전에 넣어둔 자료 요약이 null로 지워집니다.
+ *
+ * 비인증 경로입니다(강연자에게 계정이 없습니다). 남용 방어는 인증이 아니라 세션 `CLOSED`
+ * 게이트와 위 멱등입니다.
+ */
+export const generateSessionReport = async (
+  eventCode: string,
+  sessionId: number,
+  body: SessionReportGenerateRequest,
+): Promise<SessionReport> => {
+  const data = await apiClient<unknown>(
+    `/events/${eventCode}/sessions/${sessionId}/report/generate`,
+    { method: 'POST', body: JSON.stringify(body) },
+  );
+  return parseResponse(
+    sessionReportSchema,
+    data,
+    'POST /events/{eventCode}/sessions/{sessionId}/report/generate',
+  );
+};
+
+/**
+ * 세션 리포트 조회입니다. 공개 경로라 소유자/게스트 분기가 없습니다 — 세션 피드백 집계가
+ * 원래 공개라서 그 요약도 공개입니다(이벤트 리포트의 `isPublic` 같은 개념이 없습니다).
+ *
+ * 아직 만들지 않은 세션은 404 `REPORT_NOT_FOUND`입니다. 실패가 아니라 "생성 전"이라는 정상
+ * 상태이므로 호출부가 그렇게 읽어야 합니다.
+ */
+export const fetchSessionReport = async (
+  eventCode: string,
+  sessionId: number,
+): Promise<SessionReport> => {
+  const data = await apiClient<unknown>(`/events/${eventCode}/sessions/${sessionId}/report`);
+  return parseResponse(
+    sessionReportSchema,
+    data,
+    'GET /events/{eventCode}/sessions/{sessionId}/report',
+  );
+};
+
+/**
+ * 세션 리포트를 회수합니다(주최자 전용). 응답 204라 반환값이 없습니다.
+ *
+ * 생성이 비인증이라 누군가 자료 없이 혹은 잘못 만들어 멱등으로 잠갔을 때, 주최자가 지워서
+ * 재생성을 열어주는 유일한 경로입니다. 강연자 화면에서는 부를 수 없습니다.
+ */
+export const resetSessionReport = async (eventCode: string, sessionId: number): Promise<void> => {
+  await apiClient<null>(`/events/${eventCode}/sessions/${sessionId}/report/reset`, {
+    method: 'POST',
+  });
 };
