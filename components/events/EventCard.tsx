@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { type MouseEvent } from 'react';
 
 import { Badge } from '@/components/ui/Badge';
-import { ChevronRightIcon } from '@/components/ui/icons';
+import { ChevronRightIcon, DuplicateIcon } from '@/components/ui/icons';
 import { EVENT_STATUS_BADGE } from '@/components/events/eventStatusBadge';
 
 import { PulseEvent } from '@/lib/schemas/api';
@@ -65,12 +65,20 @@ const EventCard = ({ event }: EventCardProps) => {
         </div>
         <p className="text-lg text-text-primary">{event.title}</p>
       </div>
-      <div className="flex items-center gap-2">
-        <p className={rightContent.className}>{rightContent.label}</p>
-        <button type="button" onClick={handleDuplicateClick}>
-          복제
+      <div className="flex flex-col items-end gap-1">
+        <button
+          type="button"
+          onClick={handleDuplicateClick}
+          aria-label="이벤트 복제"
+          title="이벤트 복제"
+          className="cursor-pointer text-text-tertiary transition-colors hover:text-text-primary"
+        >
+          <DuplicateIcon className="h-5 w-5" />
         </button>
-        <ChevronRightIcon className="h-4.5 w-4.5 text-text-primary" />
+        <div className="flex items-center gap-2">
+          <p className={rightContent.className}>{rightContent.label}</p>
+          <ChevronRightIcon className="h-4.5 w-4.5 text-text-primary" />
+        </div>
       </div>
     </Link>
   );
