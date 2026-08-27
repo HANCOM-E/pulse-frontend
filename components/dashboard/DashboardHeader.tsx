@@ -2,9 +2,10 @@
 
 import type { ReactNode } from 'react';
 
+import Link from 'next/link';
 import { EVENT_STATUS_BADGE, type VisibleEventStatus } from '@/components/events/eventStatusBadge';
 import { Badge } from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
+import { Button, buttonStyle } from '@/components/ui/Button';
 import type { EventReportControls } from '@/hooks/useEventReport';
 import type { PulseEvent } from '@/lib/schemas/api';
 
@@ -106,6 +107,9 @@ const DashboardHeader = ({
         )}
         {event.status === 'LIVE' && (
           <>
+            <Link href={`/events/${event.code}/game`} className={buttonStyle('secondary', 'sm')}>
+              게임 열기
+            </Link>
             <Button
               variant="secondary"
               size="sm"
