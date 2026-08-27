@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-
-import type { GameParticipant, GameView } from '@/lib/schemas/api';
+import type { GameView } from '@/lib/schemas/api';
+import { buildRevealOrder, toRanking } from '@/components/game/host/raceOrder';
 
 /**
  * 레이스 중 화면입니다. 1단계는 핀볼을 그리지 않고 이름을 꼴등부터 하나씩 드러냅니다(#243).
@@ -17,21 +17,6 @@ import type { GameParticipant, GameView } from '@/lib/schemas/api';
 /** 한 명씩 드러나는 간격입니다. 너무 빠르면 긴장감이 없고 느리면 지루합니다. */
 const REVEAL_INTERVAL_MS = 800;
 
-/**
- * 도착 순서를 만듭니다. 꼴등부터 드러내려고 뒤집어 둡니다.
- *
- * Fisher–Yates입니다. `sort(() => Math.random() - 0.5)`는 균등하지 않아서 앞자리가
- * 원래 순서에 쏠립니다 — 참가 순서가 곧 순위가 되면 추첨이 아닙니다.
- */
-const shuffle = (participants: GameParticipant[]): GameParticipant[] => {
-  const shuffled = [...participants];
-  for (let index = shuffled.length - 1; index > 0; index -= 1) {
-    const swap = Math.floor(Math.random() * (index + 1));
-    [shuffled[index], shuffled[swap]] = [shuffled[swap], shuffled[index]];
-  }
-  return shuffled;
-};
-
 interface GameRunningProps {
   game: GameView;
   /** 전원이 드러나면 부릅니다. 1등부터 담은 `participantId` 배열입니다. */
@@ -43,7 +28,7 @@ const GameRunning = ({ game, onFinish }: GameRunningProps) => {
    * 순서를 한 번만 뽑습니다. 렌더마다 다시 섞으면 폴링이 돌 때마다 순위가 바뀝니다.
    * 초기화 함수를 넘겨서 첫 렌더에서만 실행되게 했습니다.
    */
-  const [order] = useState(() => shuffle(game.participants));
+  const [order] = useState(() => buildRevealOrder(game.participants));
   const [revealed, setRevealed] = useState(0);
 
   /*
@@ -72,8 +57,7 @@ const GameRunning = ({ game, onFinish }: GameRunningProps) => {
     if (!isComplete || order.length === 0 || hasSubmitted.current) return;
 
     hasSubmitted.current = true;
-    // `order`는 꼴등부터라 뒤집어서 1등부터 담습니다.
-    onFinish([...order].reverse().map((participant) => participant.id));
+    onFinish(toRanking(order));
   }, [isComplete, order, onFinish]);
 
   return (
