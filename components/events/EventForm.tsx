@@ -28,6 +28,7 @@ import { ApiError } from '@/lib/apiClient';
 interface EventFormProps {
   /** 있으면 수정 모드(기존 값 로드 + PATCH), 없으면 생성 모드(POST)입니다. */
   eventCode?: string;
+  duplicateFrom?: string;
 }
 
 type EventFormInputs = {
@@ -42,10 +43,64 @@ type EventFormErrors = {
   eventDate?: string;
 };
 
+type IncompleteCleanup = {
+  eventTitle: string;
+  failedSessionTitles: string[];
+  eventDeleted: boolean;
+} | null;
+
+type UndeletedItem = {
+  type: '이벤트' | '세션';
+  title: string;
+};
+
 const initialEventFormInputs: EventFormInputs = {
   title: '',
   description: '',
   eventDate: '',
+};
+
+/**
+ * 세션 및 이벤트를 삭제하는 헬퍼 함수
+ * @param deleteFn
+ * @param maxRetries
+ */
+const deleteWithRetry = async (
+  deleteFn: () => Promise<void>,
+  maxRetries: number,
+): Promise<boolean> => {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      await deleteFn();
+      return true;
+    } catch (error) {
+      const isAlreadyDeleted =
+        error instanceof ApiError &&
+        (error.code === 'EVENT_ALREADY_DELETED' || error.code === 'SESSION_ALREADY_DELETED');
+
+      if (isAlreadyDeleted) {
+        return true;
+      }
+    }
+  }
+  return false;
+};
+
+const getUndeletedItems = (failure: IncompleteCleanup): UndeletedItem[] => {
+  if (!failure) {
+    return [];
+  }
+
+  const items: UndeletedItem[] = failure.failedSessionTitles.map((title) => ({
+    type: '세션' as const,
+    title,
+  }));
+
+  if (!failure.eventDeleted) {
+    items.unshift({ type: '이벤트', title: failure.eventTitle });
+  }
+
+  return items;
 };
 
 // 이벤트 등록/수정 공용 폼. 세션 추가·수정·삭제는 페이지 이동 없이 이 컴포넌트
@@ -54,8 +109,9 @@ const initialEventFormInputs: EventFormInputs = {
 // DELETE /events/{eventCode}(삭제), POST /events/{eventCode}/sessions(세션 추가),
 // PATCH /events/{eventCode}/sessions/{sessionId}(세션 수정),
 // DELETE /events/{eventCode}/sessions/{sessionId}(세션 삭제).
-const EventForm = ({ eventCode }: EventFormProps) => {
+const EventForm = ({ eventCode, duplicateFrom }: EventFormProps) => {
   const isEditMode = Boolean(eventCode);
+  const isDuplicateMode = Boolean(duplicateFrom);
   const router = useRouter();
   const queryClient = useQueryClient();
 
@@ -69,16 +125,20 @@ const EventForm = ({ eventCode }: EventFormProps) => {
   const [editingSessionTitle, setEditingSessionTitle] = useState('');
   const [deletingSessionId, setDeletingSessionId] = useState<number | null>(null);
 
+  const [incompleteCleanup, setIncompleteCleanup] = useState<IncompleteCleanup>(null);
+
+  const targetCode = isEditMode ? eventCode : duplicateFrom;
+
   const eventQuery = useQuery({
-    queryKey: ['event', eventCode],
-    queryFn: () => fetchEventByCode(eventCode as string),
-    enabled: isEditMode,
+    queryKey: ['event', targetCode],
+    queryFn: () => fetchEventByCode(targetCode as string),
+    enabled: isEditMode || isDuplicateMode,
   });
 
   const sessionsQuery = useQuery({
-    queryKey: ['sessions', eventCode],
-    queryFn: () => fetchSessionsByEventCode(eventCode as string),
-    enabled: isEditMode,
+    queryKey: ['sessions', targetCode],
+    queryFn: () => fetchSessionsByEventCode(targetCode as string),
+    enabled: isEditMode || isDuplicateMode,
   });
   const sessions: SessionView[] = sessionsQuery.data ?? [];
 
@@ -94,7 +154,7 @@ const EventForm = ({ eventCode }: EventFormProps) => {
     setEventFormInputs({
       title: eventQuery.data.title,
       description: eventQuery.data.description ?? '',
-      eventDate: eventQuery.data.eventDate,
+      eventDate: isEditMode ? eventQuery.data.eventDate : '',
     });
   }
 
@@ -103,8 +163,54 @@ const EventForm = ({ eventCode }: EventFormProps) => {
     isPending: isSaving,
     error: saveError,
   } = useMutation({
-    mutationFn: (body: EventFormInputs) =>
-      isEditMode ? updateEvent(eventCode as string, body) : createEvent(body),
+    mutationFn: async (body: EventFormInputs) => {
+      if (isEditMode) {
+        return updateEvent(eventCode as string, body);
+      }
+
+      const newEvent = await createEvent(body);
+      const createdSessions: { id: number; title: string }[] = [];
+
+      if (isDuplicateMode) {
+        try {
+          for (const session of sessions) {
+            const createdSession = await createSession(newEvent.code, {
+              title: session.title,
+              order: session.order,
+            });
+
+            createdSessions.push({
+              id: createdSession.id,
+              title: createdSession.title,
+            });
+          }
+        } catch (error) {
+          const sessionDeleteResults = await Promise.all(
+            createdSessions.map(async (session) => ({
+              title: session.title,
+              succeeded: await deleteWithRetry(() => deleteSession(newEvent.code, session.id), 3),
+            })),
+          );
+
+          const eventDeleteResult = await deleteWithRetry(() => deleteEvent(newEvent.code), 3);
+
+          const failedSessionTitles = sessionDeleteResults
+            .filter((result) => !result.succeeded)
+            .map((result) => result.title);
+
+          if (failedSessionTitles.length > 0 || !eventDeleteResult) {
+            setIncompleteCleanup({
+              eventTitle: newEvent.title,
+              failedSessionTitles,
+              eventDeleted: eventDeleteResult,
+            });
+          }
+
+          throw error;
+        }
+      }
+      return newEvent;
+    },
     onSuccess: () => {
       if (isEditMode) {
         queryClient.invalidateQueries({ queryKey: ['event', eventCode] });
@@ -375,6 +481,16 @@ const EventForm = ({ eventCode }: EventFormProps) => {
             {isEditMode
               ? '이벤트를 저장하지 못했습니다. 잠시 후 다시 시도해주세요.'
               : '이벤트를 등록하지 못했습니다. 잠시 후 다시 시도해주세요.'}
+          </Banner>
+        ) : null}
+
+        {incompleteCleanup ? (
+          <Banner type="negative" className="w-full">
+            <span className="whitespace-pre-line">
+              {`다음 항목이 정리되지 않았습니다.\n${getUndeletedItems(incompleteCleanup)
+                .map((item) => `${item.type} '${item.title}'`)
+                .join(', ')}\n이벤트 목록에서 직접 삭제해주세요.`}
+            </span>
           </Banner>
         ) : null}
 

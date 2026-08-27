@@ -1,9 +1,13 @@
-import { PulseEvent } from '@/lib/schemas/api';
+import Link from 'next/link';
+import { type MouseEvent } from 'react';
+
 import { Badge } from '@/components/ui/Badge';
 import { ChevronRightIcon } from '@/components/ui/icons';
-import Link from 'next/link';
-import formatEventDate from '@/lib/formatEventDate';
 import { EVENT_STATUS_BADGE } from '@/components/events/eventStatusBadge';
+
+import { PulseEvent } from '@/lib/schemas/api';
+import formatEventDate from '@/lib/formatEventDate';
+import { useRouter } from 'next/navigation';
 
 export interface EventCardProps {
   event: PulseEvent;
@@ -28,13 +32,24 @@ const ROUTE_BY_STATUS = {
 };
 
 const EventCard = ({ event }: EventCardProps) => {
-  if (event.status === 'DELETED') return;
+  const router = useRouter();
+
+  if (event.status === 'DELETED') {
+    return;
+  }
 
   const { tone, label } = EVENT_STATUS_BADGE[event.status];
 
   const datetime = formatEventDate(event.eventDate);
   const rightContent = RIGHT_CONTENT_BY_STATUS[event.status](event);
   const href = ROUTE_BY_STATUS[event.status](event);
+  const eventCode = event.code;
+
+  const handleDuplicateClick = (event: MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    router.push(`/events/new?duplicateFrom=${eventCode}`);
+  };
 
   return (
     <Link
@@ -52,6 +67,9 @@ const EventCard = ({ event }: EventCardProps) => {
       </div>
       <div className="flex items-center gap-2">
         <p className={rightContent.className}>{rightContent.label}</p>
+        <button type="button" onClick={handleDuplicateClick}>
+          복제
+        </button>
         <ChevronRightIcon className="h-4.5 w-4.5 text-text-primary" />
       </div>
     </Link>
