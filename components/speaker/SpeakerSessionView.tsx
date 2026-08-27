@@ -9,6 +9,7 @@ import { SentimentTrendCard } from '@/components/dashboard/SentimentTrendCard';
 import { Donut } from '@/components/feedback/Donut';
 import { FEED_SENTIMENT, FeedItem } from '@/components/feedback/FeedItem';
 import { Thermometer } from '@/components/feedback/Thermometer';
+import { SessionReportCard } from '@/components/speaker/SessionReportCard';
 import { SpeakerPrintDocument } from '@/components/speaker/SpeakerPrintDocument';
 import {
   summarizeBreakdown,
@@ -25,8 +26,8 @@ import { useSentimentAlerts } from '@/hooks/useSentimentAlerts';
 import { useSessionArchive } from '@/hooks/useSessionArchive';
 import { useCopyLink } from '@/hooks/useCopyLink';
 import { useSpeakerPrint } from '@/hooks/useSpeakerPrint';
+import { useSessionReport } from '@/hooks/useSessionReport';
 import { useSpeakerSessionMeta } from '@/hooks/useSpeakerSessionMeta';
-import { useSpeakerSummary, type SummaryErrorCode } from '@/hooks/useSpeakerSummary';
 import { showToast } from '@/hooks/useToast';
 
 /**
@@ -65,16 +66,6 @@ const LINK_ACTION = [
   'transition-colors hover:text-text-primary',
   'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-darker',
 ].join(' ');
-/**
- * 요약 실패 문구입니다. 사유마다 다음 행동이 달라서 하나로 뭉치지 않습니다 — 설정 누락은
- * 강연자가 할 수 있는 일이 없고, 호출 실패는 다시 눌러볼 만합니다.
- */
-const SUMMARY_ERROR_MESSAGE: Record<SummaryErrorCode, string> = {
-  SUMMARY_NOT_CONFIGURED: '요약 기능이 아직 설정되지 않았어요',
-  NO_FEEDBACK: '요약할 소감이 아직 없어요',
-  SUMMARY_FAILED: '요약을 만들지 못했어요. 잠시 후 다시 시도해 주세요',
-};
-
 /**
  * 첫 스냅샷이 오기 전 자리표시자입니다.
  *
@@ -123,8 +114,15 @@ const SpeakerSessionView = ({ eventCode, sessionId }: SpeakerSessionViewProps) =
 
   const print = useSpeakerPrint();
 
-  /* AI 요약입니다. 주최자 리포트를 못 쓰는 이유는 `app/api/summary/route.ts`에 적어뒀습니다. */
-  const aiSummary = useSpeakerSummary({ eventCode, sessionId });
+  /*
+   * 세션 AI 리포트입니다. 요약은 BE가 만듭니다(pulse-backend#43) — 프론트가 보태는 건 발표
+   * 자료 요약 하나뿐이고, 그건 아래 `SessionReportCard`가 맡습니다.
+   *
+   * 훅을 카드가 아니라 여기서 부르는 이유는 PDF 문서(`SpeakerPrintDocument`)도 같은 요약 본문을
+   * 실어야 하기 때문입니다. 카드 안에서 부르고 값을 위로 올리면 부모가 자식 렌더 중에 상태를
+   * 바꾸게 됩니다.
+   */
+  const report = useSessionReport({ eventCode, sessionId, sessionStatus: session?.status });
 
   /*
    * 집계는 서버가 보낸 전량 기준입니다. 누적 기록으로 다시 세지 않습니다 — 그러면 화면 숫자가
@@ -208,8 +206,8 @@ const SpeakerSessionView = ({ eventCode, sessionId }: SpeakerSessionViewProps) =
   const pdfBlockedReason =
     summary === null
       ? '소감 집계를 불러오고 있어요'
-      : aiSummary.text === null
-        ? 'AI 요약을 먼저 만들어 주세요'
+      : report.summaryText === null
+        ? 'AI 리포트를 먼저 만들어 주세요'
         : null;
 
   return (
@@ -348,47 +346,15 @@ const SpeakerSessionView = ({ eventCode, sessionId }: SpeakerSessionViewProps) =
           </p>
 
           {/*
-           * AI 요약입니다. 자동으로 부르지 않고 버튼을 눌러야 만들어집니다 — 호출마다 비용이
-           * 나가는데 강연 중에는 소감이 계속 들어와서, 자동이면 화면을 열어둔 내내 갱신됩니다.
+           * AI 리포트입니다. 자동으로 부르지 않고 버튼을 눌러야 만들어집니다 — 호출마다 비용이
+           * 나가고, 무엇보다 세션당 한 번뿐이라 강연자가 자료를 붙일지 정한 다음에 눌러야 합니다.
            */}
-          <section className={CARD}>
-            <div className="flex items-center justify-between gap-2">
-              <h2 className={CARD_TITLE}>AI 요약</h2>
-
-              {/* 결과가 이 카드에 그려지니 버튼도 여기 둡니다. */}
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={aiSummary.generate}
-                disabled={aiSummary.isPending}
-              >
-                {aiSummary.isPending
-                  ? '만드는 중…'
-                  : aiSummary.text === null
-                    ? '요약 만들기'
-                    : '다시 만들기'}
-              </Button>
-            </div>
-
-            {aiSummary.errorCode !== null && (
-              <p className="text-sm text-text-tertiary">
-                {SUMMARY_ERROR_MESSAGE[aiSummary.errorCode]}
-              </p>
-            )}
-
-            {aiSummary.text === null ? (
-              aiSummary.errorCode === null && (
-                <p className="text-sm text-text-tertiary">
-                  지금까지 모인 소감을 문장으로 정리해 드려요
-                </p>
-              )
-            ) : (
-              /* 모델이 문단을 나눠 오는 경우가 있어 줄바꿈을 살립니다(`ReportSection`과 같은 처리). */
-              <p className="text-sm leading-6 font-normal whitespace-pre-line text-text-secondary">
-                {aiSummary.text}
-              </p>
-            )}
-          </section>
+          <SessionReportCard
+            eventCode={eventCode}
+            sessionId={sessionId}
+            sessionStatus={session.status}
+            report={report}
+          />
 
           <KeywordCard keywords={keywords} />
 
@@ -430,7 +396,9 @@ const SpeakerSessionView = ({ eventCode, sessionId }: SpeakerSessionViewProps) =
               trend={trend}
               keywords={keywords}
               feedbacks={archive}
-              summaryText={aiSummary.text}
+              summaryText={report.summaryText}
+              materialSummary={report.materialSummary}
+              generatedAt={report.generatedAt}
             />
           )}
         </>

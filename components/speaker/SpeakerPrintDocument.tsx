@@ -75,10 +75,20 @@ interface SpeakerPrintDocumentProps {
    */
   feedbacks: FeedbackView[];
   /**
-   * AI 요약입니다. 강연자가 화면에서 만들어두지 않았으면 `null`이고, 그때는 칸 자체를
+   * AI 리포트 본문입니다. 강연자가 화면에서 만들어두지 않았으면 `null`이고, 그때는 칸 자체를
    * 넣지 않습니다 — 빈 제목만 남으면 요약을 만들었는데 실패한 것처럼 보입니다.
    */
   summaryText: string | null;
+  /**
+   * 리포트를 만들 때 함께 넘긴 발표 자료 요약입니다. 자료를 붙이지 않았으면 `null`입니다.
+   *
+   * 본문과 나란히 싣는 이유는 이게 요약의 **입력**이기 때문입니다. 리포트 본문은 소감과 이
+   * 자료 요약을 함께 보고 쓰인 것이라, 자료 쪽을 빼면 받아 본 사람이 결론만 보고 근거를
+   * 되짚을 수 없습니다.
+   */
+  materialSummary: string | null;
+  /** 리포트가 완성된 시각입니다. 언제까지의 소감을 본 요약인지 종이에 남깁니다. */
+  generatedAt: string | null;
 }
 
 const SpeakerPrintDocument = ({
@@ -90,6 +100,8 @@ const SpeakerPrintDocument = ({
   keywords,
   feedbacks,
   summaryText,
+  materialSummary,
+  generatedAt,
 }: SpeakerPrintDocumentProps) => {
   /*
    * `document`를 바로 읽습니다. 이 컴포넌트는 강연자가 버튼을 누른 뒤에만 트리에 들어오므로
@@ -157,10 +169,36 @@ const SpeakerPrintDocument = ({
        */}
       {summaryText !== null && (
         <section className={CARD}>
-          <h2 className={CARD_TITLE}>AI 요약</h2>
+          <div className="flex items-baseline justify-between gap-2">
+            <h2 className={CARD_TITLE}>AI 리포트</h2>
+
+            {/* 언제까지의 소감을 본 요약인지 남깁니다. 종이에는 「몇 분 전」이 뜻이 없습니다. */}
+            {generatedAt !== null && (
+              <span className="shrink-0 text-xs leading-4 font-normal text-text-tertiary">
+                {toPrintTime(generatedAt)} 생성
+              </span>
+            )}
+          </div>
+
           <p className="text-sm leading-6 font-normal whitespace-pre-line text-text-secondary">
             {summaryText}
           </p>
+
+          {/*
+           * 자료 요약은 본문 뒤에 둡니다. 결론을 먼저 읽고 그 근거를 확인하는 순서라, 아래
+           * 소감 원문과도 같은 배치입니다.
+           *
+           * 자료를 안 붙인 리포트에서는 칸을 통째로 뺍니다. 「없음」이라고 적으면 자료를 붙였는데
+           * 요약에 실패한 것처럼 읽힙니다.
+           */}
+          {materialSummary !== null && (
+            <div className="flex flex-col gap-1 border-t border-border-subtle pt-2">
+              <h3 className={CARD_TITLE}>발표 자료 요약</h3>
+              <p className="text-sm leading-6 font-normal whitespace-pre-line text-text-secondary">
+                {materialSummary}
+              </p>
+            </div>
+          )}
         </section>
       )}
 
