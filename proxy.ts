@@ -14,6 +14,16 @@ const ACCESS_TOKEN_COOKIE = 'accessToken';
 export default function proxy(request: NextRequest) {
   const hasAccessToken = request.cookies.has(ACCESS_TOKEN_COOKIE);
 
+  const isAuthPage =
+    request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/signup';
+
+  if (isAuthPage) {
+    if (hasAccessToken) {
+      return NextResponse.redirect(new URL('/events', request.url));
+    }
+    return NextResponse.next();
+  }
+
   if (!hasAccessToken) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
@@ -22,5 +32,5 @@ export default function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/events/:path*'],
+  matcher: ['/events/:path*', '/signup', '/login'],
 };
