@@ -24,62 +24,76 @@ import type { GameView } from '@/lib/schemas/api';
 const NAME_TAG_LIMIT = 30;
 
 interface GameRecruitingProps {
+  sessionTitle: string;
   game: GameView;
-  /** 참가자가 찍을 주소입니다. 소감 화면을 가리킵니다. */
   joinUrl: string;
   isPending: boolean;
   onStart: () => void;
 }
 
-const GameRecruiting = ({ game, joinUrl, isPending, onStart }: GameRecruitingProps) => {
-  const showNames = game.participantCount <= NAME_TAG_LIMIT;
+const GameRecruiting = ({
+  sessionTitle,
+  game,
+  joinUrl,
+  isPending,
+  onStart,
+}: GameRecruitingProps) => {
+  const showNames = game.participants.length <= NAME_TAG_LIMIT;
 
   return (
-    <section className="flex flex-col gap-8">
-      <div className="flex flex-col items-center gap-1">
-        <p className="text-base font-normal leading-6 text-text-secondary">{game.title}</p>
+    <section className="flex flex-1 flex-col">
+      <div className="flex flex-col items-center gap-1 pt-[6dvh]">
+        {sessionTitle ? (
+          <p className="text-base font-normal leading-6 text-text-secondary">{sessionTitle}</p>
+        ) : null}
         <h1 className="text-4xl font-semibold leading-tight text-text-primary">
           QR을 찍고 참가하세요
         </h1>
       </div>
 
-      <div className="flex flex-col items-center gap-8 md:flex-row md:items-start md:justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="rounded-xl bg-background-default p-4">
-            <QRCodeSVG value={joinUrl} title="참가자 진입 주소 QR 코드" className="h-64 w-64" />
+      {/* 본문만 남는 공간에서 가운데 정렬합니다. 제목은 화면마다 같은 높이에 있어야 합니다. */}
+      <div className="flex flex-1 flex-col justify-center gap-10">
+        {/* QR과 인원만 가로로 둡니다. 명단은 아래에서 폭을 다 씁니다. */}
+        <div className="flex flex-col items-center gap-8 md:flex-row md:justify-center md:gap-16">
+          <div className="flex flex-col items-center gap-3">
+            <div className="rounded-xl bg-background-default p-4">
+              <QRCodeSVG value={joinUrl} title="참가자 진입 주소 QR 코드" className="h-56 w-56" />
+            </div>
+            <p className="text-sm font-normal leading-5 text-text-tertiary">{joinUrl}</p>
           </div>
-          <p className="text-sm font-normal leading-5 text-text-tertiary">{joinUrl}</p>
-        </div>
 
-        <div className="flex flex-col items-center gap-4 md:min-w-80">
-          <p className="text-6xl font-semibold leading-none text-text-primary">
-            {game.participantCount}
-            <span className="text-2xl font-normal text-text-secondary">명</span>
+          <p className="text-7xl font-semibold leading-none text-text-primary">
+            {game.participants.length}
+            <span className="text-3xl font-normal text-text-secondary">명</span>
           </p>
-
-          {showNames ? (
-            <ul className="flex flex-wrap justify-center gap-2">
-              {game.participants.map((participant) => (
-                <li
-                  key={participant.id}
-                  className="rounded-full bg-primary-subtle px-3 py-1 text-base font-normal leading-6 text-primary-darker"
-                >
-                  {participant.nickname}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-base font-normal leading-6 text-text-secondary">
-              이름은 레이스에서 보여드릴게요
-            </p>
-          )}
         </div>
-      </div>
 
-      <div className="flex justify-center">
-        <Button onClick={onStart} disabled={isPending || game.participantCount === 0}>
-          {isPending ? '시작하는 중…' : '시작하기'}
-        </Button>
+        {/*
+          명단은 전체 폭으로 펼칩니다. 좁은 칼럼에 두면 세로로 길게 늘어져서 프로젝터의
+          가로 공간이 비고, 뒤쪽 사람은 아래 이름을 못 읽습니다.
+        */}
+        {showNames ? (
+          <ul className="flex flex-wrap justify-center gap-3">
+            {game.participants.map((participant) => (
+              <li
+                key={participant.id}
+                className="rounded-full bg-primary-subtle px-5 py-2 text-2xl font-normal leading-8 text-primary-darker"
+              >
+                {participant.nickname}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-center text-xl font-normal leading-7 text-text-secondary">
+            이름은 레이스에서 보여드릴게요
+          </p>
+        )}
+
+        <div className="flex justify-center">
+          <Button onClick={onStart} disabled={isPending || game.participants.length === 0}>
+            {isPending ? '시작하는 중…' : '시작하기'}
+          </Button>
+        </div>
       </div>
     </section>
   );

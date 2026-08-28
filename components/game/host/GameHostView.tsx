@@ -23,7 +23,7 @@ import { useHostGame } from '@/hooks/useHostGame';
 
 const GameHostView = () => {
   const { eventCode } = useParams<{ eventCode: string }>();
-  const { game, isLoading, isError, isPending, create, open, start, finish } =
+  const { game, openSessionTitle, isLoading, isError, isPending, create, open, start, finish } =
     useHostGame(eventCode);
 
   /*
@@ -44,6 +44,7 @@ const GameHostView = () => {
       return (
         <>
           <GameRecruiting
+            sessionTitle={openSessionTitle}
             game={game}
             joinUrl={joinUrl}
             isPending={isPending}
@@ -52,7 +53,7 @@ const GameHostView = () => {
           <ConfirmDialog
             open={isStartAsking}
             title="지금 시작할까요?"
-            description={`${game.participantCount}명이 참가했어요. 시작하면 더 참가할 수 없어요`}
+            description={`${game.participants.length}명이 참가했어요. 시작하면 더 참가할 수 없어요`}
             onClose={() => setIsStartAsking(false)}
             actions={
               <>
@@ -75,7 +76,7 @@ const GameHostView = () => {
     }
 
     if (game.status === 'RUNNING') {
-      return <GameRunning game={game} onFinish={finish} />;
+      return <GameRunning sessionTitle={openSessionTitle} game={game} onFinish={finish} />;
     }
 
     /*
@@ -84,6 +85,7 @@ const GameHostView = () => {
      */
     return (
       <GameFinished
+        sessionTitle={openSessionTitle}
         game={game}
         eventCode={eventCode}
         isPending={isPending}
@@ -104,7 +106,7 @@ const GameHostView = () => {
         `router.back()`이 아니라 목적지를 박아둡니다. 주소를 직접 치고 들어오거나 행사
         내내 켜두는 화면이라 히스토리가 어디를 가리킬지 모릅니다.
       */}
-      <div className="w-full">
+      <div className="mx-auto w-full max-w-6xl">
         <Link
           href={`/events/${eventCode}/dashboard`}
           className="-ml-1 flex w-fit cursor-pointer items-center rounded p-1 text-text-secondary hover:bg-background-secondary"
@@ -113,8 +115,9 @@ const GameHostView = () => {
           <ChevronLeftIcon className="h-6 w-6" />
         </Link>
       </div>
-
-      {renderBody()}
+      <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center">
+        {renderBody()}
+      </div>
     </>
   );
 };

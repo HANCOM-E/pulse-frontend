@@ -78,12 +78,9 @@ export const seedGames: Game[] = [
     title: '쉬는 시간 몸풀기',
     gameType: 'PINBALL',
     status: 'FINISHED',
+    /** 1등부터 담습니다. 값은 `participantId`고 닉네임은 명단에서 찾습니다. */
+    ranking: [2, 1, 3],
     createdAt: '2026-08-05T01:00:00.000Z',
-    results: [
-      { rank: 1, participantId: 2, nickname: '감자' },
-      { rank: 2, participantId: 1, nickname: '초코송이' },
-      { rank: 3, participantId: 3, nickname: '눈사람' },
-    ],
   },
   {
     id: 2,
@@ -91,8 +88,8 @@ export const seedGames: Game[] = [
     title: '오후 세션 시작 전',
     gameType: 'PINBALL',
     status: 'OPEN',
+    ranking: [],
     createdAt: '2026-08-05T04:00:00.000Z',
-    results: null,
   },
 ];
 
@@ -145,6 +142,62 @@ export const seedGameParticipants: MockGameParticipant[] = [
     nickname: '커피',
     clientId: 'seed-client-2',
     joinedAt: '2026-08-05T04:01:20.000Z',
+  },
+  {
+    id: 6,
+    gameId: 2,
+    nickname: '붕어빵',
+    clientId: 'seed-client-6',
+    joinedAt: '2026-08-05T04:01:40.000Z',
+  },
+  {
+    id: 7,
+    gameId: 2,
+    nickname: '군고구마',
+    clientId: 'seed-client-7',
+    joinedAt: '2026-08-05T04:02:00.000Z',
+  },
+  {
+    id: 8,
+    gameId: 2,
+    nickname: '호빵',
+    clientId: 'seed-client-8',
+    joinedAt: '2026-08-05T04:02:20.000Z',
+  },
+  {
+    id: 9,
+    gameId: 2,
+    nickname: '떡볶이',
+    clientId: 'seed-client-9',
+    joinedAt: '2026-08-05T04:02:40.000Z',
+  },
+  {
+    id: 10,
+    gameId: 2,
+    nickname: '오뎅',
+    clientId: 'seed-client-10',
+    joinedAt: '2026-08-05T04:03:00.000Z',
+  },
+  {
+    id: 11,
+    gameId: 2,
+    nickname: '순대',
+    clientId: 'seed-client-11',
+    joinedAt: '2026-08-05T04:03:20.000Z',
+  },
+  {
+    id: 12,
+    gameId: 2,
+    nickname: '핫도그',
+    clientId: 'seed-client-12',
+    joinedAt: '2026-08-05T04:03:40.000Z',
+  },
+  {
+    id: 13,
+    gameId: 2,
+    nickname: '와플',
+    clientId: 'seed-client-13',
+    joinedAt: '2026-08-05T04:04:00.000Z',
   },
 ];
 

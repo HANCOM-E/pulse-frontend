@@ -283,21 +283,22 @@ export const toGameParticipantView = (participant: MockGameParticipant): GamePar
 });
 
 /**
- * `eventId`를 떨구고 참가자·인원을 붙입니다.
+ * `eventId`를 떨구고 참가자 명단을 붙입니다.
  *
- * `participantCount`를 `participants.length`에서 파생시킵니다. 두 값을 따로 들면
- * 참가 처리에서 한쪽만 갱신했을 때 배너 숫자와 명단이 조용히 어긋납니다.
+ * 인원을 따로 안 내려줍니다. 실제 서버가 `participantCount`를 주지 않아서
+ * (2026-08-28 확인) 화면이 `participants.length`로 셉니다. 목이 없는 필드를
+ * 만들어주면 화면이 서버에 없는 값에 기대게 됩니다.
  */
 export const toGameView = (game: Game): GameView => {
   const participants = listParticipantsOfGame(game.id);
+
   return {
     id: game.id,
     title: game.title,
     gameType: game.gameType,
     status: game.status,
-    results: game.results,
+    ranking: game.ranking,
     createdAt: game.createdAt,
-    participantCount: participants.length,
     participants: participants.map(toGameParticipantView),
   };
 };

@@ -42,7 +42,11 @@ const GameSetup = ({ game, isPending, onCreate, onOpen }: GameSetupProps) => {
 
   if (game === null) {
     return (
-      <form onSubmit={handleSubmit} className="mx-auto flex w-full max-w-md flex-col gap-4">
+      <form
+        onSubmit={handleSubmit}
+        className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 pt-[12dvh]"
+      >
+        {' '}
         <div className="flex flex-col gap-1">
           <h1 className="text-2xl font-semibold leading-8 text-text-primary">게임 만들기</h1>
           <p className="text-sm font-normal leading-5 text-text-secondary">
@@ -69,7 +73,8 @@ const GameSetup = ({ game, isPending, onCreate, onOpen }: GameSetupProps) => {
   }
 
   return (
-    <section className="mx-auto flex w-full max-w-md flex-col gap-6 text-center">
+    <section className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6 pt-[12dvh] text-center">
+      {' '}
       <div className="flex flex-col gap-1">
         <p className="text-sm font-normal leading-5 text-text-secondary">{game.title}</p>
         <h1 className="text-2xl font-semibold leading-8 text-text-primary">준비됐어요</h1>

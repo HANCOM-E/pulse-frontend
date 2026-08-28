@@ -5,12 +5,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createGame,
   fetchGamesOfEvent,
+  fetchSessionsByEventCode,
   submitGameResults,
   updateGameStatus,
 } from '@/lib/api/endpoints';
 import { ApiError } from '@/lib/apiClient';
-import { isClientError, type GameView } from '@/lib/schemas/api';
-
+import { isClientError, type GameView, type SessionView } from '@/lib/schemas/api';
 /**
  * 프로젝터 화면(`/events/[eventCode]/game`)이 보는 게임과 주최자가 취할 수 있는 조치입니다.
  *
@@ -43,9 +43,29 @@ const isPermanentFailure = (error: Error | null): boolean =>
  */
 const pickCurrent = (games: GameView[]): GameView | null => games[0] ?? null;
 
+/**
+ * 프로젝터에 띄울 세션 제목을 고릅니다.
+ *
+ * 게임은 세션에 딸리지 않아서(#246) 어느 세션에서 하는 게임인지 계약이 모릅니다. 그래서
+ * 지금 열려 있는 세션 중에서 고릅니다.
+ *
+ * 여러 개가 `ACTIVE`일 수 있습니다(시드도 그렇습니다). 그중 `order`가 가장 큰 것을 씁니다 —
+ * 순서대로 진행하니 열린 것 중 마지막이 지금 진행 중일 가능성이 높습니다.
+ *
+ * 열린 세션이 없으면 빈 문자열입니다. 화면이 그때는 아무것도 안 그립니다.
+ */
+const pickOpenSessionTitle = (sessions: SessionView[]): string => {
+  const open = sessions.filter((session) => session.status === 'ACTIVE');
+  if (open.length === 0) return '';
+
+  return open.reduce((latest, session) => (session.order > latest.order ? session : latest)).title;
+};
+
 interface UseHostGameResult {
   /** 띄울 게임입니다. 하나도 없으면 `null`입니다. */
   game: GameView | null;
+  /** 지금 열린 세션 제목입니다. 없으면 빈 문자열입니다. */
+  openSessionTitle: string;
   isLoading: boolean;
   isError: boolean;
   /** 진행 중인 조치가 있으면 참입니다. 버튼을 잠그는 데 씁니다. */
@@ -67,6 +87,16 @@ const useHostGame = (eventCode: string): UseHostGameResult => {
      * `RUNNING`에서도 멈추지 않습니다. 참가는 마감됐지만 결과 확정이 남아 있고, 주최자가
      * 다른 창에서 뭘 했을 수도 있습니다. 멈춰야 하는 상태가 따로 없어서 실패 정지만 둡니다.
      */
+    refetchInterval: ({ state }) => (isPermanentFailure(state.error) ? false : REFRESH_INTERVAL_MS),
+  });
+
+  /*
+   * 세션은 게임과 무관하게 주최자가 열고 닫습니다. 레이스 도중에 바뀔 수 있어서
+   * 게임과 같은 리듬으로 따라갑니다.
+   */
+  const sessionsQuery = useQuery({
+    queryKey: ['sessions', eventCode],
+    queryFn: () => fetchSessionsByEventCode(eventCode),
     refetchInterval: ({ state }) => (isPermanentFailure(state.error) ? false : REFRESH_INTERVAL_MS),
   });
 
@@ -96,6 +126,7 @@ const useHostGame = (eventCode: string): UseHostGameResult => {
 
   return {
     game,
+    openSessionTitle: pickOpenSessionTitle(sessionsQuery.data ?? []),
     isLoading: gamesQuery.isLoading,
     isError: gamesQuery.isError,
     isPending: createMutation.isPending || statusMutation.isPending || resultsMutation.isPending,

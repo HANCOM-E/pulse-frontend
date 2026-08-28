@@ -1,89 +1,49 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
+
+import { PinballCanvas } from './pinball/PinballCanvas';
 import type { GameView } from '@/lib/schemas/api';
-import { buildRevealOrder, toRanking } from '@/components/game/host/raceOrder';
 
 /**
- * 레이스 중 화면입니다. 1단계는 핀볼을 그리지 않고 이름을 꼴등부터 하나씩 드러냅니다(#243).
+ * 레이스 중 화면입니다. 핀볼을 그리고, 전원이 결승선을 지나면 순위를 올립니다.
  *
- * 물리 엔진은 2단계입니다. 계약을 먼저 돌려보려고 연출을 미뤘습니다 — 상태 전이와 결과
- * 확정이 실제로 도는 걸 확인한 뒤에 얹는 게 순서고, 연출을 갈아 끼워도 계약은 안 바뀝니다.
- *
- * 순위는 여기서 정합니다. 물리 시뮬레이션이 없으니 무작위로 섞습니다. 서버가 순위를
- * 검증하지 않기로 해서(#246) 계약을 어기지는 않습니다.
+ * 순차 공개 연출(1단계)을 여기서 걷어냈습니다. 계약은 안 바뀝니다 — `onFinish`가 받는
+ * 값의 모양이 같아서, 연출을 갈아 끼워도 위쪽은 그대로입니다(#243).
  */
 
-/** 한 명씩 드러나는 간격입니다. 너무 빠르면 긴장감이 없고 느리면 지루합니다. */
-const REVEAL_INTERVAL_MS = 800;
-
 interface GameRunningProps {
+  /** 지금 열린 세션 제목입니다. 게임 제목은 주최자용 메모라 참가자에게 안 보여줍니다. */
+  sessionTitle: string;
   game: GameView;
-  /** 전원이 드러나면 부릅니다. 1등부터 담은 `participantId` 배열입니다. */
   onFinish: (ranking: number[]) => void;
 }
 
-const GameRunning = ({ game, onFinish }: GameRunningProps) => {
+const GameRunning = ({ sessionTitle, game, onFinish }: GameRunningProps) => {
   /*
-   * 순서를 한 번만 뽑습니다. 렌더마다 다시 섞으면 폴링이 돌 때마다 순위가 바뀝니다.
-   * 초기화 함수를 넘겨서 첫 렌더에서만 실행되게 했습니다.
-   */
-  const [order] = useState(() => buildRevealOrder(game.participants));
-  const [revealed, setRevealed] = useState(0);
-
-  /*
-   * 결과를 한 번만 올립니다. `onFinish`는 렌더마다 새 함수라 deps에 넣으면 effect가 계속
-   * 다시 돕니다 — 올림 → 목록 무효화 → 리렌더 → 새 함수 → 다시 올림으로 무한히 갑니다.
+   * 참가자 목록과 시드를 마운트 시점에 고정합니다.
    *
-   * state가 아니라 ref인 이유는 이 값이 화면에 안 나오기 때문입니다. state로 두면 바꿀
-   * 때마다 렌더가 한 번 더 돌고, effect 안에서 setState를 부르는 게 되어 React 19가 막습니다.
+   * 프로젝터 화면이 3초마다 폴링해서 `game.participants`가 새 배열로 옵니다. 그대로
+   * 넘기면 `PinballCanvas`의 effect가 다시 돌아 레이스가 처음부터 시작합니다.
+   *
+   * 시드도 같은 이유로 여기서 한 번만 뽑습니다. 렌더마다 뽑으면 매번 다른 레이스가 됩니다.
    */
-  const hasSubmitted = useRef(false);
-
-  const isComplete = revealed >= order.length;
-
-  useEffect(() => {
-    if (isComplete) return;
-
-    const timer = setTimeout(() => setRevealed((count) => count + 1), REVEAL_INTERVAL_MS);
-    return () => clearTimeout(timer);
-  }, [revealed, isComplete]);
-
-  /*
-   * 전원이 드러나면 결과를 올립니다. 별도 effect로 뺀 이유는 위가 타이머만 맡게 하려는
-   * 것이고, `onFinish`가 여러 번 불리지 않도록 `isComplete`가 한 번만 참이 되게 했습니다.
-   */
-  useEffect(() => {
-    if (!isComplete || order.length === 0 || hasSubmitted.current) return;
-
-    hasSubmitted.current = true;
-    onFinish(toRanking(order));
-  }, [isComplete, order, onFinish]);
+  const [race] = useState(() => ({
+    participants: game.participants,
+    seed: Math.floor(Math.random() * 0xffffffff),
+  }));
 
   return (
-    <section className="flex flex-col items-center gap-8">
-      <div className="flex flex-col items-center gap-1">
-        <p className="text-base font-normal leading-6 text-text-secondary">{game.title}</p>
-        <h1 className="text-4xl font-semibold leading-tight text-text-primary">
-          {isComplete ? '결과를 정리하는 중이에요' : '레이스 중이에요'}
-        </h1>
+    <section className="flex flex-1 flex-col">
+      <div className="flex flex-col items-center gap-1 pt-[6dvh]">
+        {sessionTitle ? (
+          <p className="text-base font-normal leading-6 text-text-secondary">{sessionTitle}</p>
+        ) : null}
+        <h1 className="text-4xl font-semibold leading-tight text-text-primary">레이스 중이에요</h1>
       </div>
-
-      <p className="text-xl font-normal leading-7 text-text-secondary">
-        {order.length - revealed}
-        <span className="text-base"> 명 남았어요</span>
-      </p>
-
-      <ul className="flex flex-wrap justify-center gap-2">
-        {order.slice(0, revealed).map((participant, index) => (
-          <li
-            key={participant.id}
-            className="rounded-full bg-neutral-subtle px-3 py-1 text-base font-normal leading-6 text-neutral-darker"
-          >
-            {order.length - index}등 {participant.nickname}
-          </li>
-        ))}
-      </ul>
+      <div className="flex flex-1 flex-col justify-center">
+        <PinballCanvas participants={race.participants} seed={race.seed} onFinish={onFinish} />
+      </div>
     </section>
   );
 };

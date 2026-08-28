@@ -41,8 +41,8 @@ const GameWaiting = ({ game, me }: GameWaitingProps) => {
         인원은 폴링으로 늘어납니다. 숫자만 바뀌고 자리는 그대로여야 아래 내용이 안 밀립니다.
       */}
       <p className="text-sm font-normal leading-5 text-text-secondary">
-        지금 <span className="font-semibold text-text-primary">{game.participantCount}</span>명이
-        참가했아요
+        지금 <span className="font-semibold text-text-primary">{game.participants.length}</span>명이
+        참가했어요
       </p>
     </section>
   );

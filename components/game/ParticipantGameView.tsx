@@ -110,7 +110,7 @@ const ParticipantGameView = ({ eventCode, initialGame }: ParticipantGameViewProp
     return (
       <GameJoinForm
         defaultNickname={defaultNickname}
-        participantCount={game.participantCount}
+        participantCount={game.participants.length}
         isPending={joinMutation.isPending}
         submitError={joinErrorMessage(joinMutation.error)}
         onSubmit={handleJoin}

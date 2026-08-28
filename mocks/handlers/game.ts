@@ -1,5 +1,5 @@
 import { http, HttpResponse } from 'msw';
-import type { Game, GameResultEntry, GameStatus } from '@/lib/schemas/api';
+import type { Game, GameStatus } from '@/lib/schemas/api';
 import {
   gameCreateRequestSchema,
   gameJoinRequestSchema,
@@ -104,7 +104,7 @@ export const gameHandlers = [
       gameType: body.data.gameType,
       // 만들자마자 열지 않습니다. 주최자가 시점을 정합니다.
       status: 'DRAFT',
-      results: null,
+      ranking: [],
       createdAt: new Date().toISOString(),
     };
     db.games.push(game);
@@ -217,19 +217,16 @@ export const gameHandlers = [
        *
        * 전원이 다 들어와야 하는 건 아닙니다. 인원이 많으면 상위 N명만 올릴 수 있습니다.
        */
-      const byId = new Map(listParticipantsOfGame(game.id).map((row) => [row.id, row]));
-      const entries: GameResultEntry[] = [];
+      const participantIds = new Set(
+        listParticipantsOfGame(game.id).map((participant) => participant.id),
+      );
 
-      for (let index = 0; index < body.data.ranking.length; index += 1) {
-        const participantId = body.data.ranking[index];
-        const participant = byId.get(participantId);
-        if (!participant) {
-          return errorResponse('VALIDATION_ERROR', `참가자 ${participantId}는 이 게임에 없습니다.`);
-        }
-        entries.push({ rank: index + 1, participantId, nickname: participant.nickname });
+      const unknown = body.data.ranking.find((participantId) => !participantIds.has(participantId));
+      if (unknown !== undefined) {
+        return errorResponse('VALIDATION_ERROR', `참가자 ${unknown}는 이 게임에 없습니다.`);
       }
 
-      game.results = entries;
+      game.ranking = body.data.ranking;
       game.status = 'FINISHED';
 
       return HttpResponse.json(toGameView(game));

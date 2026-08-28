@@ -1129,25 +1129,30 @@ describe('게임', () => {
     expect(JSON.stringify(body)).not.toContain('seed-client-');
   });
 
-  it('participantCount는 명단 길이와 같다', async () => {
+  /*
+   * 실제 서버는 `participantCount`를 주지 않습니다(2026-08-28 확인). 목이 없는 필드를
+   * 만들어주면 화면이 서버에 없는 값에 기대게 되고, 실서버에 붙이는 순간 터집니다.
+   */
+  it('인원을 따로 내려주지 않는다', async () => {
     const response = await call(`/events/${LIVE_EVENT_CODE}/games/${OPEN_GAME_ID}`);
-    const game = gameViewSchema.parse(await response.json());
+    const body = (await response.json()) as Record<string, unknown>;
 
-    expect(game.participantCount).toBe(game.participants.length);
+    expect(body).not.toHaveProperty('participantCount');
+    expect(gameViewSchema.parse(body).participants).toHaveLength(10);
   });
 
   /*
-   * 시드의 `results.nickname`은 손으로 적은 값이라 참가자 명단과 어긋날 수 있습니다.
-   * 어긋나면 목이 "이런 것도 온다"고 거짓말하게 되고, 그 오해가 서버로 넘어갑니다.
+   * 시드의 `ranking`은 손으로 적은 participantId 배열입니다. 명단에 없는 id가 들어가면
+   * 화면이 이름을 못 찾아 그 자리가 통째로 빠집니다 — 결과에서 한 명이 조용히 사라집니다.
    */
-  it('시드 결과의 닉네임이 참가자 명단과 일치한다', async () => {
+  it('시드 순위의 참가자가 전부 명단에 있다', async () => {
     const response = await call(`/events/${LIVE_EVENT_CODE}/games/${FINISHED_GAME_ID}`);
     const game = gameViewSchema.parse(await response.json());
-    const nicknameById = new Map(game.participants.map((p) => [p.id, p.nickname]));
+    const ids = new Set(game.participants.map((participant) => participant.id));
 
-    expect(game.results).not.toBeNull();
-    for (const entry of game.results ?? []) {
-      expect(entry.nickname).toBe(nicknameById.get(entry.participantId));
+    expect(game.ranking.length).toBeGreaterThan(0);
+    for (const participantId of game.ranking) {
+      expect(ids.has(participantId)).toBe(true);
     }
   });
 
@@ -1268,7 +1273,7 @@ describe('게임', () => {
     const after = gameViewSchema.parse(
       await (await call(`/events/${LIVE_EVENT_CODE}/games/${OPEN_GAME_ID}`)).json(),
     );
-    expect(after.participantCount).toBe(before.participantCount + 1);
+    expect(after.participants).toHaveLength(before.participants.length + 1);
   });
 
   /*
@@ -1295,10 +1300,7 @@ describe('게임', () => {
     const game = gameViewSchema.parse(await response.json());
 
     expect(game.status).toBe('FINISHED');
-    expect(game.results).toEqual([
-      { rank: 1, participantId: 5, nickname: '커피' },
-      { rank: 2, participantId: 4, nickname: '라면' },
-    ]);
+    expect(game.ranking).toEqual([5, 4]);
   });
 
   it('이 게임에 없는 참가자를 올리면 VALIDATION_ERROR를 준다', async () => {
