@@ -1,29 +1,34 @@
 'use client';
 
-import { type ChangeEvent, type SubmitEvent, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Field } from '@/components/ui/Field';
-import { Textarea } from '@/components/ui/Textarea';
-import { Button } from '@/components/ui/Button';
-import { Banner } from '@/components/ui/Banner';
-import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { ChevronLeftIcon } from '@/components/ui/icons';
+import { useRouter } from 'next/navigation';
+import { type ChangeEvent, type SubmitEvent, useState } from 'react';
+
+import SessionList from '@/components/events/SessionList';
+import rollbackEventDuplication from '@/components/events/rollbackEventDuplication';
 import ReportPanel from '@/components/report/ReportPanel';
+import { Banner } from '@/components/ui/Banner';
+import { Button } from '@/components/ui/Button';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { Field } from '@/components/ui/Field';
+import { ChevronLeftIcon } from '@/components/ui/icons';
+import { Textarea } from '@/components/ui/Textarea';
 import { showToast } from '@/hooks/useToast';
-import { eventCreateRequestSchema, sessionCreateRequestSchema } from '@/lib/schemas/api';
-import type { EventView, PulseEvent, SessionView } from '@/lib/schemas/api';
 import {
   createEvent,
   createSession,
   deleteEvent,
-  deleteSession,
   fetchEventByCode,
   fetchSessionsByEventCode,
   updateEvent,
-  updateSession,
 } from '@/lib/api/endpoints';
 import { ApiError } from '@/lib/apiClient';
+import {
+  eventCreateRequestSchema,
+  type EventView,
+  type PulseEvent,
+  type SessionView,
+} from '@/lib/schemas/api';
 
 interface EventFormProps {
   /** 있으면 수정 모드(기존 값 로드 + PATCH), 없으면 생성 모드(POST)입니다. */
@@ -59,33 +64,6 @@ const initialEventFormInputs: EventFormInputs = {
   description: '',
   eventDate: '',
 };
-
-/**
- * 세션 및 이벤트를 삭제하는 헬퍼 함수
- * @param deleteFn
- * @param maxRetries
- */
-const deleteWithRetry = async (
-  deleteFn: () => Promise<void>,
-  maxRetries: number,
-): Promise<boolean> => {
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    try {
-      await deleteFn();
-      return true;
-    } catch (error) {
-      const isAlreadyDeleted =
-        error instanceof ApiError &&
-        (error.code === 'EVENT_ALREADY_DELETED' || error.code === 'SESSION_ALREADY_DELETED');
-
-      if (isAlreadyDeleted) {
-        return true;
-      }
-    }
-  }
-  return false;
-};
-
 const getUndeletedItems = (failure: IncompleteCleanup): UndeletedItem[] => {
   if (!failure) {
     return [];
@@ -118,12 +96,6 @@ const EventForm = ({ eventCode, duplicateFrom }: EventFormProps) => {
   const [eventFormInputs, setEventFormInputs] = useState<EventFormInputs>(initialEventFormInputs);
   const [eventFormErrors, setEventFormErrors] = useState<EventFormErrors>({});
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-
-  const [isAddingSession, setIsAddingSession] = useState(false);
-  const [newSessionTitle, setNewSessionTitle] = useState('');
-  const [editingSessionId, setEditingSessionId] = useState<number | null>(null);
-  const [editingSessionTitle, setEditingSessionTitle] = useState('');
-  const [deletingSessionId, setDeletingSessionId] = useState<number | null>(null);
 
   const [incompleteCleanup, setIncompleteCleanup] = useState<IncompleteCleanup>(null);
 
@@ -185,18 +157,10 @@ const EventForm = ({ eventCode, duplicateFrom }: EventFormProps) => {
             });
           }
         } catch (error) {
-          const sessionDeleteResults = await Promise.all(
-            createdSessions.map(async (session) => ({
-              title: session.title,
-              succeeded: await deleteWithRetry(() => deleteSession(newEvent.code, session.id), 3),
-            })),
-          );
-
-          const eventDeleteResult = await deleteWithRetry(() => deleteEvent(newEvent.code), 3);
-
-          const failedSessionTitles = sessionDeleteResults
-            .filter((result) => !result.succeeded)
-            .map((result) => result.title);
+          const { eventDeleteResult, failedSessionTitles } = await rollbackEventDuplication({
+            newEvent,
+            createdSessions,
+          });
 
           if (failedSessionTitles.length > 0 || !eventDeleteResult) {
             setIncompleteCleanup({
@@ -256,34 +220,6 @@ const EventForm = ({ eventCode, duplicateFrom }: EventFormProps) => {
     onSuccess: () => router.push('/events'),
   });
 
-  const { mutate: addSession, isPending: isAddingSessionPending } = useMutation({
-    mutationFn: (title: string) =>
-      createSession(eventCode as string, { title, order: sessions.length + 1 }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sessions', eventCode] });
-      setIsAddingSession(false);
-      setNewSessionTitle('');
-    },
-  });
-
-  const { mutate: editSession, isPending: isEditingSessionPending } = useMutation({
-    mutationFn: ({ sessionId, title }: { sessionId: number; title: string }) =>
-      updateSession(eventCode as string, sessionId, { title }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sessions', eventCode] });
-      setEditingSessionId(null);
-    },
-  });
-
-  const { mutate: removeSession, isPending: isRemovingSession } = useMutation({
-    mutationFn: (sessionId: number) => deleteSession(eventCode as string, sessionId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sessions', eventCode] });
-      setDeletingSessionId(null);
-      showToast('세션이 삭제되었어요');
-    },
-  });
-
   const handleInputChange = (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = event.target;
     setEventFormInputs((prev) => ({ ...prev, [name]: value }));
@@ -310,32 +246,6 @@ const EventForm = ({ eventCode, duplicateFrom }: EventFormProps) => {
     if (titleValidation.success && descriptionValidation.success && eventDateValidation.success) {
       saveEvent(eventFormInputs);
     }
-  };
-
-  const handleAddSessionConfirm = () => {
-    const validation = sessionCreateRequestSchema.shape.title.safeParse(newSessionTitle);
-    if (!validation.success) return;
-    addSession(newSessionTitle);
-  };
-
-  const handleEditSessionStart = (session: SessionView) => {
-    setEditingSessionId(session.id);
-    setEditingSessionTitle(session.title);
-  };
-
-  const handleEditSessionConfirm = (sessionId: number) => {
-    const validation = sessionCreateRequestSchema.shape.title.safeParse(editingSessionTitle);
-    if (!validation.success) return;
-    editSession({ sessionId, title: editingSessionTitle });
-  };
-
-  const handleEditSessionCancel = () => {
-    setEditingSessionId(null);
-  };
-
-  const handleAddSessionCancel = () => {
-    setIsAddingSession(false);
-    setNewSessionTitle('');
   };
 
   if (isEditMode && eventQuery.isPending) {
@@ -417,87 +327,7 @@ const EventForm = ({ eventCode, duplicateFrom }: EventFormProps) => {
           </p>
         </section>
 
-        {isEditMode ? (
-          <section className="flex flex-col gap-2">
-            <p className="text-xs font-normal leading-4 text-text-secondary">세션 목록</p>
-            {sessions.map((session, index) => (
-              <div
-                key={session.id}
-                className="flex items-center justify-between gap-2 rounded-lg border border-border-default px-4 py-3"
-              >
-                {editingSessionId === session.id ? (
-                  <>
-                    <input
-                      className="flex-1 rounded border border-border-default px-2 py-1 text-sm"
-                      placeholder="세션 이름 입력"
-                      value={editingSessionTitle}
-                      onChange={(event) => setEditingSessionTitle(event.target.value)}
-                    />
-                    <Button type="button" variant="secondary" onClick={handleEditSessionCancel}>
-                      취소
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      disabled={isEditingSessionPending}
-                      onClick={() => handleEditSessionConfirm(session.id)}
-                    >
-                      확인
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <span className="text-sm text-text-primary">
-                      {index + 1}. {session.title}
-                    </span>
-                    <div className="flex gap-2 text-xs text-text-secondary">
-                      <button
-                        type="button"
-                        className="cursor-pointer"
-                        onClick={() => handleEditSessionStart(session)}
-                      >
-                        수정
-                      </button>
-                      <button
-                        type="button"
-                        className="cursor-pointer"
-                        onClick={() => setDeletingSessionId(session.id)}
-                      >
-                        삭제
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-            ))}
-            {isAddingSession ? (
-              <div className="flex items-center gap-2 rounded-lg border border-border-default px-4 py-3">
-                <input
-                  className="flex-1 rounded border border-border-default px-2 py-1 text-sm"
-                  placeholder="세션 이름 입력"
-                  value={newSessionTitle}
-                  onChange={(event) => setNewSessionTitle(event.target.value)}
-                  autoFocus
-                />
-                <Button type="button" variant="secondary" onClick={handleAddSessionCancel}>
-                  취소
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  disabled={isAddingSessionPending}
-                  onClick={handleAddSessionConfirm}
-                >
-                  확인
-                </Button>
-              </div>
-            ) : (
-              <Button type="button" variant="secondary" onClick={() => setIsAddingSession(true)}>
-                + 세션추가
-              </Button>
-            )}
-          </section>
-        ) : null}
+        {isEditMode ? <SessionList sessions={sessions} eventCode={eventCode} /> : null}
 
         {saveError ? (
           <Banner type="negative" className="w-full">
@@ -559,28 +389,6 @@ const EventForm = ({ eventCode, duplicateFrom }: EventFormProps) => {
               variant="danger"
               disabled={isDeleting}
               onClick={() => removeEvent()}
-            >
-              삭제
-            </Button>
-          </>
-        }
-      />
-
-      <ConfirmDialog
-        open={deletingSessionId !== null}
-        title="세션을 삭제할까요?"
-        description="삭제하면 되돌릴 수 없어요"
-        onClose={() => setDeletingSessionId(null)}
-        actions={
-          <>
-            <Button type="button" variant="secondary" onClick={() => setDeletingSessionId(null)}>
-              취소
-            </Button>
-            <Button
-              type="button"
-              variant="danger"
-              disabled={isRemovingSession}
-              onClick={() => deletingSessionId !== null && removeSession(deletingSessionId)}
             >
               삭제
             </Button>
