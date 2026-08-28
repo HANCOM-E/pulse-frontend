@@ -146,6 +146,62 @@ export const seedGameParticipants: MockGameParticipant[] = [
     clientId: 'seed-client-2',
     joinedAt: '2026-08-05T04:01:20.000Z',
   },
+  {
+    id: 6,
+    gameId: 2,
+    nickname: '붕어빵',
+    clientId: 'seed-client-6',
+    joinedAt: '2026-08-05T04:01:40.000Z',
+  },
+  {
+    id: 7,
+    gameId: 2,
+    nickname: '군고구마',
+    clientId: 'seed-client-7',
+    joinedAt: '2026-08-05T04:02:00.000Z',
+  },
+  {
+    id: 8,
+    gameId: 2,
+    nickname: '호빵',
+    clientId: 'seed-client-8',
+    joinedAt: '2026-08-05T04:02:20.000Z',
+  },
+  {
+    id: 9,
+    gameId: 2,
+    nickname: '떡볶이',
+    clientId: 'seed-client-9',
+    joinedAt: '2026-08-05T04:02:40.000Z',
+  },
+  {
+    id: 10,
+    gameId: 2,
+    nickname: '오뎅',
+    clientId: 'seed-client-10',
+    joinedAt: '2026-08-05T04:03:00.000Z',
+  },
+  {
+    id: 11,
+    gameId: 2,
+    nickname: '순대',
+    clientId: 'seed-client-11',
+    joinedAt: '2026-08-05T04:03:20.000Z',
+  },
+  {
+    id: 12,
+    gameId: 2,
+    nickname: '핫도그',
+    clientId: 'seed-client-12',
+    joinedAt: '2026-08-05T04:03:40.000Z',
+  },
+  {
+    id: 13,
+    gameId: 2,
+    nickname: '와플',
+    clientId: 'seed-client-13',
+    joinedAt: '2026-08-05T04:04:00.000Z',
+  },
 ];
 
 export const seedSessions: Session[] = [

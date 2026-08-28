@@ -23,7 +23,7 @@ import { useHostGame } from '@/hooks/useHostGame';
 
 const GameHostView = () => {
   const { eventCode } = useParams<{ eventCode: string }>();
-  const { game, isLoading, isError, isPending, create, open, start, finish } =
+  const { game, openSessionTitle, isLoading, isError, isPending, create, open, start, finish } =
     useHostGame(eventCode);
 
   /*
@@ -44,6 +44,7 @@ const GameHostView = () => {
       return (
         <>
           <GameRecruiting
+            sessionTitle={openSessionTitle}
             game={game}
             joinUrl={joinUrl}
             isPending={isPending}
@@ -75,7 +76,7 @@ const GameHostView = () => {
     }
 
     if (game.status === 'RUNNING') {
-      return <GameRunning game={game} onFinish={finish} />;
+      return <GameRunning sessionTitle={openSessionTitle} game={game} onFinish={finish} />;
     }
 
     /*
@@ -84,6 +85,7 @@ const GameHostView = () => {
      */
     return (
       <GameFinished
+        sessionTitle={openSessionTitle}
         game={game}
         eventCode={eventCode}
         isPending={isPending}
@@ -113,8 +115,7 @@ const GameHostView = () => {
           <ChevronLeftIcon className="h-6 w-6" />
         </Link>
       </div>
-
-      {renderBody()}
+      <div className="flex flex-1 flex-col justify-center">{renderBody()}</div>{' '}
     </>
   );
 };

@@ -21,13 +21,21 @@ const RANK_STYLE: Record<number, { size: string; badge: string }> = {
 };
 
 interface GameFinishedProps {
+  /** 지금 열린 세션 제목입니다. 게임 제목은 주최자용 메모라 참가자에게 안 보여줍니다. */
+  sessionTitle: string;
   game: GameView;
   eventCode: string;
   isPending: boolean;
   onCreateNext: () => void;
 }
 
-const GameFinished = ({ game, eventCode, isPending, onCreateNext }: GameFinishedProps) => {
+const GameFinished = ({
+  sessionTitle,
+  game,
+  eventCode,
+  isPending,
+  onCreateNext,
+}: GameFinishedProps) => {
   /*
    * 계약상 `FINISHED`면 `results`가 채워지지만 그 검사는 목에만 있습니다. 실제 서버가
    * 빠뜨려도 화면이 통째로 비지 않게 빈 배열로 떨어뜨립니다.
@@ -36,12 +44,14 @@ const GameFinished = ({ game, eventCode, isPending, onCreateNext }: GameFinished
   const podium = results.slice(0, PODIUM_LIMIT);
 
   return (
-    <section className="flex flex-col items-center gap-10">
+    <section className="flex flex-1 flex-col items-center justify-center gap-10">
+      {' '}
       <div className="flex flex-col items-center gap-1">
-        <p className="text-base font-normal leading-6 text-text-secondary">{game.title}</p>
+        {sessionTitle ? (
+          <p className="text-base font-normal leading-6 text-text-secondary">{sessionTitle}</p>
+        ) : null}
         <h1 className="text-4xl font-semibold leading-tight text-text-primary">결과가 나왔어요</h1>
       </div>
-
       {podium.length > 0 ? (
         <ol className="flex flex-wrap items-end justify-center gap-10">
           {podium.map((entry) => {
@@ -66,7 +76,6 @@ const GameFinished = ({ game, eventCode, isPending, onCreateNext }: GameFinished
           결과를 불러오지 못했어요
         </p>
       )}
-
       <div className="flex flex-col items-center gap-3">
         <div className="flex items-center gap-3">
           <Link href={`/events/${eventCode}/dashboard`} className={buttonStyle('secondary')}>
