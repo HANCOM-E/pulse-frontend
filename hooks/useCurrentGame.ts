@@ -3,8 +3,8 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { fetchCurrentGame } from '@/lib/api/endpoints';
-import { ApiError } from '@/lib/apiClient';
-import { isClientError, type GameView } from '@/lib/schemas/api';
+import { isPermanentFailure } from '@/lib/api/retryPolicy';
+import { type GameView } from '@/lib/schemas/api';
 
 /**
  * 게임 화면(`/e/[code]/game`, `/events/[eventCode]/game`)이 보는 "지금 열린 게임"입니다.
@@ -23,16 +23,6 @@ import { isClientError, type GameView } from '@/lib/schemas/api';
  * 참가자 수만큼 곱해집니다.
  */
 const REFRESH_INTERVAL_MS = 5_000;
-
-/**
- * 다시 물어봐도 같은 답이 오는 실패인지 봅니다. `QueryProvider`의 `retry`가 재시도를
- * 거르는 기준(4xx + `INVALID_RESPONSE`)과 같습니다.
- *
- * `useEventEntryFeed`·`useDashboardFeed`에도 같은 함수가 있습니다. 세 번째라 공용으로
- * 빼는 게 맞아 보이는데, 이 PR 범위 밖이라 두고 갑니다.
- */
-const isPermanentFailure = (error: Error | null): boolean =>
-  error instanceof ApiError && (error.code === 'INVALID_RESPONSE' || isClientError(error.code));
 
 interface UseCurrentGameResult {
   /** 열린 게임이 없으면 `null`입니다. 404가 정상 상태라 에러가 아닙니다. */

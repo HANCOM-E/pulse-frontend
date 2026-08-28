@@ -2,15 +2,14 @@
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { 
+import {
   fetchCurrentGame,
   fetchEventByCode,
   fetchPublicReport,
-  fetchSessionsByEventCode
+  fetchSessionsByEventCode,
 } from '@/lib/api/endpoints';
 import { ApiError } from '@/lib/apiClient';
 import {
-  isClientError,
   listResponseSchema,
   sessionViewSchema,
   type EventView,
@@ -19,7 +18,7 @@ import {
 } from '@/lib/schemas/api';
 import { useEffect, useState } from 'react';
 import { API_BASE_URL } from '@/lib/env';
-
+import { isPermanentFailure } from '@/lib/api/retryPolicy';
 /**
  * 게스트 진입 화면(`/e/[code]`)이 보는 이벤트·세션·리포트·게임입니다.
  *
@@ -30,7 +29,7 @@ import { API_BASE_URL } from '@/lib/env';
  * 갱신 수단이 둘로 갈립니다. 세션만 SSE(`.../sessions/stream`)로 받고, 이벤트 상태와 리포트는
  * 폴링입니다. 명세에 스트림이 셋뿐이라 이벤트 상태에는 아예 없고, 리포트는 "실시간 push(SSE)는
  * 도입하지 않고 폴링으로 확정"이라고 명시적으로 배제됐습니다(2026-08-21).
- * 
+ *
  * 게임도 폴링입니다. 명세의 스트림 3종에 게임이 없어서 이벤트 상태와 같은 처지입니다.
  *
  * CLAUDE.md의 "실시간(클라이언트): 폴링 → SSE 승급, 훅으로 격리" 원칙에 따라 갱신 방식을 아는
@@ -71,16 +70,6 @@ const STREAM_TIMEOUT_MS = 5_000;
  * 그래서 리포트를 기다리며 열어둔 탭이 종일 서버를 두들기는 일은 생기지 않습니다.
  */
 const REPORT_REFRESH_INTERVAL_MS = 15_000;
-
-/**
- * 다시 물어봐도 같은 답이 오는 실패인지 봅니다. `QueryProvider`의 `retry`가 재시도를 거르는
- * 기준(4xx + `INVALID_RESPONSE`)과 같습니다. 재시도하지 않기로 한 실패는 폴링도 하지 않습니다.
- *
- * `useDashboardFeed`에 같은 함수가 있습니다. 아직 두 벌이라 옮기지 않았습니다 — 세 번째가
- * 생기면 그때 공용으로 빼는 편이 맞아 보입니다.
- */
-const isPermanentFailure = (error: Error | null): boolean =>
-  error instanceof ApiError && (error.code === 'INVALID_RESPONSE' || isClientError(error.code));
 
 /**
  * 스트림으로 들어온 한 건을 계약 스키마로 검사하고 봉투를 벗깁니다.

@@ -3,8 +3,8 @@
 import { QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
 import { ApiError } from '@/lib/apiClient';
-import { isClientError } from '@/lib/schemas/api';
 import { useRouter } from 'next/navigation';
+import { isPermanentFailure } from '@/lib/api/retryPolicy';
 
 interface QueryProviderProps {
   children: ReactNode;
@@ -27,17 +27,7 @@ const QueryProvider = ({ children }: QueryProviderProps) => {
         queries: {
           staleTime: 10_000,
           // 다시 물어봐도 같은 답이 오는 실패는 재시도하지 않습니다.
-          retry: (failureCount, error) => {
-            if (error instanceof ApiError) {
-              // 응답이 계약과 다른 경우. 같은 요청에 같은 응답이 옵니다.
-              if (error.code === 'INVALID_RESPONSE') return false;
-              // 4xx.
-              if (isClientError(error.code)) return false;
-            }
-
-            return failureCount < 2;
-          },
-          refetchOnWindowFocus: false,
+          retry: (failureCount, error) => (isPermanentFailure(error) ? false : failureCount < 2),
         },
       },
       queryCache: new QueryCache({
