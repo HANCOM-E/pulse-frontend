@@ -2,7 +2,7 @@ import { deleteEvent, deleteSession } from '@/lib/api/endpoints';
 import { ApiError } from '@/lib/apiClient';
 import type { PulseEvent } from '@/lib/schemas/api';
 
-type CreatedSession = { id: number; title: string }[];
+type CreatedSession = { id: number; title: string };
 
 const MAX_DELETE_RETRIES = 3;
 const deleteWithRetry = async (
@@ -31,7 +31,7 @@ const rollbackEventDuplication = async ({
   createdSessions,
 }: {
   newEvent: PulseEvent;
-  createdSessions: CreatedSession;
+  createdSessions: CreatedSession[];
 }) => {
   const sessionDeleteResults = await Promise.all(
     createdSessions.map(async (session) => ({
