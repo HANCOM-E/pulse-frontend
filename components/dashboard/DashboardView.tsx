@@ -41,6 +41,7 @@ import { showToast } from '@/hooks/useToast';
 import { fetchMyEvents, fetchSessionsByEventCode, updateEvent } from '@/lib/api/endpoints';
 import { ApiError } from '@/lib/apiClient';
 import type { Feedback } from '@/lib/schemas/api';
+import { SpeakerDialog } from './SpeakerDialog';
 
 /**
  * 주최자 실시간 모니터링 대시보드입니다.
@@ -71,6 +72,7 @@ const DashboardView = () => {
   /** `null`이 "전체"입니다. 시안의 기본 선택값입니다. */
   const [sessionId, setSessionId] = useState<number | null>(null);
 
+  const [isSpeakerLinkOpen, setIsSpeakerLinkOpen] = useState(false);
   const [isQrOpen, setIsQrOpen] = useState(false);
   const [isEndConfirmOpen, setIsEndConfirmOpen] = useState(false);
 
@@ -338,6 +340,10 @@ const DashboardView = () => {
    * 끊깁니다. 컴포넌트 맨 위로 올리면 그 보호가 사라지므로 옮기지 마세요.
    */
   const publicUrl = `${window.location.origin}/e/${event.code}`;
+  /* "전체"에는 대상 세션이 없어 빈 값입니다. 그때는 아래 모달이 아예 마운트되지 않습니다. */
+  const speakerUrl = sessionId
+    ? `${window.location.origin}/speaker/${event.code}/${sessionId}`
+    : '';
 
   /* 성공을 확인했을 때만 알립니다. 실패는 아래 배너가 받습니다. */
   const handleCopyLink = async () => {
@@ -376,43 +382,50 @@ const DashboardView = () => {
   const toMeta = (feedback: Feedback) =>
     `${toRelativeTime(feedback.createdAt)} · ${sessionTitle(feedback.sessionId)}`;
 
-  /* 칩에서 고른 세션입니다. "전체"(`null`)에는 켜고 끌 대상이 없어 아래 토글을 감춥니다. */
+  /* 칩에서 고른 세션입니다. "전체"(`null`)에는 대고 할 조작이 없어 아래 줄이 자리만 남습니다. */
   const selectedSession =
     sessionId === null ? null : (sessions.find((session) => session.id === sessionId) ?? null);
 
   /*
-   * 세션 토글은 데스크톱에선 헤더 안, 모바일에선 칩 줄 아래에 섭니다. 부모가 달라 CSS로는 옮길
-   * 수 없어서 자리마다 하나씩 두고 `className`으로 감춥니다. 조건과 넘기는 값이 같으므로
-   * 여기서 한 번만 만듭니다.
+   * 고른 세션에 대고 하는 조작 줄입니다. 데스크톱에선 헤더 안, 모바일에선 칩 줄 아래에 섭니다.
+   * 부모가 달라 CSS로는 옮길 수 없어서 자리마다 하나씩 두고 `className`으로 감춥니다. 조건과
+   * 넘기는 값이 같으므로 여기서 한 번만 만듭니다.
    *
-   * `LIVE`에서만 내놓습니다. 제출은 이벤트가 `LIVE`이고 세션이 `ACTIVE`여야 통과하는데,
-   * 시작 전이나 끝난 뒤에 세션만 열어두면 화면은 "소감 받는 중"이라고 하고 참가자는
-   * `EVENT_NOT_LIVE`로 막히는 거짓말이 됩니다.
+   * `DRAFT`에서는 줄째로 빠집니다. 시작 전에는 건넬 링크도 켜고 끌 세션도 아직 의미가 없습니다.
+   *
+   * 그 안에서 토글만 `LIVE`로 한 번 더 좁힙니다. 제출은 이벤트가 `LIVE`이고 세션이 `ACTIVE`여야
+   * 통과하는데, 시작 전이나 끝난 뒤에 세션만 열어두면 화면은 "소감 받는 중"이라고 하고 참가자는
+   * `EVENT_NOT_LIVE`로 막히는 거짓말이 됩니다. 강연자 링크는 `ENDED` 뒤에도 남습니다 — 리포트는
+   * 세션을 마감한 뒤에 만드는 것이라 이벤트가 끝난 다음에야 할 일이 생깁니다.
    */
-  const renderSessionToggle = (className: string) => {
-    if (event.status !== 'LIVE') return null;
+  const renderSessionAction = (className: string) => {
+    if (event.status === 'DRAFT') return null;
 
     /*
-     * "전체"에는 켜고 끌 대상이 없지만 자리는 남겨둡니다. 비워두면 칩을 오갈 때마다 토글
-     * 한 줄이 통째로 생겼다 사라지면서, 데스크톱은 헤더가 접혀 아래 카드가 전부 밀리고
-     * 모바일은 칩 줄 높이가 바뀝니다.
+     * "전체"에는 대고 할 세션이 없지만 자리는 남겨둡니다. 비워두면 칩을 오갈 때마다 이 줄이
+     * 통째로 생겼다 사라지면서, 데스크톱은 헤더가 접혀 아래 카드가 전부 밀리고 모바일은 칩 줄
+     * 높이가 바뀝니다.
      *
-     * `h-9`는 토글의 높이입니다 — 안에서 가장 큰 게 `size="sm"` 버튼이라 그 높이가 그대로
-     * 줄 높이가 됩니다. 배지(`h-6`)는 가운데 정렬돼서 높이를 정하지 않습니다.
-     *
-     * `LIVE`가 아닐 때는 위에서 이미 빠져나갔습니다. 그 상태에서는 토글이 영영 나오지
-     * 않으므로 자리를 잡아봐야 빈 공간만 남습니다.
+     * `h-9`는 이 줄의 높이입니다 — 안에서 가장 큰 게 `size="sm"` 버튼이라 그 높이가 그대로 줄
+     * 높이가 됩니다. 배지(`h-6`)는 가운데 정렬돼서 높이를 정하지 않습니다.
      */
     if (selectedSession === null) return <div className={`h-9 ${className}`} aria-hidden />;
 
     return (
-      <SessionToggle
-        session={selectedSession}
-        isPaused={sessionControls.isPaused(selectedSession.id)}
-        isPending={sessionControls.isPending}
-        onToggle={(status) => sessionControls.toggle(selectedSession.id, status)}
-        className={className}
-      />
+      <div className={`items-center gap-2 ${className}`}>
+        {event.status === 'LIVE' && (
+          <SessionToggle
+            session={selectedSession}
+            isPaused={sessionControls.isPaused(selectedSession.id)}
+            isPending={sessionControls.isPending}
+            onToggle={(status) => sessionControls.toggle(selectedSession.id, status)}
+            className="flex"
+          />
+        )}
+        <Button variant="secondary" size="sm" onClick={() => setIsSpeakerLinkOpen(true)}>
+          강연자 링크
+        </Button>
+      </div>
     );
   };
 
@@ -422,7 +435,7 @@ const DashboardView = () => {
         event={event}
         publicUrl={publicUrl}
         report={report}
-        sessionToggle={renderSessionToggle('hidden md:flex')}
+        sessionToggle={renderSessionAction('hidden md:flex')}
         onOpenQr={() => setIsQrOpen(true)}
         onCopyLink={handleCopyLink}
         onEndEvent={() => setIsEndConfirmOpen(true)}
@@ -435,7 +448,7 @@ const DashboardView = () => {
         sessions={sessions}
         selectedSessionId={sessionId}
         onSelectSession={handleSelectSession}
-        sessionToggle={renderSessionToggle('flex w-full justify-between md:hidden')}
+        sessionToggle={renderSessionAction('flex w-full justify-between md:hidden')}
       />
 
       {isFeedError && <Banner type="negative">지금은 소감을 불러올 수 없어요</Banner>}
@@ -543,6 +556,21 @@ const DashboardView = () => {
       )}
 
       <QrCodeDialog open={isQrOpen} url={publicUrl} onClose={() => setIsQrOpen(false)} />
+      {/*
+       * 열 때만 마운트합니다. 세션 탭을 고르기만 해도 붙어 있으면 창을 한 번도 열지 않은 채
+       * 세션마다 리포트 GET이 나가고(대개 404), 초기화 성공 상태가 다음 세션 창까지 따라옵니다.
+       */}
+      {isSpeakerLinkOpen && selectedSession !== null && (
+        <SpeakerDialog
+          open={isSpeakerLinkOpen}
+          eventCode={eventCode}
+          eventDate={event.eventDate}
+          session={selectedSession}
+          isPaused={sessionControls.isPaused(selectedSession.id)}
+          url={speakerUrl}
+          onClose={() => setIsSpeakerLinkOpen(false)}
+        />
+      )}
 
       <ConfirmDialog
         open={isEndConfirmOpen}
