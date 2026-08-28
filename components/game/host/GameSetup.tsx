@@ -44,7 +44,7 @@ const GameSetup = ({ game, isPending, onCreate, onOpen }: GameSetupProps) => {
     return (
       <form
         onSubmit={handleSubmit}
-        className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-4"
+        className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 pt-[12dvh]"
       >
         {' '}
         <div className="flex flex-col gap-1">
@@ -73,7 +73,7 @@ const GameSetup = ({ game, isPending, onCreate, onOpen }: GameSetupProps) => {
   }
 
   return (
-    <section className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-6 text-center">
+    <section className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6 pt-[12dvh] text-center">
       {' '}
       <div className="flex flex-col gap-1">
         <p className="text-sm font-normal leading-5 text-text-secondary">{game.title}</p>

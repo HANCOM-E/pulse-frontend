@@ -38,11 +38,11 @@ const GameRecruiting = ({
   isPending,
   onStart,
 }: GameRecruitingProps) => {
-  const showNames = game.participantCount <= NAME_TAG_LIMIT;
+  const showNames = game.participants.length <= NAME_TAG_LIMIT;
 
   return (
-    <section className="flex flex-1 flex-col justify-center gap-10">
-      <div className="flex flex-col items-center gap-1">
+    <section className="flex flex-1 flex-col">
+      <div className="flex flex-col items-center gap-1 pt-[6dvh]">
         {sessionTitle ? (
           <p className="text-base font-normal leading-6 text-text-secondary">{sessionTitle}</p>
         ) : null}
@@ -51,46 +51,49 @@ const GameRecruiting = ({
         </h1>
       </div>
 
-      {/* QR과 인원만 가로로 둡니다. 명단은 아래에서 폭을 다 씁니다. */}
-      <div className="flex flex-col items-center gap-8 md:flex-row md:justify-center md:gap-16">
-        <div className="flex flex-col items-center gap-3">
-          <div className="rounded-xl bg-background-default p-4">
-            <QRCodeSVG value={joinUrl} title="참가자 진입 주소 QR 코드" className="h-56 w-56" />
+      {/* 본문만 남는 공간에서 가운데 정렬합니다. 제목은 화면마다 같은 높이에 있어야 합니다. */}
+      <div className="flex flex-1 flex-col justify-center gap-10">
+        {/* QR과 인원만 가로로 둡니다. 명단은 아래에서 폭을 다 씁니다. */}
+        <div className="flex flex-col items-center gap-8 md:flex-row md:justify-center md:gap-16">
+          <div className="flex flex-col items-center gap-3">
+            <div className="rounded-xl bg-background-default p-4">
+              <QRCodeSVG value={joinUrl} title="참가자 진입 주소 QR 코드" className="h-56 w-56" />
+            </div>
+            <p className="text-sm font-normal leading-5 text-text-tertiary">{joinUrl}</p>
           </div>
-          <p className="text-sm font-normal leading-5 text-text-tertiary">{joinUrl}</p>
+
+          <p className="text-7xl font-semibold leading-none text-text-primary">
+            {game.participants.length}
+            <span className="text-3xl font-normal text-text-secondary">명</span>
+          </p>
         </div>
 
-        <p className="text-7xl font-semibold leading-none text-text-primary">
-          {game.participantCount}
-          <span className="text-3xl font-normal text-text-secondary">명</span>
-        </p>
-      </div>
+        {/*
+          명단은 전체 폭으로 펼칩니다. 좁은 칼럼에 두면 세로로 길게 늘어져서 프로젝터의
+          가로 공간이 비고, 뒤쪽 사람은 아래 이름을 못 읽습니다.
+        */}
+        {showNames ? (
+          <ul className="flex flex-wrap justify-center gap-3">
+            {game.participants.map((participant) => (
+              <li
+                key={participant.id}
+                className="rounded-full bg-primary-subtle px-5 py-2 text-2xl font-normal leading-8 text-primary-darker"
+              >
+                {participant.nickname}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-center text-xl font-normal leading-7 text-text-secondary">
+            이름은 레이스에서 보여드릴게요
+          </p>
+        )}
 
-      {/*
-        명단은 전체 폭으로 펼칩니다. 좁은 칼럼에 두면 세로로 길게 늘어져서 프로젝터의
-        가로 공간이 비고, 뒤쪽 사람은 아래 이름을 못 읽습니다.
-      */}
-      {showNames ? (
-        <ul className="flex flex-wrap justify-center gap-3">
-          {game.participants.map((participant) => (
-            <li
-              key={participant.id}
-              className="rounded-full bg-primary-subtle px-5 py-2 text-2xl font-normal leading-8 text-primary-darker"
-            >
-              {participant.nickname}
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="text-center text-xl font-normal leading-7 text-text-secondary">
-          이름은 레이스에서 보여드릴게요
-        </p>
-      )}
-
-      <div className="flex justify-center">
-        <Button onClick={onStart} disabled={isPending || game.participantCount === 0}>
-          {isPending ? '시작하는 중…' : '시작하기'}
-        </Button>
+        <div className="flex justify-center">
+          <Button onClick={onStart} disabled={isPending || game.participants.length === 0}>
+            {isPending ? '시작하는 중…' : '시작하기'}
+          </Button>
+        </div>
       </div>
     </section>
   );

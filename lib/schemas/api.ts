@@ -447,35 +447,29 @@ export const gameParticipantSchema = z.object({
   joinedAt: isoDateTime,
 });
 
-export const gameResultEntrySchema = z.object({
-  rank: z.int().positive(),
-  participantId: id,
-  nickname: z.string().min(1),
-});
-
 export const gameSchema = z.object({
   id,
   eventId: id,
   title: z.string().min(1).max(GAME_TITLE_MAX),
   gameType: gameTypeSchema,
   status: gameStatusSchema,
-  /** `FINISHED` 전에는 `null`입니다. */
-  results: z.array(gameResultEntrySchema).nullable(),
+  /**
+   * 완주 순서입니다. 1등이 첫 원소이고 값은 `participantId`입니다.
+   * `FINISHED` 전에는 빈 배열입니다.
+   */
+  ranking: z.array(id),
   createdAt: isoDateTime,
 });
 
 /**
- * 공개 조회 응답입니다. 참가자와 결과를 함께 실어 화면이 한 번에 그립니다.
+ * 공개 조회 응답입니다. 참가자를 함께 실어 화면이 한 번에 그립니다.
  * `eventId`는 code로 조회한 것이라 중복이어서 뺐습니다.
  *
- * `participantCount`는 `participants.length`와 같은 값입니다. 중복이지만 남겨둡니다 —
- * 소감 화면 배너는 인원만 쓰고 명단은 안 씁니다. 대신 목은 배열에서 파생시켜서
- * 둘이 어긋날 수 없게 합니다. 실제 서버도 같아야 합니다.
+ * 인원은 `participants.length`로 셉니다. 서버가 `participantCount`를 따로 주지
+ * 않아서(2026-08-28 실서버 확인) 파생값을 만들지 않습니다.
  */
 export const gameViewSchema = gameSchema.omit({ eventId: true }).extend({
-  participantCount: count,
   participants: z.array(gameParticipantSchema),
-  /** `FINISHED` 전에는 `null`입니다. */
 });
 
 export const gameCreateRequestSchema = z.object({
@@ -517,7 +511,6 @@ export type GameType = z.infer<typeof gameTypeSchema>;
 export type Game = z.infer<typeof gameSchema>;
 export type GameView = z.infer<typeof gameViewSchema>;
 export type GameParticipant = z.infer<typeof gameParticipantSchema>;
-export type GameResultEntry = z.infer<typeof gameResultEntrySchema>;
 export type GameCreateRequest = z.input<typeof gameCreateRequestSchema>;
 export type GameUpdateRequest = z.infer<typeof gameUpdateRequestSchema>;
 export type GameJoinRequest = z.infer<typeof gameJoinRequestSchema>;

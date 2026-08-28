@@ -78,12 +78,9 @@ export const seedGames: Game[] = [
     title: '쉬는 시간 몸풀기',
     gameType: 'PINBALL',
     status: 'FINISHED',
+    /** 1등부터 담습니다. 값은 `participantId`고 닉네임은 명단에서 찾습니다. */
+    ranking: [2, 1, 3],
     createdAt: '2026-08-05T01:00:00.000Z',
-    results: [
-      { rank: 1, participantId: 2, nickname: '감자' },
-      { rank: 2, participantId: 1, nickname: '초코송이' },
-      { rank: 3, participantId: 3, nickname: '눈사람' },
-    ],
   },
   {
     id: 2,
@@ -91,8 +88,8 @@ export const seedGames: Game[] = [
     title: '오후 세션 시작 전',
     gameType: 'PINBALL',
     status: 'OPEN',
+    ranking: [],
     createdAt: '2026-08-05T04:00:00.000Z',
-    results: null,
   },
 ];
 
