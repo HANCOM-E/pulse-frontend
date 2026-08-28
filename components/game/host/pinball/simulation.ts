@@ -1,9 +1,9 @@
 import {
-  BALL_RADIUS,
   BOARD,
   FINISH_Y,
   PEGS,
   PEG_RADIUS,
+  START_SPREAD,
   START_Y,
 } from '@/components/game/host/pinball/board';
 import type { GameParticipant } from '@/lib/schemas/api';
@@ -89,13 +89,20 @@ interface RaceFrame {
  */
 const createRace = (participants: readonly GameParticipant[], seed: number): RaceFrame => {
   const random = createRandom(seed);
-  const lane = (BOARD.width - BALL_RADIUS * 2) / Math.max(participants.length, 1);
+
+  /*
+   * 보드 전체가 아니라 가운데 `START_SPREAD` 폭에서 출발합니다. 벽 근처에서 시작하면
+   * 못 배치의 좌우 여백으로 곧장 떨어져서, 그 구슬은 못을 한 번도 안 만나고 끝납니다.
+   */
+  const usable = BOARD.width * START_SPREAD;
+  const offset = (BOARD.width - usable) / 2;
+  const lane = usable / Math.max(participants.length, 1);
 
   return {
     balls: participants.map((participant, index) => ({
       participantId: participant.id,
       nickname: participant.nickname,
-      x: BALL_RADIUS + lane * (index + 0.5) + (random() - 0.5) * lane * 0.6,
+      x: offset + lane * (index + 0.5) + (random() - 0.5) * lane * 0.6,
       y: START_Y + random() * 40,
       vx: (random() - 0.5) * 2,
       vy: 0,

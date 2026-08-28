@@ -34,14 +34,14 @@ const GameRunning = ({ sessionTitle, game, onFinish }: GameRunningProps) => {
   }));
 
   return (
-    <section className="flex flex-col items-center gap-6">
+    <section className="flex flex-1 flex-col items-center justify-center gap-6">
+      {' '}
       <div className="flex flex-col items-center gap-1">
         {sessionTitle ? (
           <p className="text-base font-normal leading-6 text-text-secondary">{sessionTitle}</p>
         ) : null}
         <h1 className="text-4xl font-semibold leading-tight text-text-primary">레이스 중이에요</h1>
       </div>
-
       <PinballCanvas participants={race.participants} seed={race.seed} onFinish={onFinish} />
     </section>
   );

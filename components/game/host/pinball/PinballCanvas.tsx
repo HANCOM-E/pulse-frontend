@@ -84,7 +84,12 @@ const draw = (
   context.setLineDash([]);
 
   context.textAlign = 'center';
-  context.font = '500 36px system-ui, sans-serif';
+  /*
+   * 폰트 이름을 직접 씁니다. 캔버스 `font`는 CSS 변수를 해석하지 않아서 `var(--font-sans)`를
+   * 넣으면 문자열 전체가 무효가 되고 기본값 10px로 떨어집니다. `globals.css`의 `--font-sans`와
+   * 같은 값을 손으로 맞춰둔 것이라, 그쪽이 바뀌면 여기도 봐야 합니다.
+   */
+  context.font = "500 36px 'Pretendard Variable', system-ui, sans-serif";
 
   frame.balls.forEach((ball: Ball, index) => {
     context.fillStyle = palette.balls[index % palette.balls.length];
@@ -183,7 +188,7 @@ const PinballCanvas = ({ participants, seed, onFinish }: PinballCanvasProps) => 
         ref={canvasRef}
         width={BOARD.width}
         height={BOARD.height}
-        className="h-[60dvh] w-auto rounded-xl"
+        className="max-h-[55dvh] w-full max-w-[70vw] rounded-xl"
         aria-label="핀볼 레이스"
       />
 

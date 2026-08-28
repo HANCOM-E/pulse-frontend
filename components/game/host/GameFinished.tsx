@@ -15,9 +15,9 @@ import type { GameResultEntry, GameView } from '@/lib/schemas/api';
 const PODIUM_LIMIT = 3;
 
 const RANK_STYLE: Record<number, { size: string; badge: string }> = {
-  1: { size: 'text-5xl', badge: 'bg-warning-subtle text-warning-darker' },
-  2: { size: 'text-3xl', badge: 'bg-neutral-subtle text-neutral-darker' },
-  3: { size: 'text-3xl', badge: 'bg-neutral-subtle text-neutral-darker' },
+  1: { size: 'text-8xl', badge: 'bg-warning-subtle text-warning-darker text-xl px-5 py-2' },
+  2: { size: 'text-5xl', badge: 'bg-neutral-subtle text-neutral-darker text-base px-4 py-1' },
+  3: { size: 'text-5xl', badge: 'bg-neutral-subtle text-neutral-darker text-base px-4 py-1' },
 };
 
 interface GameFinishedProps {
@@ -50,18 +50,18 @@ const GameFinished = ({
         {sessionTitle ? (
           <p className="text-base font-normal leading-6 text-text-secondary">{sessionTitle}</p>
         ) : null}
-        <h1 className="text-4xl font-semibold leading-tight text-text-primary">결과가 나왔어요</h1>
+        <h1 className="text-6xl font-semibold leading-tight text-text-primary">
+          결과가 나왔어요
+        </h1>{' '}
       </div>
       {podium.length > 0 ? (
-        <ol className="flex flex-wrap items-end justify-center gap-10">
+        <ol className="flex flex-wrap items-end justify-center gap-16">
           {podium.map((entry) => {
             const style = RANK_STYLE[entry.rank] ?? RANK_STYLE[3];
 
             return (
-              <li key={entry.participantId} className="flex flex-col items-center gap-2">
-                <span
-                  className={`rounded-full px-3 py-1 text-base font-normal leading-6 ${style.badge}`}
-                >
+              <li key={entry.participantId} className="flex flex-col items-center gap-3">
+                <span className={`rounded-full font-normal leading-6 ${style.badge}`}>
                   {entry.rank}등
                 </span>
                 <span className={`${style.size} font-semibold leading-tight text-text-primary`}>
