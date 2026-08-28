@@ -13,7 +13,7 @@ import type { SessionStatus } from '@/lib/schemas/api';
  * 순서가 강제됩니다 — 발표 자료를 먼저 붙이고 그다음 리포트를 만듭니다. 뒤집을 수 없는 이유는
  * BE가 세션당 리포트를 하나만 허용하기 때문입니다. 자료 없이 만들면 그 리포트가 그대로 잠기고,
  * 나중에 자료만 덧붙이는 경로가 계약에 없습니다(pulse-backend#43). 되돌리려면 주최자가 리포트를
- * 회수해야 하는데 그 버튼은 이 화면에 없습니다.
+ * 초기화해야 하는데 그 버튼은 이 화면에 없습니다.
  *
  * 그래서 자료 없이 만들려고 하면 한 번 더 확인을 받습니다. 되돌릴 수 없는 조치를 실수로 한 번
  * 눌러 끝내지 않게 하는 유일한 방어입니다.
@@ -51,7 +51,7 @@ const DECK_ERROR_MESSAGE: Record<DeckSummaryErrorCode, string> = {
 const REPORT_ERROR_MESSAGE: Record<SessionReportErrorCode, string> = {
   SESSION_NOT_CLOSED: '소감을 마감한 뒤에 리포트를 만들 수 있어요',
   REPORT_ALREADY_EXISTS:
-    '이미 만들어진 리포트가 있어요. 다시 만들려면 주최자에게 회수를 요청해 주세요',
+    '이미 만들어진 리포트가 있어요. 다시 만들려면 주최자에게 초기화를 요청해 주세요',
   SESSION_NOT_FOUND: '세션을 찾을 수 없어요',
   GENERATE_FAILED: '리포트를 만들지 못했어요. 잠시 후 다시 시도해 주세요',
 };
@@ -154,7 +154,7 @@ const SessionReportCard = ({
                   : '리포트 만들기'}
           </Button>
           <Button variant="secondary" size="sm" onClick={handlePickFile} disabled={isDeckLocked}>
-            {deck.isPending ? '읽는 중…' : deck.text === null ? '자료 붙이기' : '다른 자료 고르기'}
+            {deck.isPending ? '읽는 중…' : deck.text === null ? '자료 첨부' : '다른 자료 고르기'}
           </Button>
           <input
             ref={fileInputRef}
