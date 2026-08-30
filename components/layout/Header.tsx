@@ -16,6 +16,7 @@ const Header = ({ email, onLogout, isEmailLoading = false }: HeaderProps) => {
     <header className="flex h-14 items-center justify-between border-b border-border-subtle bg-background-default px-5 md:h-16 md:px-20">
       <Link
         href="/events"
+        prefetch={false}
         aria-label="Pulse 홈으로"
         className="rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-darker"
       >
