@@ -188,7 +188,7 @@ const PinballCanvas = ({ participants, seed, onFinish }: PinballCanvasProps) => 
         ref={canvasRef}
         width={BOARD.width}
         height={BOARD.height}
-        className="max-h-[55dvh] w-full max-w-[70vw] rounded-xl"
+        className="h-[55dvh] w-auto max-w-[70vw] rounded-xl object-contain"
         aria-label="핀볼 레이스"
       />
 

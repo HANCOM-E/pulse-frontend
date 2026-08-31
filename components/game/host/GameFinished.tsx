@@ -63,7 +63,7 @@ const GameFinished = ({
       {/* 본문만 남는 공간에서 가운데 정렬합니다. 제목은 화면마다 같은 높이에 있어야 합니다. */}
       <div className="flex flex-1 flex-col items-center gap-12">
         {podium.length > 0 ? (
-          <ol className="flex flex-wrap items-end justify-center gap-16 pt-[6dvh]">
+          <ol className="flex flex-wrap items-end justify-center gap-16">
             {podium.map((entry) => {
               const style = RANK_STYLE[entry.rank] ?? RANK_STYLE[3];
 
