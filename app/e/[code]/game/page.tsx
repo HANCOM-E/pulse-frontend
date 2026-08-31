@@ -29,15 +29,15 @@ const GamePage = async ({ params }: GamePageProps) => {
   });
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-col gap-6 px-5 py-4">
+    <main className="mx-auto flex w-full max-w-md flex-col gap-2 px-5 py-4">
       <Link
         href={`/e/${code}`}
         className="-ml-1 flex w-fit cursor-pointer items-center rounded p-1 text-text-secondary hover:bg-background-secondary"
         aria-label="소감 화면으로 돌아가기"
       >
         <ChevronLeftIcon className="h-6 w-6" />
-        <ParticipantGameView eventCode={code} initialGame={game} />
       </Link>
+      <ParticipantGameView eventCode={code} initialGame={game} />
     </main>
   );
 };
