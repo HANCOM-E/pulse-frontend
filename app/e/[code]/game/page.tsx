@@ -1,3 +1,6 @@
+import Link from 'next/link';
+import { ChevronLeftIcon } from '@/components/ui/icons';
+
 import { notFound } from 'next/navigation';
 
 import { ParticipantGameView } from '@/components/game/ParticipantGameView';
@@ -27,7 +30,14 @@ const GamePage = async ({ params }: GamePageProps) => {
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-col gap-6 px-5 py-4">
-      <ParticipantGameView eventCode={code} initialGame={game} />
+      <Link
+        href={`/e/${code}`}
+        className="-ml-1 flex w-fit cursor-pointer items-center rounded p-1 text-text-secondary hover:bg-background-secondary"
+        aria-label="소감 화면으로 돌아가기"
+      >
+        <ChevronLeftIcon className="h-6 w-6" />
+        <ParticipantGameView eventCode={code} initialGame={game} />
+      </Link>
     </main>
   );
 };
