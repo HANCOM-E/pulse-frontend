@@ -1,3 +1,6 @@
+import Link from 'next/link';
+import { buttonStyle } from '@/components/ui/Button';
+
 import type { GameParticipant, GameView } from '@/lib/schemas/api';
 
 /**
@@ -19,9 +22,11 @@ interface GameResultProps {
   game: GameView;
   /** 참가자 목록에서 찾은 내 id입니다. 못 찾았으면 `null`입니다. */
   myParticipantId: number | null;
+  /** `GameView`에 `eventId`가 없어서(계약대로) 링크 주소를 밖에서 받습니다. */
+  eventCode: string;
 }
 
-const GameResult = ({ game, myParticipantId }: GameResultProps) => {
+const GameResult = ({ game, myParticipantId, eventCode }: GameResultProps) => {
   const byId = new Map(game.participants.map((participant) => [participant.id, participant]));
 
   /*
@@ -75,6 +80,14 @@ const GameResult = ({ game, myParticipantId }: GameResultProps) => {
           결과를 불러오지 못했어요
         </p>
       )}
+      {/*
+        레이스가 끝나면 참가자는 할 일이 없어집니다. 게임을 붙인 이유가 소감 참여율이라(#243)
+        여기서 다음 걸음을 안 알려주면 등수만 보고 화면을 닫습니다. 위 화살표와 따로 두는
+        이유는 저건 이동 수단이고 이건 권하는 행동이기 때문입니다.
+      */}
+      <Link href={`/e/${eventCode}`} className={buttonStyle('primary')}>
+        소감 남기러 가기
+      </Link>
     </section>
   );
 };

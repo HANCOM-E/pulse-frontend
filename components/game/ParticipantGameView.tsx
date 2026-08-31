@@ -103,7 +103,7 @@ const ParticipantGameView = ({ eventCode, initialGame }: ParticipantGameViewProp
   const me = game.participants.find((participant) => participant.id === participantId) ?? null;
 
   if (game.status === 'FINISHED') {
-    return <GameResult game={game} myParticipantId={participantId} />;
+    return <GameResult game={game} myParticipantId={participantId} eventCode={eventCode} />;
   }
 
   if (game.status === 'OPEN' && me === null) {
