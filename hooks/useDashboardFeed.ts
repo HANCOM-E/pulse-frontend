@@ -5,9 +5,9 @@ import { useEffect, useRef, useState } from 'react';
 
 import { useAuth } from '@/hooks/useAuth';
 import { fetchModerationQueue } from '@/lib/api/endpoints';
-import { ApiError } from '@/lib/apiClient';
 import { API_BASE_URL } from '@/lib/env';
-import { feedbackListResponseSchema, isClientError, type Feedback } from '@/lib/schemas/api';
+import { feedbackListResponseSchema, type Feedback } from '@/lib/schemas/api';
+import { isPermanentFailure } from '@/lib/api/retryPolicy';
 
 /**
  * 주최자 대시보드가 보는 소감 목록입니다. 갱신은 `GET /admin/feedbacks/stream`(SSE)이
@@ -57,13 +57,6 @@ const STREAM_TIMEOUT_MS = 5_000;
 
 /** 숨기기·삭제 뒤 목록을 다시 받을 때 쓰는 키 앞자리입니다. */
 const DASHBOARD_FEED_KEY = 'dashboardFeed';
-
-/**
- * 다시 물어봐도 같은 답이 오는 실패인지 봅니다. `QueryProvider`의 `retry`가 재시도를 거르는
- * 기준(4xx + `INVALID_RESPONSE`)과 같습니다. 재시도하지 않기로 한 실패는 폴백도 하지 않습니다.
- */
-const isPermanentFailure = (error: Error | null): boolean =>
-  error instanceof ApiError && (error.code === 'INVALID_RESPONSE' || isClientError(error.code));
 
 /**
  * 스트림으로 들어온 한 건을 계약 스키마로 검사합니다.

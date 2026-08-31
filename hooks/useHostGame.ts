@@ -9,8 +9,9 @@ import {
   submitGameResults,
   updateGameStatus,
 } from '@/lib/api/endpoints';
-import { ApiError } from '@/lib/apiClient';
-import { isClientError, type GameView, type SessionView } from '@/lib/schemas/api';
+import { type GameView, type SessionView } from '@/lib/schemas/api';
+import { isPermanentFailure } from '@/lib/api/retryPolicy';
+
 /**
  * 프로젝터 화면(`/events/[eventCode]/game`)이 보는 게임과 주최자가 취할 수 있는 조치입니다.
  *
@@ -30,10 +31,6 @@ import { isClientError, type GameView, type SessionView } from '@/lib/schemas/ap
  * 참가자 수만큼 곱해지지만 프로젝터는 곱해지지 않습니다.
  */
 const REFRESH_INTERVAL_MS = 3000;
-
-/** `useEventEntryFeed`·`useDashboardFeed`와 같은 기준입니다. 넷째라 공용으로 뺄 때가 됐습니다. */
-const isPermanentFailure = (error: Error | null): boolean =>
-  error instanceof ApiError && (error.code === 'INVALID_RESPONSE' || isClientError(error.code));
 
 /**
  * 프로젝터가 띄울 게임 하나를 고릅니다.
