@@ -91,6 +91,12 @@ const SessionList = ({ sessions, eventCode }: SessionListProps) => {
                   placeholder="세션 이름 입력"
                   value={editingSessionTitle}
                   onChange={(event) => setEditingSessionTitle(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
+                      event.preventDefault();
+                      handleEditSessionConfirm(session.id);
+                    }
+                  }}
                 />
                 <Button type="button" variant="secondary" onClick={handleEditSessionCancel}>
                   취소
@@ -136,6 +142,12 @@ const SessionList = ({ sessions, eventCode }: SessionListProps) => {
               placeholder="세션 이름 입력"
               value={newSessionTitle}
               onChange={(event) => setNewSessionTitle(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
+                  event.preventDefault();
+                  handleAddSessionConfirm();
+                }
+              }}
               autoFocus
             />
             <Button type="button" variant="secondary" onClick={handleAddSessionCancel}>
