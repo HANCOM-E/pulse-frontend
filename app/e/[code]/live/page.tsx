@@ -3,6 +3,7 @@ import { Suspense } from 'react';
 
 import { LiveResult } from '@/components/live/LiveResult';
 import { LiveSkeleton } from '@/components/live/LiveSkeleton';
+import { EventHeader } from '@/components/layout/EventHeader';
 
 /**
  * 참가자용 실시간 결과 화면입니다.
@@ -45,11 +46,14 @@ const LivePage = async ({ params, searchParams }: PageProps<'/e/[code]/live'>) =
    * 로고도 `max-w-md`라, 여기만 넓히면 넓은 화면에서 로고와 본문의 왼쪽 끝이 어긋납니다.
    */
   return (
-    <main className="mx-auto flex w-full max-w-md flex-col gap-6 px-5 py-4">
-      <Suspense fallback={<LiveSkeleton withHeading />}>
-        <LiveResult />
-      </Suspense>
-    </main>
+    <>
+      <EventHeader eventCode={code} title="실시간 반응" />
+      <main className="mx-auto flex w-full max-w-md flex-col gap-6 px-5 py-4">
+        <Suspense fallback={<LiveSkeleton withHeading />}>
+          <LiveResult />
+        </Suspense>
+      </main>
+    </>
   );
 };
 

@@ -8,6 +8,7 @@ import {
 } from '@/lib/api/endpoints';
 import { ApiError } from '@/lib/apiClient';
 import { EventEntryView } from '@/components/feedback/EventEntryView';
+import { EventHeader } from '@/components/layout/EventHeader';
 
 export const dynamic = 'force-dynamic';
 interface EventEntryPageProps {
@@ -53,13 +54,16 @@ const EventEntryPage = async ({ params }: EventEntryPageProps) => {
       }));
 
   return (
-    <EventEntryView
-      eventCode={code}
-      initialEvent={event}
-      initialSessions={sessions}
-      initialHasReport={hasReport}
-      initialCurrentGame={currentGame}
-    />
+    <>
+      <EventHeader eventCode={code} />
+      <EventEntryView
+        eventCode={code}
+        initialEvent={event}
+        initialSessions={sessions}
+        initialHasReport={hasReport}
+        initialCurrentGame={currentGame}
+      />
+    </>
   );
 };
 
