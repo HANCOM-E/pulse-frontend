@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { type ChangeEvent, type SubmitEvent, useState } from 'react';
 
+import EventDateField from '@/components/events/EventDateField';
 import SessionList from '@/components/events/SessionList';
 import rollbackEventDuplication from '@/components/events/rollbackEventDuplication';
 import ReportPanel from '@/components/report/ReportPanel';
@@ -225,6 +226,10 @@ const EventForm = ({ eventCode, duplicateFrom }: EventFormProps) => {
     setEventFormInputs((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handleEventDateChange = (value: string) => {
+    setEventFormInputs((prev) => ({ ...prev, eventDate: value }));
+  };
+
   const handleFormSubmit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -285,12 +290,10 @@ const EventForm = ({ eventCode, duplicateFrom }: EventFormProps) => {
           onChange={handleInputChange}
           error={eventFormErrors.title}
         />
-        <Field
+        <EventDateField
           label="행사 날짜"
-          name="eventDate"
-          type="date"
           value={eventFormInputs.eventDate}
-          onChange={handleInputChange}
+          onChange={handleEventDateChange}
           error={eventFormErrors.eventDate}
         />
         {isEditMode && eventQuery.data ? (
