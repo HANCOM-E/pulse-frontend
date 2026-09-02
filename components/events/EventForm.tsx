@@ -217,7 +217,14 @@ const EventForm = ({ eventCode, duplicateFrom }: EventFormProps) => {
 
   const { mutate: removeEvent, isPending: isDeleting } = useMutation({
     mutationFn: () => deleteEvent(eventCode as string),
-    onSuccess: () => router.push('/events'),
+    onSuccess: () => {
+      // invalidateQueries는 stale 표시만 남길 뿐, 목록 화면이 재마운트되는 시점에는
+      // 여전히 캐시된(삭제 전) 값을 한 번 그립니다(#284의 startEvent와 같은 문제, #313).
+      queryClient.setQueryData<PulseEvent[]>(['myEvents'], (previous) =>
+        previous?.filter((item) => item.code !== eventCode),
+      );
+      router.push('/events');
+    },
   });
 
   const handleInputChange = (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
