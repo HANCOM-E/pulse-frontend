@@ -9,9 +9,6 @@ import {
 import type { GameParticipant } from '@/lib/schemas/api';
 
 /**
- * 핀볼 레이스의 물리입니다. 캔버스도 React도 모르는 순수 계산이라 값을 직접 검사할 수
- * 있습니다(`components/game/host/raceOrder.ts`와 같은 방식).
- *
  * `matter.js`를 안 쓴 이유는 필요한 게 원-원 충돌·중력·벽 반사 셋뿐이라서입니다. 90KB를
  * 더 받는 것보다, 무엇보다 **결정성을 우리가 통제할 수 있는 게** 큽니다 — 라이브러리를
  * 끼면 같은 시드에 같은 결과가 나오는지 보장할 방법이 없습니다.
