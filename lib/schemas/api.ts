@@ -309,9 +309,12 @@ export const keywordsSchema = z
   .max(5)
   .refine((values) => new Set(values).size === values.length, '키워드는 중복될 수 없습니다.');
 
+/** 한줄 소감 길이 상한입니다. 화면의 글자 수 표시와 입력 제한도 이 값을 봅니다. */
+export const FEEDBACK_TEXT_MAX = 200;
+
 export const feedbackSubmitRequestSchema = z.object({
   sessionId: id,
-  text: z.string().min(1).max(200),
+  text: z.string().min(1).max(FEEDBACK_TEXT_MAX),
   sentiment: sentimentSchema,
   toxic: z.boolean(),
   keywords: keywordsSchema,
