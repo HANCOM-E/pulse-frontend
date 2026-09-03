@@ -12,7 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "tagger:eval": "node scripts/tagger-eval.mjs",
-    "prepare": "git config core.hooksPath .githooks 2>/dev/null || true"
+    "prepare": "git config core.hooksPath .githooks || exit 0"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.7.1",
