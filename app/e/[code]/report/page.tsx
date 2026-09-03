@@ -5,6 +5,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { Stat } from '@/components/ui/Stat';
 import { fetchEventByCode, fetchPublicReport, fetchSessionsByEventCode } from '@/lib/api/endpoints';
 import { ApiError } from '@/lib/apiClient';
+import { EventHeader } from '@/components/layout/EventHeader';
 
 interface ReportPageProps {
   params: Promise<{ code: string }>;
@@ -57,12 +58,15 @@ const ReportPage = async ({ params }: ReportPageProps) => {
 
   if (report === null) {
     return (
-      <main className={PAGE}>
-        <EmptyState
-          title="공개된 리포트가 없어요"
-          description="주최자가 공개하면 이 페이지에서 볼 수 있어요"
-        />
-      </main>
+      <>
+        <EventHeader eventCode={code} title="리포트" />
+        <main className={PAGE}>
+          <EmptyState
+            title="공개된 리포트가 없어요"
+            description="주최자가 공개하면 이 페이지에서 볼 수 있어요"
+          />
+        </main>
+      </>
     );
   }
 
@@ -87,67 +91,72 @@ const ReportPage = async ({ params }: ReportPageProps) => {
   const positiveRate = toRates(counts).positive;
 
   return (
-    <main className={PAGE}>
-      <header className="flex flex-col gap-1">
-        {/*
-          행사 날짜(`eventDate`)입니다. `createdAt`은 주최자가 이벤트를 등록한 시각이라,
-          일주일 전에 만들어뒀으면 참가자에게 엉뚱한 날짜가 보입니다.
+    <>
+      <EventHeader eventCode={code} title="리포트" />
+      <main className={PAGE}>
+        <header className="flex flex-col gap-1">
+          {/*
+            행사 날짜(`eventDate`)입니다. `createdAt`은 주최자가 이벤트를 등록한 시각이라,
+            일주일 전에 만들어뒀으면 참가자에게 엉뚱한 날짜가 보입니다.
 
-          소감 수는 날짜가 아니므로 `time` 바깥에 둡니다. 문구는 LiveResult의 같은 줄과 맞췄습니다.
-        */}
-        <p className="text-xs leading-4 text-text-tertiary">
-          <time dateTime={event.eventDate}>{formatDate(event.eventDate)}</time> · 소감{' '}
-          {submissionCount}개{unclassifiedCount > 0 && ` (미분류 ${unclassifiedCount}개)`}
-        </p>
-        <h1 className="text-xl font-semibold leading-7 text-text-primary">{event.title}</h1>
-      </header>
-      <div className="grid grid-cols-3 gap-3">
-        <Stat label="총 소감" value={`${submissionCount}`} />
-        <Stat label="긍정 비율" value={`${positiveRate}%`} tone="positive" />
-        <Stat label="세션" value={`${sessions.length}`} />
-      </div>
+            소감 수는 날짜가 아니므로 `time` 바깥에 둡니다. 문구는 LiveResult의 같은 줄과 맞췄습니다.
+          */}
+          <p className="text-xs leading-4 text-text-tertiary">
+            <time dateTime={event.eventDate}>{formatDate(event.eventDate)}</time> · 소감{' '}
+            {submissionCount}개{unclassifiedCount > 0 && ` (미분류 ${unclassifiedCount}개)`}
+          </p>
 
-      <section className={CARD}>
-        <h2 className="text-xs leading-4 text-text-tertiary">AI 요약</h2>
-        <p className="whitespace-pre-line text-sm leading-6 text-text-primary">{summaryText}</p>
-      </section>
+          <h1 className="text-xl font-semibold leading-7 text-text-primary">{event.title}</h1>
+        </header>
 
-      <section className={`${CARD} items-center`}>
-        {/*
-          분모가 헤더의 총 소감보다 작다는 걸 밝힙니다. 이 단서가 없으면 도넛 범례의 합(100%)과
-          총 소감 수가 어긋나 보입니다. 미분류가 0이면 뺄 것이 없어 붙이지 않습니다.
-        */}
-        <h2 className="self-start text-xs leading-4 text-text-tertiary">
-          감정 분포{unclassifiedCount > 0 && ' · 미분류 제외'}
-        </h2>
-        {/* API는 POS/NEU/NEG, Donut은 positive/neutral/negative라 여기서 이름만 맞춰 넘깁니다. */}
-        <Donut {...counts} className="py-2" />
-      </section>
+        <div className="grid grid-cols-3 gap-3">
+          <Stat label="총 소감" value={`${submissionCount}`} />
+          <Stat label="긍정 비율" value={`${positiveRate}%`} tone="positive" />
+          <Stat label="세션" value={`${sessions.length}`} />
+        </div>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-xs leading-4 text-text-tertiary">주요 키워드</h2>
-        {/*
-          생성이 끝난 리포트라도 소감이 적으면 뽑힐 키워드가 없을 수 있습니다(publicReportSchema).
-          이때 제목만 남지 않도록 라이브 화면과 같은 문구를 보여줍니다.
-        */}
-        {topKeywords.length === 0 ? (
-          <p className="text-sm leading-5 text-text-tertiary">아직 모인 키워드가 없어요</p>
-        ) : (
-          /* Chip은 button + aria-pressed라 읽기 전용 목록에는 쓰지 않습니다(토글로 읽힙니다). */
-          <ul className="flex flex-wrap gap-2">
-            {topKeywords.map(({ keyword, count }) => (
-              <li
-                key={keyword}
-                className="inline-flex h-8 items-center gap-1.5 rounded-full border border-border-default bg-background-default px-3.5 text-sm leading-5 text-text-secondary"
-              >
-                {keyword}
-                <span className="text-text-tertiary">{count}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-    </main>
+        <section className={CARD}>
+          <h2 className="text-xs leading-4 text-text-tertiary">AI 요약</h2>
+          <p className="whitespace-pre-line text-sm leading-6 text-text-primary">{summaryText}</p>
+        </section>
+
+        <section className={`${CARD} items-center`}>
+          {/*
+            분모가 헤더의 총 소감보다 작다는 걸 밝힙니다. 이 단서가 없으면 도넛 범례의 합(100%)과
+            총 소감 수가 어긋나 보입니다. 미분류가 0이면 뺄 것이 없어 붙이지 않습니다.
+          */}
+          <h2 className="self-start text-xs leading-4 text-text-tertiary">
+            감정 분포{unclassifiedCount > 0 && ' · 미분류 제외'}
+          </h2>
+          {/* API는 POS/NEU/NEG, Donut은 positive/neutral/negative라 여기서 이름만 맞춰 넘깁니다. */}
+          <Donut {...counts} className="py-2" />
+        </section>
+
+        <section className="flex flex-col gap-3">
+          <h2 className="text-xs leading-4 text-text-tertiary">주요 키워드</h2>
+          {/*
+            생성이 끝난 리포트라도 소감이 적으면 뽑힐 키워드가 없을 수 있습니다(publicReportSchema).
+            이때 제목만 남지 않도록 라이브 화면과 같은 문구를 보여줍니다.
+          */}
+          {topKeywords.length === 0 ? (
+            <p className="text-sm leading-5 text-text-tertiary">아직 모인 키워드가 없어요</p>
+          ) : (
+            /* Chip은 button + aria-pressed라 읽기 전용 목록에는 쓰지 않습니다(토글로 읽힙니다). */
+            <ul className="flex flex-wrap gap-2">
+              {topKeywords.map(({ keyword, count }) => (
+                <li
+                  key={keyword}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-full border border-border-default bg-background-default px-3.5 text-sm leading-5 text-text-secondary"
+                >
+                  {keyword}
+                  <span className="text-text-tertiary">{count}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </main>
+    </>
   );
 };
 
