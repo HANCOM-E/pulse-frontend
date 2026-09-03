@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { Button, buttonStyle } from '@/components/ui/Button';
-import type { GameParticipant, GameView } from '@/lib/schemas/api';
+import { toRankedEnties } from '@/components/game/ranking';
+import type { GameView } from '@/lib/schemas/api';
 
 /**
  * 결과 화면입니다. 시상대 모양으로 1·2·3등을 보여줍니다.
@@ -39,20 +40,7 @@ const GameFinished = ({
   isPending,
   onCreateNext,
 }: GameFinishedProps) => {
-  /*
-   * 순위를 이름과 짝지어 둡니다. 서버는 `participantId`만 담고 닉네임은 안 줍니다
-   * (2026-08-28 실서버 확인). 명단에 없는 id는 버립니다 — 이름 없는 자리를 시상대에
-   * 올리는 것보다 낫습니다.
-   */
-  const byId = new Map(game.participants.map((participant) => [participant.id, participant]));
-
-  const podium = game.ranking
-    .map((participantId, index) => ({ rank: index + 1, participant: byId.get(participantId) }))
-    .filter(
-      (entry): entry is { rank: number; participant: GameParticipant } =>
-        entry.participant !== undefined,
-    )
-    .slice(0, PODIUM_LIMIT);
+  const podium = toRankedEnties(game).slice(0, PODIUM_LIMIT);
 
   /*
    * 셋이 다 있을 때만 자리를 바꿉니다. 참가자가 적어 2등·3등이 비면 그대로 두어야

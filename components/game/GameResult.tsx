@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { buttonStyle } from '@/components/ui/Button';
 
-import type { GameParticipant, GameView } from '@/lib/schemas/api';
+import { toRankedEnties } from '@/components/game/ranking';
+import type { GameView } from '@/lib/schemas/api';
 
 /**
  * 레이스가 끝난 뒤입니다.
@@ -27,18 +28,7 @@ interface GameResultProps {
 }
 
 const GameResult = ({ game, myParticipantId, eventCode }: GameResultProps) => {
-  const byId = new Map(game.participants.map((participant) => [participant.id, participant]));
-
-  /*
-   * 순위를 이름과 짝지어 둡니다. 명단에 없는 id는 버립니다 — 주최자가 게임을 다시
-   * 만들었거나 서버가 이상한 값을 준 경우인데, 이름 없는 줄을 그리는 것보다 낫습니다.
-   */
-  const ranked = game.ranking
-    .map((participantId, index) => ({ rank: index + 1, participant: byId.get(participantId) }))
-    .filter(
-      (entry): entry is { rank: number; participant: GameParticipant } =>
-        entry.participant !== undefined,
-    );
+  const ranked = toRankedEnties(game);
 
   const mine = ranked.find((entry) => entry.participant.id === myParticipantId);
   const top = ranked.slice(0, TOP_LIMIT);

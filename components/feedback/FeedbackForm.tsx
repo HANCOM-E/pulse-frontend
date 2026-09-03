@@ -10,7 +10,7 @@ import { Chip } from '@/components/ui/Chip';
 import { CheckIcon } from '@/components/ui/icons';
 import { Textarea } from '@/components/ui/Textarea';
 
-import type { SessionView } from '@/lib/schemas/api';
+import { FEEDBACK_TEXT_MAX, type SessionView } from '@/lib/schemas/api';
 import { submitFeedback } from '@/lib/api/endpoints';
 import { ApiError } from '@/lib/apiClient';
 import { listSubmitted, markSubmitted } from '@/lib/storage/submitted';
@@ -178,11 +178,13 @@ const FeedbackForm = ({ eventCode, sessions }: FeedbackFormProps) => {
           <section className="flex flex-col gap-1">
             <div className="flex items-center justify-between">
               <p className="text-xs font-normal leading-4 text-text-tertiary">한줄 소감</p>
-              <p className="text-xs font-normal leading-4 text-text-tertiary">{text.length}/200</p>
+              <p className="text-xs font-normal leading-4 text-text-tertiary">
+                {text.length}/{FEEDBACK_TEXT_MAX}
+              </p>
             </div>
             <Textarea
               placeholder="이번 세션은 어떠셨나요?"
-              maxLength={200}
+              maxLength={FEEDBACK_TEXT_MAX}
               value={text}
               onChange={(event) => setText(event.target.value)}
             />
