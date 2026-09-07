@@ -231,10 +231,12 @@ const EventForm = ({ eventCode, duplicateFrom }: EventFormProps) => {
   const handleInputChange = (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = event.target;
     setEventFormInputs((prev) => ({ ...prev, [name]: value }));
+    setEventFormErrors((prev) => ({ ...prev, [name]: undefined }));
   };
 
   const handleEventDateChange = (value: string) => {
     setEventFormInputs((prev) => ({ ...prev, eventDate: value }));
+    setEventFormErrors((prev) => ({ ...prev, eventDate: undefined }));
   };
 
   const handleFormSubmit = (event: SubmitEvent<HTMLFormElement>) => {
