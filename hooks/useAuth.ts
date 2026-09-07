@@ -65,6 +65,8 @@ export function useAuth(): UseAuthReturn {
       await queryClient.cancelQueries({ queryKey: ['auth', 'me'] });
     },
     onSuccess: () => {
+      // 다음 로그인 사용자에게 이전 사용자의 캐시된 데이터(예: myEvents)가 노출되지 않도록 전체 초기화합니다.
+      queryClient.clear();
       queryClient.setQueryData(['auth', 'me'], null);
     },
     onSettled: () => {
