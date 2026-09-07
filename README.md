@@ -16,7 +16,7 @@
 
 ## 🧩 Quick Link
 
-- 🏠 [서비스 바로가기](https://…) <!-- Vercel 배포 주소 -->
+- 🏠 [서비스 바로가기](https://pulse-frontend-eosin.vercel.app)
 - 🎬 [데모 영상](https://…) <!-- 사전 녹화 영상 -->
 - 🗂️ [백엔드 저장소](https://github.com/HANCOM-E/pulse-backend)
 - 📚 [전체 문서 보기](#-documents)
