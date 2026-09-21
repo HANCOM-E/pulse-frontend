@@ -221,10 +221,11 @@ const EventDateField = ({ label, value, onChange, error }: EventDateFieldProps) 
               weekdays: 'flex',
               weekday: 'w-9 text-center text-xs font-normal text-text-secondary',
               week: 'flex',
-              day: 'p-0 text-center',
+              day: 'w-9 p-0 text-center data-[outside=true]:bg-transparent',
               day_button:
                 'flex h-9 w-9 items-center justify-center rounded-full text-sm text-text-primary hover:bg-background-muted',
-              selected: 'bg-primary-darker text-text-inverse hover:bg-primary-pressed',
+              selected:
+                'bg-primary-darker text-text-inverse hover:bg-primary-pressed [&_button]:text-text-inverse',
               today: 'font-semibold',
               outside: 'text-text-disabled',
               disabled: 'text-text-disabled',
